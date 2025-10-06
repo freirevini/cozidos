@@ -10,6 +10,7 @@ interface PlayerStat {
   player_name: string;
   position: string;
   goals: number;
+  assists: number;
 }
 
 export default function Statistics() {
@@ -47,11 +48,17 @@ export default function Statistics() {
           .eq("player_id", player.id)
           .eq("is_own_goal", false);
 
+        const { data: assists } = await supabase
+          .from("assists")
+          .select("*")
+          .eq("player_id", player.id);
+
         return {
           player_id: player.id,
           player_name: player.name,
           position: player.position,
           goals: goals?.length || 0,
+          assists: assists?.length || 0,
         };
       });
 
@@ -79,47 +86,94 @@ export default function Statistics() {
     <div className="min-h-screen bg-background">
       <Header isAdmin={isAdmin} />
       <main className="container mx-auto px-4 py-8">
-        <Card className="card-glow bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-3xl font-bold text-primary glow-text">
-              ARTILHARIA
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="text-center py-8">Carregando...</div>
-            ) : (
-              <div className="space-y-4">
-                {topScorers.map((player, index) => (
-                  <div
-                    key={player.player_id}
-                    className="flex items-center justify-between p-4 rounded-lg bg-muted/20 border border-border hover:bg-muted/30 transition-colors"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <span className="text-2xl font-bold text-primary w-8">
-                        {index + 1}
-                      </span>
-                      <Avatar className="h-12 w-12 border-2 border-primary">
-                        <AvatarFallback className="bg-primary/20 text-primary font-bold">
-                          {player.player_name.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-bold text-foreground">
-                          {player.player_name}
+        <div className="grid gap-8 md:grid-cols-2">
+          <Card className="card-glow bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-3xl font-bold text-primary glow-text">
+                ARTILHARIA
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-center py-8">Carregando...</div>
+              ) : (
+                <div className="space-y-4">
+                  {topScorers.map((player, index) => (
+                    <div
+                      key={player.player_id}
+                      className="flex items-center justify-between p-4 rounded-lg bg-muted/20 border border-border hover:bg-muted/30 transition-colors"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <span className="text-2xl font-bold text-primary w-8">
+                          {index + 1}
+                        </span>
+                        <Avatar className="h-12 w-12 border-2 border-primary">
+                          <AvatarFallback className="bg-primary/20 text-primary font-bold">
+                            {player.player_name.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-bold text-foreground">
+                            {player.player_name}
+                          </div>
+                          <Badge variant="outline" className="text-xs border-primary text-primary">
+                            {getPositionLabel(player.position)}
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className="text-xs border-primary text-primary">
-                          {getPositionLabel(player.position)}
-                        </Badge>
                       </div>
+                      <div className="text-3xl font-bold text-primary">{player.goals}</div>
                     </div>
-                    <div className="text-3xl font-bold text-primary">{player.goals}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="card-glow bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-3xl font-bold text-primary glow-text">
+                ASSISTÊNCIAS
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-center py-8">Carregando...</div>
+              ) : (
+                <div className="space-y-4">
+                  {[...topScorers]
+                    .sort((a, b) => b.assists - a.assists)
+                    .slice(0, 10)
+                    .map((player, index) => (
+                      <div
+                        key={player.player_id}
+                        className="flex items-center justify-between p-4 rounded-lg bg-muted/20 border border-border hover:bg-muted/30 transition-colors"
+                      >
+                        <div className="flex items-center space-x-4">
+                          <span className="text-2xl font-bold text-primary w-8">
+                            {index + 1}
+                          </span>
+                          <Avatar className="h-12 w-12 border-2 border-primary">
+                            <AvatarFallback className="bg-primary/20 text-primary font-bold">
+                              {player.player_name.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-bold text-foreground">
+                              {player.player_name}
+                            </div>
+                            <Badge variant="outline" className="text-xs border-primary text-primary">
+                              {getPositionLabel(player.position)}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="text-3xl font-bold text-primary">{player.assists}</div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </div>
   );
