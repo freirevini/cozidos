@@ -91,6 +91,13 @@ export default function DefineTeams() {
       toast.error(`Selecione exatamente ${numTeams} times`);
       return;
     }
+    
+    // Inicializar os times vazios
+    const initialTeams: Record<string, TeamPlayer[]> = {};
+    selectedTeams.forEach(team => {
+      initialTeams[team] = [];
+    });
+    setTeams(initialTeams);
     setStep('define-players');
   };
 
@@ -361,93 +368,92 @@ export default function DefineTeams() {
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="text-sm text-muted-foreground">
-                  Selecione manualmente os jogadores para cada time; não há balanceamento automático.
+                <div className="text-sm text-muted-foreground mb-4">
+                  Selecione manualmente os jogadores para cada time. Cada time precisa ter 5 jogadores de linha (um de cada nível A, B, C, D, E) e pode ter até 2 goleiros.
                 </div>
 
-                {Object.keys(teams).length > 0 && (
-                  <>
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr>
-                            {selectedTeams.map((team) => (
-                              <th key={team} className="p-4 border border-border">
-                                <Badge className={teamColors[team] + " text-lg"}>
-                                  {team.toUpperCase()}
-                                </Badge>
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {[0, 1, 2, 3, 4, 5, 6].map((index) => (
-                            <tr key={index}>
-                              {selectedTeams.map((team) => {
-                                const player = teams[team]?.[index];
-                                return (
-                                  <td key={team} className="p-4 border border-border">
-                                    <Select
-                                      value={player?.id || ""}
-                                      onValueChange={(playerId) => updateTeamPlayer(team, index, playerId)}
-                                    >
-                                      <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Selecione um jogador">
-                                          {player && (
-                                            <div className="flex items-center justify-between w-full">
-                                              {player.position !== 'goleiro' && (
-                                                <span className="text-xs font-bold text-primary mr-2">
-                                                  {player.level?.toUpperCase()}
-                                                </span>
-                                              )}
-                                              <span className="flex-1 text-left">
-                                                {player.nickname || player.name}
-                                              </span>
-                                              <span className="text-xs font-bold text-muted-foreground ml-2">
-                                                {positionLabels[player.position] || player.position}
-                                              </span>
-                                            </div>
-                                          )}
-                                        </SelectValue>
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="">Nenhum</SelectItem>
-                                        {availablePlayers.map((p) => (
-                                          <SelectItem key={p.id} value={p.id}>
-                                            <div className="flex items-center gap-2">
-                                              {p.position !== 'goleiro' && (
-                                                <span className="text-xs font-bold text-primary">
-                                                  {p.level?.toUpperCase()}
-                                                </span>
-                                              )}
-                                              <span>{p.nickname || p.name}</span>
-                                              <span className="text-xs text-muted-foreground">
-                                                ({positionLabels[p.position] || p.position})
-                                              </span>
-                                            </div>
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-muted/50">
+                        <th className="p-3 border border-border text-left font-semibold">Níveis</th>
+                        {selectedTeams.map((team) => (
+                          <th key={team} className="p-3 border border-border">
+                            <Badge className={teamColors[team] + " text-base py-2 px-4"}>
+                              {team.toUpperCase()}
+                            </Badge>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {['A', 'B', 'C', 'D', 'E', 'GR', 'GR'].map((level, index) => (
+                        <tr key={index} className={index % 2 === 0 ? 'bg-muted/20' : ''}>
+                          <td className="p-3 border border-border font-bold text-center">
+                            {level}
+                          </td>
+                          {selectedTeams.map((team) => {
+                            const player = teams[team]?.[index];
+                            const usedPlayerIds = Object.values(teams).flat().map(p => p.id);
+                            
+                            return (
+                              <td key={team} className="p-3 border border-border">
+                                <Select
+                                  value={player?.id || ""}
+                                  onValueChange={(playerId) => updateTeamPlayer(team, index, playerId)}
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder={level === 'GR' ? "Goleiro (opcional)" : `Jogador ${level}`}>
+                                      {player && (
+                                        <div className="flex items-center justify-between w-full">
+                                          <span className="flex-1 text-left truncate">
+                                            {player.nickname || player.name}
+                                          </span>
+                                          <span className="text-xs font-bold text-muted-foreground ml-2">
+                                            {positionLabels[player.position]}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="">Nenhum</SelectItem>
+                                    {availablePlayers
+                                      .filter(p => {
+                                        if (level === 'GR') {
+                                          return p.position === 'goleiro' && (!usedPlayerIds.includes(p.id) || p.id === player?.id);
+                                        }
+                                        return p.level?.toUpperCase() === level && p.position !== 'goleiro' && (!usedPlayerIds.includes(p.id) || p.id === player?.id);
+                                      })
+                                      .map((p) => (
+                                        <SelectItem key={p.id} value={p.id}>
+                                          <div className="flex items-center gap-2">
+                                            <span>{p.nickname || p.name}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                              ({positionLabels[p.position]})
+                                            </span>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-                    <div className="flex gap-3">
-                      <Button onClick={() => setStep('select-teams')} variant="outline" className="flex-1">
-                        Voltar
-                      </Button>
-                      <Button onClick={handleSaveTeams} disabled={loading} className="flex-1">
-                        {loading ? "Salvando..." : "Finalizar Times"}
-                      </Button>
-                    </div>
-                  </>
-                )}
+                <div className="flex gap-3">
+                  <Button onClick={() => setStep('select-teams')} variant="outline" className="flex-1">
+                    Voltar
+                  </Button>
+                  <Button onClick={handleSaveTeams} disabled={loading} className="flex-1">
+                    {loading ? "Salvando..." : "Finalizar Times"}
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
