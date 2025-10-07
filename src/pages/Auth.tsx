@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import logoAuth from "@/assets/logo-auth.png";
 
@@ -15,6 +16,10 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [nickname, setNickname] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [isPlayer, setIsPlayer] = useState("nao");
+  const [playerType, setPlayerType] = useState("");
 
   useEffect(() => {
     checkUser();
@@ -51,6 +56,17 @@ export default function Auth() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!nickname || !birthDate) {
+      toast.error("Por favor, preencha todos os campos obrigatórios.");
+      return;
+    }
+
+    if (isPlayer === "sim" && !playerType) {
+      toast.error("Por favor, selecione o tipo de jogador.");
+      return;
+    }
+
     try {
       setLoading(true);
       const { data, error } = await supabase.auth.signUp({
@@ -59,6 +75,10 @@ export default function Auth() {
         options: {
           data: {
             name: name,
+            nickname,
+            birth_date: birthDate,
+            is_player: isPlayer === "sim",
+            player_type: isPlayer === "sim" ? playerType : null,
           },
           emailRedirectTo: `${window.location.origin}/`,
         },
@@ -66,7 +86,15 @@ export default function Auth() {
 
       if (error) throw error;
       
+      // Update profile with additional data
       if (data.user) {
+        await supabase.from("profiles").update({
+          nickname,
+          birth_date: birthDate,
+          is_player: isPlayer === "sim",
+          player_type: isPlayer === "sim" ? playerType : null,
+        }).eq("id", data.user.id);
+
         toast.success("Conta criada com sucesso! Você já pode fazer login.");
         navigate("/");
       }
@@ -92,17 +120,66 @@ export default function Auth() {
         <CardContent>
           <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
             {isSignUp && (
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome completo</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Seu nome"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome completo</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="Seu nome"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nickname">Apelido</Label>
+                  <Input
+                    id="nickname"
+                    type="text"
+                    placeholder="Seu apelido"
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="birthDate">Data de Nascimento</Label>
+                  <Input
+                    id="birthDate"
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="isPlayer">Você é jogador?</Label>
+                  <Select value={isPlayer} onValueChange={setIsPlayer}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sim">Sim</SelectItem>
+                      <SelectItem value="nao">Não</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {isPlayer === "sim" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="playerType">Tipo de Jogador</Label>
+                    <Select value={playerType} onValueChange={setPlayerType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="mensal">Mensal</SelectItem>
+                        <SelectItem value="avulso">Avulso</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </>
             )}
             <div className="space-y-2">
               <Label htmlFor="email">E-mail</Label>

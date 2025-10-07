@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import Classification from "./pages/Classification";
 import Matches from "./pages/Matches";
 import Statistics from "./pages/Statistics";
+import ManagePlayers from "./pages/ManagePlayers";
+import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -55,6 +57,8 @@ const App = () => (
           <Route path="/" element={<ProtectedRoute><Classification /></ProtectedRoute>} />
           <Route path="/matches" element={<ProtectedRoute><Matches /></ProtectedRoute>} />
           <Route path="/statistics" element={<ProtectedRoute><Statistics /></ProtectedRoute>} />
+          <Route path="/admin/players" element={<ProtectedRoute><ManagePlayers /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
