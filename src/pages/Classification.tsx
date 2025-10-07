@@ -53,16 +53,15 @@ export default function Classification() {
 
   const loadStats = async () => {
     try {
-      // Buscar todos os jogadores cadastrados como jogadores
       const { data: players } = await supabase
         .from("profiles")
         .select("*")
         .eq("is_player", true)
+        .eq("is_approved", true)
         .order("nickname");
 
       if (!players) return;
 
-      // Calcular estatísticas para cada jogador
       const statsPromises = players.map(async (player) => {
         // Presenças
         const { data: attendance } = await supabase
@@ -74,21 +73,52 @@ export default function Classification() {
         const atraso = attendance?.filter((a) => a.status === "atrasado").length || 0;
         const falta = attendance?.filter((a) => a.status === "falta").length || 0;
 
-        // Vitórias, empates, derrotas (simplificado - precisa calcular por resultados de partidas)
-        // Por enquanto, deixar zerado
-        const vitoria = 0;
-        const empate = 0;
-        const derrota = 0;
+        // Buscar todas as partidas do jogador
+        const { data: playerMatches } = await supabase
+          .from("round_team_players")
+          .select("round_id, team_color")
+          .eq("player_id", player.id);
 
-                        // Cartões
-                        const { data: cards } = await supabase
-                          .from("cards")
-                          .select("card_type")
-                          .eq("player_id", player.id);
+        let vitoria = 0;
+        let empate = 0;
+        let derrota = 0;
 
-                        const cartoes_amarelos = cards?.filter((c) => c.card_type === "amarelo").length || 0;
-                        const cartoes_vermelhos = cards?.filter((c) => c.card_type === "vermelho").length || 0;
-                        const cartao_pontos = (cartoes_amarelos * -1) + (cartoes_vermelhos * -2);
+        if (playerMatches) {
+          for (const pm of playerMatches) {
+            const { data: matches } = await supabase
+              .from("matches")
+              .select("*")
+              .eq("round_id", pm.round_id)
+              .eq("status", "finished")
+              .or(`team_home.eq.${pm.team_color},team_away.eq.${pm.team_color}`);
+
+            if (matches) {
+              for (const match of matches) {
+                const isHome = match.team_home === pm.team_color;
+                const teamScore = isHome ? match.score_home : match.score_away;
+                const opponentScore = isHome ? match.score_away : match.score_home;
+
+                if (teamScore > opponentScore) {
+                  vitoria++;
+                } else if (teamScore === opponentScore) {
+                  empate++;
+                } else {
+                  derrota++;
+                }
+              }
+            }
+          }
+        }
+
+        // Cartões
+        const { data: cards } = await supabase
+          .from("cards")
+          .select("card_type")
+          .eq("player_id", player.id);
+
+        const cartoes_amarelos = cards?.filter((c) => c.card_type === "amarelo").length || 0;
+        const cartoes_vermelhos = cards?.filter((c) => c.card_type === "vermelho").length || 0;
+        const cartao_pontos = (cartoes_amarelos * -1) + (cartoes_vermelhos * -2);
 
         // Gols
         const { data: goals } = await supabase
@@ -115,26 +145,25 @@ export default function Classification() {
           atraso * -5 +
           falta * -10 +
           punicao +
-          cartoes_amarelos * -1 +
-          cartoes_vermelhos * -2 +
+          cartao_pontos +
           gols * 1;
 
-                        return {
-                          player_id: player.id,
-                          player_name: player.nickname || player.name,
-                          presenca,
-                          vitoria,
-                          empate,
-                          derrota,
-                          atraso,
-                          falta,
-                          punicao,
-                          cartoes_amarelos,
-                          cartoes_vermelhos,
-                          cartao_pontos,
-                          gols,
-                          total_pontos,
-                        };
+        return {
+          player_id: player.id,
+          player_name: player.nickname || player.name,
+          presenca,
+          vitoria,
+          empate,
+          derrota,
+          atraso,
+          falta,
+          punicao,
+          cartoes_amarelos,
+          cartoes_vermelhos,
+          cartao_pontos,
+          gols,
+          total_pontos,
+        };
       });
 
       const calculatedStats = await Promise.all(statsPromises);
