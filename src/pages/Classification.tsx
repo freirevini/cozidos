@@ -52,11 +52,12 @@ export default function Classification() {
 
   const loadStats = async () => {
     try {
-      // Buscar todos os jogadores
+      // Buscar todos os jogadores cadastrados como jogadores
       const { data: players } = await supabase
-        .from("players")
+        .from("profiles")
         .select("*")
-        .order("name");
+        .eq("is_player", true)
+        .order("nickname");
 
       if (!players) return;
 
@@ -118,7 +119,7 @@ export default function Classification() {
 
         return {
           player_id: player.id,
-          player_name: player.name,
+          player_name: player.nickname || player.name,
           presenca,
           vitoria,
           empate,

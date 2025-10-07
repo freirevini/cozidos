@@ -15,10 +15,10 @@ interface Match {
   score_away: number;
   scheduled_time: string;
   goals: Array<{
-    player: { name: string };
+    player: { nickname: string; name: string };
     minute: number;
     team_color: string;
-    assist: { player: { name: string } | null };
+    assist: { player: { nickname: string; name: string } | null };
   }>;
 }
 
@@ -84,8 +84,8 @@ export default function Matches() {
               goals (
                 minute,
                 team_color,
-                player:players(name),
-                assist:assists(player:players(name))
+                player:profiles!goals_player_id_fkey(nickname, name),
+                assist:assists(player:profiles!assists_player_id_fkey(nickname, name))
               )
             `)
             .eq("round_id", round.id)
@@ -192,12 +192,12 @@ export default function Matches() {
                                       ? "text-left"
                                       : "text-right"
                                   }`}
-                                >
-                                  <span className="text-foreground">
-                                    {goal.player?.name}
-                                    {goal.assist?.player?.name &&
-                                      ` (${goal.assist.player.name})`}
-                                  </span>
+                                 >
+                                   <span className="text-foreground">
+                                     {goal.player?.nickname || goal.player?.name}
+                                     {goal.assist?.player?.nickname || goal.assist?.player?.name &&
+                                       ` (${goal.assist.player.nickname || goal.assist.player.name})`}
+                                   </span>
                                   <span className="text-muted-foreground ml-2">
                                     {goal.minute}'
                                   </span>
