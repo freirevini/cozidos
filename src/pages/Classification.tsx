@@ -155,11 +155,13 @@ export default function Classification() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="geral" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 bg-muted">
-                <TabsTrigger value="geral">Geral</TabsTrigger>
-                <TabsTrigger value="rodada">Rodada</TabsTrigger>
-                <TabsTrigger value="mes">Mês</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-4 bg-muted">
+                <TabsTrigger value="geral">Classificação Geral</TabsTrigger>
+                <TabsTrigger value="vitoria">Vitória</TabsTrigger>
+                <TabsTrigger value="empate">Empate</TabsTrigger>
+                <TabsTrigger value="derrota">Derrota</TabsTrigger>
               </TabsList>
+              
               <TabsContent value="geral" className="mt-6">
                 {loading ? (
                   <div className="text-center py-8">Carregando...</div>
@@ -208,15 +210,152 @@ export default function Classification() {
                   </div>
                 )}
               </TabsContent>
-              <TabsContent value="rodada">
-                <div className="text-center py-8 text-muted-foreground">
-                  Filtro por rodada em desenvolvimento
-                </div>
+              
+              <TabsContent value="vitoria" className="mt-6">
+                {loading ? (
+                  <div className="text-center py-8">Carregando...</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-border hover:bg-muted/50">
+                          <TableHead className="text-primary font-bold">Pos</TableHead>
+                          <TableHead className="text-primary font-bold">Jogador</TableHead>
+                          <TableHead className="text-primary font-bold text-center">P</TableHead>
+                          <TableHead className="text-primary font-bold text-center">V</TableHead>
+                          <TableHead className="text-primary font-bold text-center">E</TableHead>
+                          <TableHead className="text-primary font-bold text-center">D</TableHead>
+                          <TableHead className="text-primary font-bold text-center">A</TableHead>
+                          <TableHead className="text-primary font-bold text-center">F</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Pun</TableHead>
+                          <TableHead className="text-primary font-bold text-center">CA</TableHead>
+                          <TableHead className="text-primary font-bold text-center">CV</TableHead>
+                          <TableHead className="text-primary font-bold text-center">G</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Pts</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {[...stats].sort((a, b) => b.vitoria - a.vitoria).map((stat, index) => (
+                          <TableRow key={stat.player_id} className="border-border hover:bg-muted/30">
+                            <TableCell className="font-bold text-primary">{index + 1}</TableCell>
+                            <TableCell className="font-medium">{stat.player_name}</TableCell>
+                            <TableCell className="text-center">{stat.presenca}</TableCell>
+                            <TableCell className="text-center">{stat.vitoria}</TableCell>
+                            <TableCell className="text-center">{stat.empate}</TableCell>
+                            <TableCell className="text-center">{stat.derrota}</TableCell>
+                            <TableCell className="text-center">{stat.atraso}</TableCell>
+                            <TableCell className="text-center">{stat.falta}</TableCell>
+                            <TableCell className="text-center">{stat.punicao}</TableCell>
+                            <TableCell className="text-center">{stat.cartoes_amarelos}</TableCell>
+                            <TableCell className="text-center">{stat.cartoes_vermelhos}</TableCell>
+                            <TableCell className="text-center">{stat.gols}</TableCell>
+                            <TableCell className="text-center font-bold text-primary">
+                              {stat.total_pontos}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </TabsContent>
-              <TabsContent value="mes">
-                <div className="text-center py-8 text-muted-foreground">
-                  Filtro por mês em desenvolvimento
-                </div>
+              
+              <TabsContent value="empate" className="mt-6">
+                {loading ? (
+                  <div className="text-center py-8">Carregando...</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-border hover:bg-muted/50">
+                          <TableHead className="text-primary font-bold">Pos</TableHead>
+                          <TableHead className="text-primary font-bold">Jogador</TableHead>
+                          <TableHead className="text-primary font-bold text-center">P</TableHead>
+                          <TableHead className="text-primary font-bold text-center">V</TableHead>
+                          <TableHead className="text-primary font-bold text-center">E</TableHead>
+                          <TableHead className="text-primary font-bold text-center">D</TableHead>
+                          <TableHead className="text-primary font-bold text-center">A</TableHead>
+                          <TableHead className="text-primary font-bold text-center">F</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Pun</TableHead>
+                          <TableHead className="text-primary font-bold text-center">CA</TableHead>
+                          <TableHead className="text-primary font-bold text-center">CV</TableHead>
+                          <TableHead className="text-primary font-bold text-center">G</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Pts</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {[...stats].sort((a, b) => b.empate - a.empate).map((stat, index) => (
+                          <TableRow key={stat.player_id} className="border-border hover:bg-muted/30">
+                            <TableCell className="font-bold text-primary">{index + 1}</TableCell>
+                            <TableCell className="font-medium">{stat.player_name}</TableCell>
+                            <TableCell className="text-center">{stat.presenca}</TableCell>
+                            <TableCell className="text-center">{stat.vitoria}</TableCell>
+                            <TableCell className="text-center">{stat.empate}</TableCell>
+                            <TableCell className="text-center">{stat.derrota}</TableCell>
+                            <TableCell className="text-center">{stat.atraso}</TableCell>
+                            <TableCell className="text-center">{stat.falta}</TableCell>
+                            <TableCell className="text-center">{stat.punicao}</TableCell>
+                            <TableCell className="text-center">{stat.cartoes_amarelos}</TableCell>
+                            <TableCell className="text-center">{stat.cartoes_vermelhos}</TableCell>
+                            <TableCell className="text-center">{stat.gols}</TableCell>
+                            <TableCell className="text-center font-bold text-primary">
+                              {stat.total_pontos}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="derrota" className="mt-6">
+                {loading ? (
+                  <div className="text-center py-8">Carregando...</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-border hover:bg-muted/50">
+                          <TableHead className="text-primary font-bold">Pos</TableHead>
+                          <TableHead className="text-primary font-bold">Jogador</TableHead>
+                          <TableHead className="text-primary font-bold text-center">P</TableHead>
+                          <TableHead className="text-primary font-bold text-center">V</TableHead>
+                          <TableHead className="text-primary font-bold text-center">E</TableHead>
+                          <TableHead className="text-primary font-bold text-center">D</TableHead>
+                          <TableHead className="text-primary font-bold text-center">A</TableHead>
+                          <TableHead className="text-primary font-bold text-center">F</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Pun</TableHead>
+                          <TableHead className="text-primary font-bold text-center">CA</TableHead>
+                          <TableHead className="text-primary font-bold text-center">CV</TableHead>
+                          <TableHead className="text-primary font-bold text-center">G</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Pts</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {[...stats].sort((a, b) => b.derrota - a.derrota).map((stat, index) => (
+                          <TableRow key={stat.player_id} className="border-border hover:bg-muted/30">
+                            <TableCell className="font-bold text-primary">{index + 1}</TableCell>
+                            <TableCell className="font-medium">{stat.player_name}</TableCell>
+                            <TableCell className="text-center">{stat.presenca}</TableCell>
+                            <TableCell className="text-center">{stat.vitoria}</TableCell>
+                            <TableCell className="text-center">{stat.empate}</TableCell>
+                            <TableCell className="text-center">{stat.derrota}</TableCell>
+                            <TableCell className="text-center">{stat.atraso}</TableCell>
+                            <TableCell className="text-center">{stat.falta}</TableCell>
+                            <TableCell className="text-center">{stat.punicao}</TableCell>
+                            <TableCell className="text-center">{stat.cartoes_amarelos}</TableCell>
+                            <TableCell className="text-center">{stat.cartoes_vermelhos}</TableCell>
+                            <TableCell className="text-center">{stat.gols}</TableCell>
+                            <TableCell className="text-center font-bold text-primary">
+                              {stat.total_pontos}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </CardContent>
