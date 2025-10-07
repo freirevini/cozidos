@@ -269,7 +269,7 @@ export default function DefineTeams() {
       }
 
       toast.success("Times salvos com sucesso!");
-      navigate("/admin/teams");
+      navigate("/admin/teams/manage");
     } catch (error: any) {
       console.error("Erro ao salvar times:", error);
       toast.error("Erro ao salvar times: " + error.message);

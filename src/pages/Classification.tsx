@@ -63,21 +63,30 @@ export default function Classification() {
       if (!players) return;
 
       const statsPromises = players.map(async (player) => {
-        // Presenças
+        // Presenças (apenas de rodadas completas)
         const { data: attendance } = await supabase
           .from("player_attendance")
-          .select("status")
-          .eq("player_id", player.id);
+          .select(`
+            status,
+            rounds!inner(status)
+          `)
+          .eq("player_id", player.id)
+          .eq("rounds.status", "completed");
 
         const presenca = attendance?.filter((a) => a.status === "presente").length || 0;
         const atraso = attendance?.filter((a) => a.status === "atrasado").length || 0;
         const falta = attendance?.filter((a) => a.status === "falta").length || 0;
 
-        // Buscar todas as partidas do jogador
+        // Buscar todas as partidas do jogador em rodadas completas
         const { data: playerMatches } = await supabase
           .from("round_team_players")
-          .select("round_id, team_color")
-          .eq("player_id", player.id);
+          .select(`
+            round_id, 
+            team_color,
+            rounds!inner(status)
+          `)
+          .eq("player_id", player.id)
+          .eq("rounds.status", "completed");
 
         let vitoria = 0;
         let empate = 0;
@@ -110,30 +119,48 @@ export default function Classification() {
           }
         }
 
-        // Cartões
+        // Cartões (apenas de rodadas completas)
         const { data: cards } = await supabase
           .from("cards")
-          .select("card_type")
-          .eq("player_id", player.id);
+          .select(`
+            card_type,
+            matches!inner(
+              round_id,
+              rounds!inner(status)
+            )
+          `)
+          .eq("player_id", player.id)
+          .eq("matches.rounds.status", "completed");
 
         const cartoes_amarelos = cards?.filter((c) => c.card_type === "amarelo").length || 0;
         const cartoes_vermelhos = cards?.filter((c) => c.card_type === "vermelho").length || 0;
         const cartao_pontos = (cartoes_amarelos * -1) + (cartoes_vermelhos * -2);
 
-        // Gols
+        // Gols (apenas de rodadas completas)
         const { data: goals } = await supabase
           .from("goals")
-          .select("*")
+          .select(`
+            *,
+            matches!inner(
+              round_id,
+              rounds!inner(status)
+            )
+          `)
           .eq("player_id", player.id)
-          .eq("is_own_goal", false);
+          .eq("is_own_goal", false)
+          .eq("matches.rounds.status", "completed");
 
         const gols = goals?.length || 0;
 
-        // Punições
+        // Punições (apenas de rodadas completas)
         const { data: punishments } = await supabase
           .from("punishments")
-          .select("points")
-          .eq("player_id", player.id);
+          .select(`
+            points,
+            rounds!inner(status)
+          `)
+          .eq("player_id", player.id)
+          .eq("rounds.status", "completed");
 
         const punicao = punishments?.reduce((sum, p) => sum + p.points, 0) || 0;
 
