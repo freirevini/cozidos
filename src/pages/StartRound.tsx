@@ -129,13 +129,6 @@ export default function StartRound() {
                 ))}
               </>
             )}
-            <Button
-              onClick={() => navigate("/admin/round/manage")}
-              variant="outline"
-              className="w-full font-bold text-lg py-6"
-            >
-              Gerenciar Rodadas
-            </Button>
           </CardContent>
         </Card>
       </main>

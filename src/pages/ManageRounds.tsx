@@ -372,7 +372,7 @@ export default function ManageRounds() {
                     <tbody>
                       {matches.map((match) => (
                         <tr key={match.id} className="border-b border-border hover:bg-muted/30">
-                          <td className="p-3">{match.scheduled_time}</td>
+                          <td className="p-3">{match.scheduled_time.substring(0, 5)}</td>
                           <td className="p-3">
                             <div className="flex items-center gap-2">
                               <Badge className={teamColors[match.team_home]}>
@@ -387,7 +387,13 @@ export default function ManageRounds() {
                             </div>
                           </td>
                           <td className="p-3 text-center">
-                            <Badge variant={match.status === 'finished' ? 'default' : 'outline'}>
+                            <Badge 
+                              className={
+                                match.status === 'not_started' ? 'bg-red-600 text-white' :
+                                match.status === 'in_progress' ? 'bg-yellow-700 text-white' :
+                                'bg-green-600 text-white'
+                              }
+                            >
                               {match.status === 'not_started' ? 'Não Iniciado' : 
                                match.status === 'in_progress' ? 'Em Andamento' : 'Encerrado'}
                             </Badge>

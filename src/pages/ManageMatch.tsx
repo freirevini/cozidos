@@ -464,41 +464,34 @@ export default function ManageMatch() {
         </div>
       )}
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
         <Card className="card-glow bg-card border-border">
           <CardHeader>
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-2 mb-4">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate(`/admin/round/manage?round=${roundId}`)}
               >
-                <ArrowLeft size={24} />
+                <ArrowLeft size={20} />
               </Button>
-              <CardTitle className="text-2xl font-bold text-primary">
-                GERENCIAR PARTIDA
-              </CardTitle>
             </div>
             
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <Badge className={teamColors[match.team_home] + " text-lg py-2 px-4"}>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 mb-4">
+              <Badge className={teamColors[match.team_home] + " text-base sm:text-lg py-2 px-3 sm:px-4"}>
                 {teamNames[match.team_home]}
               </Badge>
-              <span className="text-4xl font-bold">{match.score_home}</span>
-              <span className="text-2xl">×</span>
-              <span className="text-4xl font-bold">{match.score_away}</span>
-              <Badge className={teamColors[match.team_away] + " text-lg py-2 px-4"}>
+              <span className="text-3xl sm:text-4xl font-bold">{match.score_home}</span>
+              <span className="text-xl sm:text-2xl">×</span>
+              <span className="text-3xl sm:text-4xl font-bold">{match.score_away}</span>
+              <Badge className={teamColors[match.team_away] + " text-base sm:text-lg py-2 px-3 sm:px-4"}>
                 {teamNames[match.team_away]}
               </Badge>
             </div>
             
-            <div className="text-center text-sm text-muted-foreground">
+            <div className="text-center text-xs sm:text-sm text-muted-foreground">
               Horário: {match.scheduled_time.substring(0, 5)}
             </div>
-            <Badge variant="outline" className="mt-2 mx-auto w-fit">
-              {match.status === 'not_started' ? 'Não Iniciado' :
-               match.status === 'in_progress' ? 'Em Andamento' : 'Encerrado'}
-            </Badge>
           </CardHeader>
 
           <CardContent className="space-y-4">
@@ -510,10 +503,11 @@ export default function ManageMatch() {
 
             {match.status === 'in_progress' && (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <Button
                     onClick={() => setAddingGoal(!addingGoal)}
                     variant={addingGoal ? "secondary" : "default"}
+                    className={addingGoal ? "bg-red-600 hover:bg-red-700 text-white" : ""}
                   >
                     {addingGoal ? "Cancelar Gol" : "Registrar Gol"}
                   </Button>
@@ -521,6 +515,7 @@ export default function ManageMatch() {
                   <Button
                     onClick={() => setAddingCard(!addingCard)}
                     variant={addingCard ? "secondary" : "default"}
+                    className={addingCard ? "bg-red-600 hover:bg-red-700 text-white" : ""}
                   >
                     {addingCard ? "Cancelar Cartão" : "Registrar Cartão"}
                   </Button>
@@ -647,13 +642,19 @@ export default function ManageMatch() {
                       <div className="space-y-2">
                         {goals.map((goal) => (
                           <div key={goal.id} className="text-sm flex items-center gap-2">
-                            ⚽ {goal.player?.nickname || goal.player?.name || "Desconhecido"}
-                            {goal.assists && goal.assists.length > 0 && (
-                              <span className="text-muted-foreground">
-                                ({goal.assists[0].player?.nickname || goal.assists[0].player?.name})
-                              </span>
+                            {goal.is_own_goal ? (
+                              <>GC <span className="text-muted-foreground ml-auto">{goal.minute}'</span></>
+                            ) : (
+                              <>
+                                ⚽ {goal.player?.nickname || goal.player?.name || "Desconhecido"}
+                                {goal.assists && goal.assists.length > 0 && (
+                                  <span className="text-muted-foreground">
+                                    ({goal.assists[0].player?.nickname || goal.assists[0].player?.name})
+                                  </span>
+                                )}
+                                <span className="text-muted-foreground ml-auto">{goal.minute}'</span>
+                              </>
                             )}
-                            <span className="text-muted-foreground ml-auto">{goal.minute}'</span>
                           </div>
                         ))}
                       </div>
@@ -692,13 +693,19 @@ export default function ManageMatch() {
                       <div className="space-y-2">
                         {goals.map((goal) => (
                           <div key={goal.id} className="text-sm flex items-center gap-2">
-                            ⚽ {goal.player?.nickname || goal.player?.name || "Desconhecido"}
-                            {goal.assists && goal.assists.length > 0 && (
-                              <span className="text-muted-foreground">
-                                ({goal.assists[0].player?.nickname || goal.assists[0].player?.name})
-                              </span>
+                            {goal.is_own_goal ? (
+                              <>GC <span className="text-muted-foreground ml-auto">{goal.minute}'</span></>
+                            ) : (
+                              <>
+                                ⚽ {goal.player?.nickname || goal.player?.name || "Desconhecido"}
+                                {goal.assists && goal.assists.length > 0 && (
+                                  <span className="text-muted-foreground">
+                                    ({goal.assists[0].player?.nickname || goal.assists[0].player?.name})
+                                  </span>
+                                )}
+                                <span className="text-muted-foreground ml-auto">{goal.minute}'</span>
+                              </>
                             )}
-                            <span className="text-muted-foreground ml-auto">{goal.minute}'</span>
                           </div>
                         ))}
                       </div>
