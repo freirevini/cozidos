@@ -42,7 +42,7 @@ export type Database = {
             foreignKeyName: "assists_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "players"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -84,7 +84,7 @@ export type Database = {
             foreignKeyName: "cards_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "players"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -129,7 +129,7 @@ export type Database = {
             foreignKeyName: "goals_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "players"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -211,7 +211,7 @@ export type Database = {
             foreignKeyName: "player_attendance_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "players"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -409,7 +409,7 @@ export type Database = {
             foreignKeyName: "punishments_player_id_fkey"
             columns: ["player_id"]
             isOneToOne: false
-            referencedRelation: "players"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {

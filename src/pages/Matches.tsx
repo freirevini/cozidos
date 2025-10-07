@@ -81,19 +81,61 @@ export default function Matches() {
             .from("matches")
             .select(`
               *,
-              goals (
+              goals!inner (
+                id,
                 minute,
                 team_color,
-                player:profiles!goals_player_id_fkey(nickname, name),
-                assist:assists(player:profiles!assists_player_id_fkey(nickname, name))
+                player_id,
+                assists!left (
+                  player_id
+                )
               )
             `)
             .eq("round_id", round.id)
             .order("match_number");
 
+          // Buscar dados dos jogadores separadamente
+          const matchesWithPlayers = await Promise.all(
+            (matches || []).map(async (match: any) => {
+              const goalsWithPlayers = await Promise.all(
+                (match.goals || []).map(async (goal: any) => {
+                  // Buscar jogador do gol
+                  const { data: player } = await supabase
+                    .from("profiles")
+                    .select("nickname, name")
+                    .eq("id", goal.player_id)
+                    .single();
+
+                  // Buscar assistência se existir
+                  let assist = null;
+                  if (goal.assists && goal.assists.length > 0) {
+                    const { data: assistPlayer } = await supabase
+                      .from("profiles")
+                      .select("nickname, name")
+                      .eq("id", goal.assists[0].player_id)
+                      .single();
+                    assist = { player: assistPlayer };
+                  }
+
+                  return {
+                    minute: goal.minute,
+                    team_color: goal.team_color,
+                    player,
+                    assist,
+                  };
+                })
+              );
+
+              return {
+                ...match,
+                goals: goalsWithPlayers,
+              };
+            })
+          );
+
           return {
             ...round,
-            matches: matches || [],
+            matches: matchesWithPlayers || [],
           };
         })
       );
