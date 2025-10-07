@@ -116,7 +116,7 @@ export default function ManageTeams() {
                             {new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
                           </p>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <Button
                             variant="destructive"
                             onClick={() => {
@@ -124,16 +124,21 @@ export default function ManageTeams() {
                                 deleteRound(round.id);
                               }
                             }}
+                            className="flex-1 sm:flex-none"
                           >
                             Excluir
                           </Button>
                           <Button 
                             variant="outline"
                             onClick={() => navigate(`/admin/round/${round.id}/edit`)}
+                            className="flex-1 sm:flex-none"
                           >
                             Editar Times
                           </Button>
-                          <Button onClick={() => navigate("/admin/teams")}>
+                          <Button 
+                            onClick={() => navigate(`/admin/round/${round.id}/view`)}
+                            className="flex-1 sm:flex-none"
+                          >
                             Ver Times
                           </Button>
                         </div>

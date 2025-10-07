@@ -148,26 +148,22 @@ export default function EditRound() {
   };
 
   const updateTeamPlayer = (teamColor: string, index: number, playerId: string) => {
-    const selectedPlayer = availablePlayers.find(p => p.id === playerId);
-    if (!selectedPlayer) {
-      // Remove player
-      const newTeams = { ...teams };
-      newTeams[teamColor] = newTeams[teamColor].filter((_, i) => i !== index);
+    const newTeams = { ...teams };
+    if (!newTeams[teamColor]) newTeams[teamColor] = [];
+
+    // Remover seleção
+    if (!playerId || playerId === "none") {
+      if (newTeams[teamColor][index] !== undefined) {
+        newTeams[teamColor].splice(index, 1);
+      }
       setTeams(newTeams);
       return;
     }
 
-    const newTeams = { ...teams };
-    if (!newTeams[teamColor]) {
-      newTeams[teamColor] = [];
-    }
-    
-    if (newTeams[teamColor][index]) {
-      newTeams[teamColor][index] = { ...selectedPlayer, team_color: teamColor };
-    } else {
-      newTeams[teamColor].push({ ...selectedPlayer, team_color: teamColor });
-    }
-    
+    const selectedPlayer = availablePlayers.find(p => p.id === playerId);
+    if (!selectedPlayer) return;
+
+    newTeams[teamColor][index] = { ...selectedPlayer, team_color: teamColor };
     setTeams(newTeams);
   };
 
@@ -180,6 +176,16 @@ export default function EditRound() {
       if (fieldPlayers.length < 5) {
         toast.error(`Time ${teamColor} precisa ter pelo menos 5 jogadores de linha`);
         return;
+      }
+
+      // Validar que tem pelo menos um jogador de cada nível A, B, C, D, E
+      const levels = ['A', 'B', 'C', 'D', 'E'];
+      for (const level of levels) {
+        const hasLevel = fieldPlayers.some(p => p.level?.toUpperCase() === level);
+        if (!hasLevel) {
+          toast.error(`Time ${teamColor} precisa ter pelo menos um jogador de nível ${level}`);
+          return;
+        }
       }
     }
 
@@ -202,30 +208,43 @@ export default function EditRound() {
 
       if (deleteAttendanceError) throw deleteAttendanceError;
 
-      // Insert updated team players
-      for (const teamColor of Object.keys(teams)) {
-        const teamPlayers = teams[teamColor].map(player => ({
-          round_id: roundId,
-          player_id: player.id,
-          team_color: teamColor as "branco" | "vermelho" | "azul" | "laranja",
-        }));
+      // Insert updated team players (remove duplicates)
+      const allTeamPlayers: any[] = [];
+      const allAttendanceRecords: any[] = [];
+      const insertedPlayerIds = new Set<string>();
 
+      for (const teamColor of Object.keys(teams)) {
+        teams[teamColor].forEach(player => {
+          const key = `${roundId}-${player.id}`;
+          if (!insertedPlayerIds.has(key)) {
+            insertedPlayerIds.add(key);
+            allTeamPlayers.push({
+              round_id: roundId,
+              player_id: player.id,
+              team_color: teamColor as "branco" | "vermelho" | "azul" | "laranja",
+            });
+            allAttendanceRecords.push({
+              round_id: roundId,
+              player_id: player.id,
+              team_color: teamColor as "branco" | "vermelho" | "azul" | "laranja",
+              status: 'presente' as "presente" | "atrasado" | "falta",
+            });
+          }
+        });
+      }
+
+      if (allTeamPlayers.length > 0) {
         const { error: playersError } = await supabase
           .from("round_team_players")
-          .insert(teamPlayers);
+          .insert(allTeamPlayers);
 
         if (playersError) throw playersError;
+      }
 
-        const attendanceRecords = teams[teamColor].map(player => ({
-          round_id: roundId,
-          player_id: player.id,
-          team_color: teamColor as "branco" | "vermelho" | "azul" | "laranja",
-          status: 'presente' as "presente" | "atrasado" | "falta",
-        }));
-
+      if (allAttendanceRecords.length > 0) {
         const { error: attendanceError } = await supabase
           .from("player_attendance")
-          .insert(attendanceRecords);
+          .insert(allAttendanceRecords);
 
         if (attendanceError) throw attendanceError;
       }
@@ -266,13 +285,18 @@ export default function EditRound() {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
+              <div className="text-sm text-muted-foreground mb-4">
+                Edite os jogadores de cada time. Cada time precisa ter 5 jogadores de linha (um de cada nível A, B, C, D, E) e pode ter 1 goleiro (opcional).
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
-                    <tr>
+                    <tr className="bg-muted/50">
+                      <th className="p-3 border border-border text-left font-semibold">Níveis</th>
                       {selectedTeams.map((team) => (
-                        <th key={team} className="p-4 border border-border">
-                          <Badge className={teamColors[team] + " text-lg"}>
+                        <th key={team} className="p-3 border border-border">
+                          <Badge className={teamColors[team] + " text-base py-2 px-4"}>
                             {team.toUpperCase()}
                           </Badge>
                         </th>
@@ -280,30 +304,30 @@ export default function EditRound() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[0, 1, 2, 3, 4, 5, 6].map((index) => (
-                      <tr key={index}>
+                    {['A', 'B', 'C', 'D', 'E', 'GR'].map((level, index) => (
+                      <tr key={index} className={index % 2 === 0 ? 'bg-muted/20' : ''}>
+                        <td className="p-3 border border-border font-bold text-center">
+                          {level}
+                        </td>
                         {selectedTeams.map((team) => {
                           const player = teams[team]?.[index];
+                          const usedPlayerIds = Object.values(teams).flat().map(p => p.id);
+                          
                           return (
-                            <td key={team} className="p-4 border border-border">
+                            <td key={team} className="p-3 border border-border">
                               <Select
                                 value={player?.id || ""}
                                 onValueChange={(playerId) => updateTeamPlayer(team, index, playerId)}
                               >
                                 <SelectTrigger className="w-full">
-                                  <SelectValue placeholder="Selecione um jogador">
+                                  <SelectValue placeholder={level === 'GR' ? "Goleiro (opcional)" : `Jogador ${level}`}>
                                     {player && (
                                       <div className="flex items-center justify-between w-full">
-                                        {player.position !== 'goleiro' && (
-                                          <span className="text-xs font-bold text-primary mr-2">
-                                            {player.level?.toUpperCase()}
-                                          </span>
-                                        )}
-                                        <span className="flex-1 text-left">
+                                        <span className="flex-1 text-left truncate">
                                           {player.nickname || player.name}
                                         </span>
                                         <span className="text-xs font-bold text-muted-foreground ml-2">
-                                          {positionLabels[player.position] || player.position}
+                                          {positionLabels[player.position]}
                                         </span>
                                       </div>
                                     )}
@@ -311,21 +335,23 @@ export default function EditRound() {
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="none">Nenhum</SelectItem>
-                                  {availablePlayers.map((p) => (
-                                    <SelectItem key={p.id} value={p.id}>
-                                      <div className="flex items-center gap-2">
-                                        {p.position !== 'goleiro' && (
-                                          <span className="text-xs font-bold text-primary">
-                                            {p.level?.toUpperCase()}
+                                  {availablePlayers
+                                    .filter(p => {
+                                      if (level === 'GR') {
+                                        return p.position === 'goleiro' && (!usedPlayerIds.includes(p.id) || p.id === player?.id);
+                                      }
+                                      return p.level?.toUpperCase() === level && p.position !== 'goleiro' && (!usedPlayerIds.includes(p.id) || p.id === player?.id);
+                                    })
+                                    .map((p) => (
+                                      <SelectItem key={p.id} value={p.id}>
+                                        <div className="flex items-center gap-2">
+                                          <span>{p.nickname || p.name}</span>
+                                          <span className="text-xs text-muted-foreground">
+                                            ({positionLabels[p.position]})
                                           </span>
-                                        )}
-                                        <span>{p.nickname || p.name}</span>
-                                        <span className="text-xs text-muted-foreground">
-                                          ({positionLabels[p.position] || p.position})
-                                        </span>
-                                      </div>
-                                    </SelectItem>
-                                  ))}
+                                        </div>
+                                      </SelectItem>
+                                    ))}
                                 </SelectContent>
                               </Select>
                             </td>
@@ -337,18 +363,18 @@ export default function EditRound() {
                 </table>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Button 
                   onClick={() => navigate("/admin/teams/manage")} 
                   variant="outline" 
-                  className="flex-1"
+                  className="w-full sm:flex-1"
                 >
                   Cancelar
                 </Button>
                 <Button 
                   onClick={handleSaveChanges} 
                   disabled={saving} 
-                  className="flex-1"
+                  className="w-full sm:flex-1"
                 >
                   {saving ? "Salvando..." : "Salvar Alterações"}
                 </Button>

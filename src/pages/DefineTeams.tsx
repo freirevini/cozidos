@@ -369,7 +369,7 @@ export default function DefineTeams() {
             ) : (
               <div className="space-y-6">
                 <div className="text-sm text-muted-foreground mb-4">
-                  Selecione manualmente os jogadores para cada time. Cada time precisa ter 5 jogadores de linha (um de cada nível A, B, C, D, E) e pode ter até 2 goleiros.
+                  Selecione manualmente os jogadores para cada time. Cada time precisa ter 5 jogadores de linha (um de cada nível A, B, C, D, E) e pode ter 1 goleiro (opcional).
                 </div>
 
                 <div className="overflow-x-auto">
@@ -387,7 +387,7 @@ export default function DefineTeams() {
                       </tr>
                     </thead>
                     <tbody>
-                      {['A', 'B', 'C', 'D', 'E', 'GR', 'GR'].map((level, index) => (
+                      {['A', 'B', 'C', 'D', 'E', 'GR'].map((level, index) => (
                         <tr key={index} className={index % 2 === 0 ? 'bg-muted/20' : ''}>
                           <td className="p-3 border border-border font-bold text-center">
                             {level}
@@ -446,11 +446,11 @@ export default function DefineTeams() {
                   </table>
                 </div>
 
-                <div className="flex gap-3">
-                  <Button onClick={() => setStep('select-teams')} variant="outline" className="flex-1">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button onClick={() => setStep('select-teams')} variant="outline" className="w-full sm:flex-1">
                     Voltar
                   </Button>
-                  <Button onClick={handleSaveTeams} disabled={loading} className="flex-1">
+                  <Button onClick={handleSaveTeams} disabled={loading} className="w-full sm:flex-1">
                     {loading ? "Salvando..." : "Finalizar Times"}
                   </Button>
                 </div>

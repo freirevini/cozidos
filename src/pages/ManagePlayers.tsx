@@ -324,7 +324,7 @@ export default function ManagePlayers() {
               <CardTitle className="text-3xl font-bold text-primary glow-text">
                 Gerenciar Jogadores
               </CardTitle>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -456,13 +456,14 @@ export default function ManagePlayers() {
                   onClick={() => fileInputRef.current?.click()}
                   disabled={importing}
                   variant="outline"
+                  className="flex-1 sm:flex-none"
                 >
                   <Upload className="mr-2 h-4 w-4" />
                   {importing ? "Importando..." : "Importar Arquivo"}
                 </Button>
                 <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
                   <DialogTrigger asChild>
-                    <Button>
+                    <Button className="flex-1 sm:flex-none">
                       <UserPlus className="mr-2 h-4 w-4" />
                       Cadastrar Jogador
                     </Button>
