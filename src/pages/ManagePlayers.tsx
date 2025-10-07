@@ -31,7 +31,7 @@ interface Player {
 const positionMap: Record<string, string> = {
   goleiro: "Goleiro",
   defensor: "Defensor",
-  meio_campo: "Meio Campo",
+  "meio-campista": "Meio-campista",
   atacante: "Atacante",
 };
 
@@ -218,7 +218,18 @@ export default function ManagePlayers() {
         .filter((row: any) => row["Nome Completo"] && row["Apelido"] && row["Nivel"] && row["Posicao"])
         .map((row: any) => {
           const levelKey = row["Nivel"]?.toString().toUpperCase() as Database['public']['Enums']['player_level'];
-          const positionValue = row["Posicao"]?.toString().toLowerCase().replace(/\s+/g, '_') as Database['public']['Enums']['player_position'];
+          const rawPos = row["Posicao"]?.toString().toLowerCase().trim().replace(/_/g, ' ');
+          let positionKey = rawPos;
+          if (["meio campista", "meio campo", "meio-campo", "meio-campista", "meia"].includes(rawPos)) {
+            positionKey = "meio-campista";
+          } else if (["defensor", "zagueiro", "defesa"].includes(rawPos)) {
+            positionKey = "defensor";
+          } else if (["goleiro"].includes(rawPos)) {
+            positionKey = "goleiro";
+          } else if (["atacante"].includes(rawPos)) {
+            positionKey = "atacante";
+          }
+          const positionValue = positionKey as Database['public']['Enums']['player_position'];
           
           return {
             id: crypto.randomUUID(),
@@ -367,7 +378,7 @@ export default function ManagePlayers() {
                                 <td className="py-2 px-2">
                                   <code className="bg-background px-1 rounded">goleiro</code>,{" "}
                                   <code className="bg-background px-1 rounded">defensor</code>,{" "}
-                                  <code className="bg-background px-1 rounded">meio campo</code>,{" "}
+                                  <code className="bg-background px-1 rounded">meio-campista</code>,{" "}
                                   <code className="bg-background px-1 rounded">atacante</code>
                                 </td>
                               </tr>
@@ -399,7 +410,7 @@ export default function ManagePlayers() {
                                 <td className="py-2 px-3">Pedro Costa Lima</td>
                                 <td className="py-2 px-3">Pedrinho</td>
                                 <td className="py-2 px-3">B</td>
-                                <td className="py-2 px-3">meio campo</td>
+                                <td className="py-2 px-3">meio-campista</td>
                               </tr>
                               <tr>
                                 <td className="py-2 px-3">Carlos Eduardo</td>
