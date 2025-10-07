@@ -201,34 +201,18 @@ export default function EditRound() {
 
       if (deleteError) throw deleteError;
 
-      // Delete existing attendance
-      const { error: deleteAttendanceError } = await supabase
-        .from("player_attendance")
-        .delete()
-        .eq("round_id", roundId);
-
-      if (deleteAttendanceError) throw deleteAttendanceError;
-
       // Insert updated team players (remove duplicates)
       const allTeamPlayers: any[] = [];
-      const allAttendanceRecords: any[] = [];
       const insertedPlayerIds = new Set<string>();
 
       for (const teamColor of Object.keys(teams)) {
         teams[teamColor].forEach(player => {
-          const key = `${roundId}-${player.id}`;
-          if (!insertedPlayerIds.has(key)) {
-            insertedPlayerIds.add(key);
+          if (!insertedPlayerIds.has(player.id)) {
+            insertedPlayerIds.add(player.id);
             allTeamPlayers.push({
               round_id: roundId,
               player_id: player.id,
               team_color: teamColor as "branco" | "vermelho" | "azul" | "laranja",
-            });
-            allAttendanceRecords.push({
-              round_id: roundId,
-              player_id: player.id,
-              team_color: teamColor as "branco" | "vermelho" | "azul" | "laranja",
-              status: 'presente' as "presente" | "atrasado" | "falta",
             });
           }
         });
@@ -240,14 +224,6 @@ export default function EditRound() {
           .insert(allTeamPlayers);
 
         if (playersError) throw playersError;
-      }
-
-      if (allAttendanceRecords.length > 0) {
-        const { error: attendanceError } = await supabase
-          .from("player_attendance")
-          .insert(allAttendanceRecords);
-
-        if (attendanceError) throw attendanceError;
       }
 
       toast.success("Times atualizados com sucesso!");

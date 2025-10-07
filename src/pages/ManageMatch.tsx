@@ -89,8 +89,13 @@ export default function ManageMatch() {
   useEffect(() => {
     checkAdmin();
     loadMatchData();
-    loadPlayers();
   }, [matchId]);
+
+  useEffect(() => {
+    if (match) {
+      loadPlayers();
+    }
+  }, [match, roundId]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -201,9 +206,11 @@ export default function ManageMatch() {
   };
 
   const loadPlayers = async () => {
-    if (!roundId || !match) return;
+    if (!roundId) return;
 
     try {
+      if (!match) return;
+      
       const { data: homePlayers } = await supabase
         .from("round_team_players")
         .select("player_id, profiles(id, name, nickname)")
@@ -216,8 +223,8 @@ export default function ManageMatch() {
         .eq("round_id", roundId)
         .eq("team_color", match.team_away as "branco" | "vermelho" | "azul" | "laranja");
 
-      const homePlayersList = (homePlayers || []).map((p: any) => p.profiles);
-      const awayPlayersList = (awayPlayers || []).map((p: any) => p.profiles);
+      const homePlayersList = (homePlayers || []).map((p: any) => p.profiles).filter(Boolean);
+      const awayPlayersList = (awayPlayers || []).map((p: any) => p.profiles).filter(Boolean);
 
       setPlayers({
         [match.team_home]: homePlayersList,
@@ -486,7 +493,7 @@ export default function ManageMatch() {
             </div>
             
             <div className="text-center text-sm text-muted-foreground">
-              Horário: {match.scheduled_time}
+              Horário: {match.scheduled_time.substring(0, 5)}
             </div>
             <Badge variant="outline" className="mt-2 mx-auto w-fit">
               {match.status === 'not_started' ? 'Não Iniciado' :

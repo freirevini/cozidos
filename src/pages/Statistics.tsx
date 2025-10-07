@@ -230,9 +230,6 @@ export default function Statistics() {
                           <div className="font-bold text-foreground">
                             {player.player_name}
                           </div>
-                          <Badge variant="outline" className="text-xs border-primary text-primary">
-                            {getPositionLabel(player.position)}
-                          </Badge>
                         </div>
                       </div>
                       <div className="text-3xl font-bold text-primary">{player.goals}</div>
@@ -278,9 +275,6 @@ export default function Statistics() {
                             <div className="font-bold text-foreground">
                               {player.player_name}
                             </div>
-                            <Badge variant="outline" className="text-xs border-primary text-primary">
-                              {getPositionLabel(player.position)}
-                            </Badge>
                           </div>
                         </div>
                         <div className="text-3xl font-bold text-primary">{player.assists}</div>

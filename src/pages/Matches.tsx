@@ -266,8 +266,8 @@ export default function Matches() {
               >
                 <ChevronLeft size={24} />
               </Button>
-              <CardTitle className="text-3xl font-bold text-primary glow-text">
-                {currentRound ? `RODADAS - ${currentRound.round_number}ª` : "RODADAS"}
+              <CardTitle className="text-xl sm:text-2xl md:text-3xl font-bold text-primary glow-text">
+                {currentRound ? `Rodadas - ${new Date(currentRound.scheduled_date).toLocaleDateString('pt-BR')}` : "RODADAS"}
               </CardTitle>
               <Button
                 variant="ghost"

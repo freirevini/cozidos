@@ -129,11 +129,21 @@ export default function ManageRounds() {
       let matchNumber = 1;
       let currentTime = 21 * 60; // 21:00 em minutos
 
-      // Criar rodízio de partidas
-      const rounds = Math.ceil(teamColors.length * (teamColors.length - 1) / 2);
-      
-      for (let i = 0; i < teamColors.length; i++) {
-        for (let j = i + 1; j < teamColors.length; j++) {
+      // Criar partidas seguindo ordem específica
+      if (teamColors.length === 4) {
+        // Ordem específica para 4 times: AZUL x BRANCO, VERMELHO x AZUL, LARANJA x VERMELHO, BRANCO x LARANJA, AZUL x BRANCO, VERMELHO x LARANJA, BRANCO x VERMELHO, LARANJA x AZUL
+        const matchPairs = [
+          ['azul', 'branco'],
+          ['vermelho', 'azul'],
+          ['laranja', 'vermelho'],
+          ['branco', 'laranja'],
+          ['azul', 'branco'],
+          ['vermelho', 'laranja'],
+          ['branco', 'vermelho'],
+          ['laranja', 'azul'],
+        ];
+
+        matchPairs.forEach(([home, away]) => {
           const hours = Math.floor(currentTime / 60);
           const minutes = currentTime % 60;
           const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
@@ -141,15 +151,73 @@ export default function ManageRounds() {
           matchesToCreate.push({
             round_id: roundId,
             match_number: matchNumber++,
-            team_home: teamColors[i],
-            team_away: teamColors[j],
+            team_home: home,
+            team_away: away,
             score_home: 0,
             score_away: 0,
             scheduled_time: timeString,
             status: 'not_started',
           });
 
-          currentTime += 12; // 12 minutos por partida
+          currentTime += 12;
+        });
+      } else if (teamColors.length === 3) {
+        // Para 3 times: ida e volta entre todos, evitando que um time jogue 2 seguidas
+        const matchPairs: string[][] = [];
+        
+        // Primeira rodada
+        for (let i = 0; i < teamColors.length; i++) {
+          for (let j = i + 1; j < teamColors.length; j++) {
+            matchPairs.push([teamColors[i], teamColors[j]]);
+          }
+        }
+        
+        // Segunda rodada (volta)
+        for (let i = 0; i < teamColors.length; i++) {
+          for (let j = i + 1; j < teamColors.length; j++) {
+            matchPairs.push([teamColors[j], teamColors[i]]);
+          }
+        }
+
+        matchPairs.forEach(([home, away]) => {
+          const hours = Math.floor(currentTime / 60);
+          const minutes = currentTime % 60;
+          const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+
+          matchesToCreate.push({
+            round_id: roundId,
+            match_number: matchNumber++,
+            team_home: home,
+            team_away: away,
+            score_home: 0,
+            score_away: 0,
+            scheduled_time: timeString,
+            status: 'not_started',
+          });
+
+          currentTime += 12;
+        });
+      } else {
+        // Rodízio padrão para outros números de times
+        for (let i = 0; i < teamColors.length; i++) {
+          for (let j = i + 1; j < teamColors.length; j++) {
+            const hours = Math.floor(currentTime / 60);
+            const minutes = currentTime % 60;
+            const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+
+            matchesToCreate.push({
+              round_id: roundId,
+              match_number: matchNumber++,
+              team_home: teamColors[i],
+              team_away: teamColors[j],
+              score_home: 0,
+              score_away: 0,
+              scheduled_time: timeString,
+              status: 'not_started',
+            });
+
+            currentTime += 12;
+          }
         }
       }
 
