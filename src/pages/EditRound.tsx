@@ -310,7 +310,7 @@ export default function EditRound() {
                                   </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">Nenhum</SelectItem>
+                                  <SelectItem value="none">Nenhum</SelectItem>
                                   {availablePlayers.map((p) => (
                                     <SelectItem key={p.id} value={p.id}>
                                       <div className="flex items-center gap-2">
