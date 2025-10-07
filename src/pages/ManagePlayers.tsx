@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, UserPlus } from "lucide-react";
+import { Upload, UserPlus, Info } from "lucide-react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { toast as sonnerToast } from "sonner";
@@ -300,6 +300,125 @@ export default function ManagePlayers() {
                   accept=".csv,.xlsx,.xls"
                   className="hidden"
                 />
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Info className="h-5 w-5" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Como importar a planilha de jogadores</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="font-semibold text-lg mb-2">Formatos Aceitos</h3>
+                        <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                          <li>CSV (.csv)</li>
+                          <li>Excel (.xlsx, .xls)</li>
+                        </ul>
+                      </div>
+                      
+                      <div>
+                        <h3 className="font-semibold text-lg mb-2">Colunas da Planilha</h3>
+                        <div className="bg-muted p-4 rounded-md">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b">
+                                <th className="text-left py-2 px-2">Coluna</th>
+                                <th className="text-left py-2 px-2">Obrigatória</th>
+                                <th className="text-left py-2 px-2">Valores Aceitos</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr className="border-b">
+                                <td className="py-2 px-2 font-mono">Nome Completo</td>
+                                <td className="py-2 px-2">
+                                  <Badge className="bg-red-600">Sim</Badge>
+                                </td>
+                                <td className="py-2 px-2">Texto livre</td>
+                              </tr>
+                              <tr className="border-b">
+                                <td className="py-2 px-2 font-mono">Apelido</td>
+                                <td className="py-2 px-2">
+                                  <Badge className="bg-red-600">Sim</Badge>
+                                </td>
+                                <td className="py-2 px-2">Texto livre</td>
+                              </tr>
+                              <tr className="border-b">
+                                <td className="py-2 px-2 font-mono">Nivel</td>
+                                <td className="py-2 px-2">
+                                  <Badge className="bg-red-600">Sim</Badge>
+                                </td>
+                                <td className="py-2 px-2">
+                                  <code className="bg-background px-1 rounded">a</code>,{" "}
+                                  <code className="bg-background px-1 rounded">b</code>,{" "}
+                                  <code className="bg-background px-1 rounded">c</code>,{" "}
+                                  <code className="bg-background px-1 rounded">d</code>,{" "}
+                                  <code className="bg-background px-1 rounded">e</code>
+                                </td>
+                              </tr>
+                              <tr>
+                                <td className="py-2 px-2 font-mono">Posicao</td>
+                                <td className="py-2 px-2">
+                                  <Badge className="bg-red-600">Sim</Badge>
+                                </td>
+                                <td className="py-2 px-2">
+                                  <code className="bg-background px-1 rounded">goleiro</code>,{" "}
+                                  <code className="bg-background px-1 rounded">defensor</code>,{" "}
+                                  <code className="bg-background px-1 rounded">meio campo</code>,{" "}
+                                  <code className="bg-background px-1 rounded">atacante</code>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 className="font-semibold text-lg mb-2">Exemplo de Planilha</h3>
+                        <div className="bg-muted p-4 rounded-md overflow-x-auto">
+                          <table className="w-full text-sm border-collapse">
+                            <thead>
+                              <tr className="border-b">
+                                <th className="text-left py-2 px-3 bg-primary/10">Nome Completo</th>
+                                <th className="text-left py-2 px-3 bg-primary/10">Apelido</th>
+                                <th className="text-left py-2 px-3 bg-primary/10">Nivel</th>
+                                <th className="text-left py-2 px-3 bg-primary/10">Posicao</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr className="border-b">
+                                <td className="py-2 px-3">João Silva Santos</td>
+                                <td className="py-2 px-3">João</td>
+                                <td className="py-2 px-3">a</td>
+                                <td className="py-2 px-3">atacante</td>
+                              </tr>
+                              <tr className="border-b">
+                                <td className="py-2 px-3">Pedro Costa Lima</td>
+                                <td className="py-2 px-3">Pedrinho</td>
+                                <td className="py-2 px-3">b</td>
+                                <td className="py-2 px-3">meio campo</td>
+                              </tr>
+                              <tr>
+                                <td className="py-2 px-3">Carlos Eduardo</td>
+                                <td className="py-2 px-3">Carlão</td>
+                                <td className="py-2 px-3">c</td>
+                                <td className="py-2 px-3">goleiro</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-md border border-blue-200 dark:border-blue-900">
+                        <p className="text-sm">
+                          <strong>⚠️ Importante:</strong> Certifique-se de que os nomes das colunas estejam exatamente como especificado acima (incluindo maiúsculas e minúsculas). Linhas com campos obrigatórios vazios serão ignoradas.
+                        </p>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
                 <Button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={importing}
