@@ -207,7 +207,6 @@ export default function ManagePlayers() {
       setImporting(false);
     }
 
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
