@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Upload, UserPlus } from "lucide-react";
+import Papa from "papaparse";
+import * as XLSX from "xlsx";
+import { toast as sonnerToast } from "sonner";
 
 interface Player {
   id: string;
@@ -39,7 +46,18 @@ export default function ManagePlayers() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [openAddDialog, setOpenAddDialog] = useState(false);
+  const [importing, setImporting] = useState(false);
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [newPlayer, setNewPlayer] = useState({
+    name: "",
+    nickname: "",
+    level: "",
+    position: "",
+    email: "",
+  });
 
   useEffect(() => {
     checkAdmin();
@@ -105,6 +123,134 @@ export default function ManagePlayers() {
     }
   };
 
+  const handleAddPlayer = async () => {
+    if (!newPlayer.name || !newPlayer.nickname || !newPlayer.level || !newPlayer.position) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha todos os campos obrigatórios: Nome Completo, Apelido, Nível e Posição.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .insert({
+          name: newPlayer.name,
+          nickname: newPlayer.nickname,
+          level: newPlayer.level,
+          position: newPlayer.position,
+          is_player: true,
+          is_approved: true,
+          player_type: "avulso",
+        });
+
+      if (error) throw error;
+
+      sonnerToast.success("Jogador cadastrado com sucesso!");
+      setOpenAddDialog(false);
+      setNewPlayer({ name: "", nickname: "", level: "", position: "", email: "" });
+      loadPlayers();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao cadastrar jogador",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+
+    try {
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+
+      if (fileExtension === 'csv') {
+        Papa.parse(file, {
+          header: true,
+          complete: async (results) => {
+            await processImportedData(results.data);
+          },
+          error: (error) => {
+            throw new Error(error.message);
+          }
+        });
+      } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet);
+          await processImportedData(jsonData);
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        throw new Error("Formato de arquivo não suportado. Use CSV ou Excel (.xlsx, .xls)");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro ao importar arquivo",
+        description: error.message,
+        variant: "destructive",
+      });
+      setImporting(false);
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const processImportedData = async (data: any[]) => {
+    try {
+      const playersToInsert = data
+        .filter((row: any) => row["Nome Completo"] && row["Apelido"] && row["Nivel"] && row["Posicao"])
+        .map((row: any) => {
+          const levelKey = row["Nivel"]?.toString().toLowerCase();
+          const positionValue = row["Posicao"]?.toString().toLowerCase().replace(/\s+/g, '_');
+          
+          return {
+            name: row["Nome Completo"],
+            nickname: row["Apelido"],
+            level: levelKey,
+            position: positionValue,
+            is_player: true,
+            is_approved: true,
+            player_type: "avulso",
+          };
+        });
+
+      if (playersToInsert.length === 0) {
+        throw new Error("Nenhum jogador válido encontrado no arquivo");
+      }
+
+      const { error } = await supabase
+        .from("profiles")
+        .insert(playersToInsert);
+
+      if (error) throw error;
+
+      sonnerToast.success(`${playersToInsert.length} jogador(es) importado(s) com sucesso!`);
+      loadPlayers();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao processar dados",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const calculateAge = (birthDate: string | null) => {
     if (!birthDate) return "-";
     const today = new Date();
@@ -138,9 +284,110 @@ export default function ManagePlayers() {
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-3xl font-bold text-primary glow-text">
-              Gerenciar Jogadores
-            </CardTitle>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <CardTitle className="text-3xl font-bold text-primary glow-text">
+                Gerenciar Jogadores
+              </CardTitle>
+              <div className="flex gap-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileImport}
+                  accept=".csv,.xlsx,.xls"
+                  className="hidden"
+                />
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={importing}
+                  variant="outline"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {importing ? "Importando..." : "Importar Arquivo"}
+                </Button>
+                <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Cadastrar Jogador
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Cadastrar Novo Jogador</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="name">Nome Completo *</Label>
+                        <Input
+                          id="name"
+                          value={newPlayer.name}
+                          onChange={(e) => setNewPlayer({ ...newPlayer, name: e.target.value })}
+                          placeholder="João Silva"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="nickname">Apelido *</Label>
+                        <Input
+                          id="nickname"
+                          value={newPlayer.nickname}
+                          onChange={(e) => setNewPlayer({ ...newPlayer, nickname: e.target.value })}
+                          placeholder="João"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="level">Nível *</Label>
+                        <Select
+                          value={newPlayer.level}
+                          onValueChange={(value) => setNewPlayer({ ...newPlayer, level: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o nível" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(levelMap).map(([key, label]) => (
+                              <SelectItem key={key} value={key}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="position">Posição *</Label>
+                        <Select
+                          value={newPlayer.position}
+                          onValueChange={(value) => setNewPlayer({ ...newPlayer, position: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a posição" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(positionMap).map(([key, label]) => (
+                              <SelectItem key={key} value={key}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="email">E-mail (opcional)</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={newPlayer.email}
+                          onChange={(e) => setNewPlayer({ ...newPlayer, email: e.target.value })}
+                          placeholder="joao@email.com"
+                        />
+                      </div>
+                      <Button onClick={handleAddPlayer} className="w-full">
+                        Cadastrar
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {loading ? (
