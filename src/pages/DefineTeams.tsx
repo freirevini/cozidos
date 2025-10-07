@@ -173,7 +173,7 @@ export default function DefineTeams() {
     if (!newTeams[teamColor]) newTeams[teamColor] = [];
 
     // Remover seleção
-    if (!playerId) {
+    if (!playerId || playerId === "none") {
       if (newTeams[teamColor][index] !== undefined) {
         newTeams[teamColor].splice(index, 1);
       }
@@ -417,7 +417,7 @@ export default function DefineTeams() {
                                     </SelectValue>
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="">Nenhum</SelectItem>
+                                    <SelectItem value="none">Nenhum</SelectItem>
                                     {availablePlayers
                                       .filter(p => {
                                         if (level === 'GR') {
