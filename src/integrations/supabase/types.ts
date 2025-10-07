@@ -356,7 +356,7 @@ export type Database = {
         Insert: {
           birth_date?: string | null
           created_at?: string
-          id: string
+          id?: string
           is_approved?: boolean | null
           is_player?: boolean | null
           level?: Database["public"]["Enums"]["player_level"] | null

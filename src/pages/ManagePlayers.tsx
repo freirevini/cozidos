@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -134,17 +135,20 @@ export default function ManagePlayers() {
     }
 
     try {
+      const playerData: Database['public']['Tables']['profiles']['Insert'] = {
+        id: crypto.randomUUID(),
+        name: newPlayer.name,
+        nickname: newPlayer.nickname,
+        level: newPlayer.level as Database['public']['Enums']['player_level'],
+        position: newPlayer.position as Database['public']['Enums']['player_position'],
+        is_player: true,
+        is_approved: true,
+        player_type: "avulso",
+      };
+
       const { error } = await supabase
         .from("profiles")
-        .insert({
-          name: newPlayer.name,
-          nickname: newPlayer.nickname,
-          level: newPlayer.level,
-          position: newPlayer.position,
-          is_player: true,
-          is_approved: true,
-          player_type: "avulso",
-        });
+        .insert(playerData);
 
       if (error) throw error;
 
@@ -211,13 +215,14 @@ export default function ManagePlayers() {
 
   const processImportedData = async (data: any[]) => {
     try {
-      const playersToInsert = data
+      const playersToInsert: Database['public']['Tables']['profiles']['Insert'][] = data
         .filter((row: any) => row["Nome Completo"] && row["Apelido"] && row["Nivel"] && row["Posicao"])
         .map((row: any) => {
-          const levelKey = row["Nivel"]?.toString().toLowerCase();
-          const positionValue = row["Posicao"]?.toString().toLowerCase().replace(/\s+/g, '_');
+          const levelKey = row["Nivel"]?.toString().toLowerCase() as Database['public']['Enums']['player_level'];
+          const positionValue = row["Posicao"]?.toString().toLowerCase().replace(/\s+/g, '_') as Database['public']['Enums']['player_position'];
           
           return {
+            id: crypto.randomUUID(),
             name: row["Nome Completo"],
             nickname: row["Apelido"],
             level: levelKey,
