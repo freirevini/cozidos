@@ -36,11 +36,11 @@ const positionMap: Record<string, string> = {
 };
 
 const levelMap: Record<string, string> = {
-  a: "A",
-  b: "B",
-  c: "C",
-  d: "D",
-  e: "E",
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  E: "E",
 };
 
 export default function ManagePlayers() {
