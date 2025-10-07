@@ -231,7 +231,7 @@ export default function EditRound() {
       }
 
       toast.success("Times atualizados com sucesso!");
-      navigate("/admin/manage-teams");
+      navigate("/admin/teams/manage");
     } catch (error: any) {
       console.error("Erro ao salvar alterações:", error);
       toast.error("Erro ao salvar alterações: " + error.message);
@@ -339,7 +339,7 @@ export default function EditRound() {
 
               <div className="flex gap-3">
                 <Button 
-                  onClick={() => navigate("/admin/manage-teams")} 
+                  onClick={() => navigate("/admin/teams/manage")} 
                   variant="outline" 
                   className="flex-1"
                 >

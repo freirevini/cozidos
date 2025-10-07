@@ -95,7 +95,7 @@ export default function ManageTeams() {
                 <p className="text-muted-foreground mb-4">
                   Nenhuma rodada pendente encontrada
                 </p>
-                <Button onClick={() => navigate("/admin/teams/manage")}>
+                <Button onClick={() => navigate("/admin/teams")}> 
                   Voltar para Times
                 </Button>
               </div>
