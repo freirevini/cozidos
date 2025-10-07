@@ -32,6 +32,51 @@ export default function ManageTeams() {
     }
   };
 
+  const [rounds, setRounds] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedRound, setSelectedRound] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadPendingRounds();
+    }
+  }, [isAdmin]);
+
+  const loadPendingRounds = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("rounds")
+        .select("*")
+        .eq("status", "pending")
+        .order("round_number", { ascending: false });
+
+      if (error) throw error;
+      setRounds(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar rodadas:", error);
+      toast.error("Erro ao carregar rodadas pendentes");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteRound = async (roundId: string) => {
+    try {
+      const { error } = await supabase
+        .from("rounds")
+        .delete()
+        .eq("id", roundId);
+
+      if (error) throw error;
+      
+      toast.success("Rodada excluída com sucesso!");
+      loadPendingRounds();
+    } catch (error: any) {
+      console.error("Erro ao excluir rodada:", error);
+      toast.error("Erro ao excluir rodada: " + error.message);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header isAdmin={isAdmin} />
@@ -43,14 +88,58 @@ export default function ManageTeams() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-12">
-              <p className="text-muted-foreground mb-4">
-                Funcionalidade em desenvolvimento
-              </p>
-              <Button onClick={() => navigate("/admin/teams")}>
-                Voltar
-              </Button>
-            </div>
+            {loading ? (
+              <div className="text-center py-8">Carregando...</div>
+            ) : rounds.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">
+                  Nenhuma rodada pendente encontrada
+                </p>
+                <Button onClick={() => navigate("/admin/teams")}>
+                  Voltar
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-muted-foreground text-center mb-4">
+                  Selecione uma rodada para gerenciar os times
+                </p>
+                {rounds.map((round) => (
+                  <Card key={round.id} className="bg-muted/20 border-border">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-xl font-bold text-primary">
+                            Rodada {round.round_number}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              if (confirm("Tem certeza que deseja excluir esta rodada?")) {
+                                deleteRound(round.id);
+                              }
+                            }}
+                          >
+                            Excluir
+                          </Button>
+                          <Button onClick={() => navigate("/admin/teams")}>
+                            Ver Detalhes
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                <Button onClick={() => navigate("/admin/teams")} variant="outline" className="w-full">
+                  Voltar
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>

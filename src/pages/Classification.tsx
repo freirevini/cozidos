@@ -24,6 +24,7 @@ interface PlayerStats {
   punicao: number;
   cartoes_amarelos: number;
   cartoes_vermelhos: number;
+  cartao_pontos: number;
   gols: number;
   total_pontos: number;
 }
@@ -79,14 +80,15 @@ export default function Classification() {
         const empate = 0;
         const derrota = 0;
 
-        // Cartões
-        const { data: cards } = await supabase
-          .from("cards")
-          .select("card_type")
-          .eq("player_id", player.id);
+                        // Cartões
+                        const { data: cards } = await supabase
+                          .from("cards")
+                          .select("card_type")
+                          .eq("player_id", player.id);
 
-        const cartoes_amarelos = cards?.filter((c) => c.card_type === "amarelo").length || 0;
-        const cartoes_vermelhos = cards?.filter((c) => c.card_type === "vermelho").length || 0;
+                        const cartoes_amarelos = cards?.filter((c) => c.card_type === "amarelo").length || 0;
+                        const cartoes_vermelhos = cards?.filter((c) => c.card_type === "vermelho").length || 0;
+                        const cartao_pontos = (cartoes_amarelos * -1) + (cartoes_vermelhos * -2);
 
         // Gols
         const { data: goals } = await supabase
@@ -117,21 +119,22 @@ export default function Classification() {
           cartoes_vermelhos * -2 +
           gols * 1;
 
-        return {
-          player_id: player.id,
-          player_name: player.nickname || player.name,
-          presenca,
-          vitoria,
-          empate,
-          derrota,
-          atraso,
-          falta,
-          punicao,
-          cartoes_amarelos,
-          cartoes_vermelhos,
-          gols,
-          total_pontos,
-        };
+                        return {
+                          player_id: player.id,
+                          player_name: player.nickname || player.name,
+                          presenca,
+                          vitoria,
+                          empate,
+                          derrota,
+                          atraso,
+                          falta,
+                          punicao,
+                          cartoes_amarelos,
+                          cartoes_vermelhos,
+                          cartao_pontos,
+                          gols,
+                          total_pontos,
+                        };
       });
 
       const calculatedStats = await Promise.all(statsPromises);
@@ -167,23 +170,21 @@ export default function Classification() {
                 {loading ? (
                   <div className="text-center py-8">Carregando...</div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto w-full">
                     <Table>
                       <TableHeader>
                         <TableRow className="border-border hover:bg-muted/50">
                           <TableHead className="text-primary font-bold">Pos</TableHead>
-                          <TableHead className="text-primary font-bold">Jogador</TableHead>
-                          <TableHead className="text-primary font-bold text-center">P</TableHead>
-                          <TableHead className="text-primary font-bold text-center">V</TableHead>
-                          <TableHead className="text-primary font-bold text-center">E</TableHead>
-                          <TableHead className="text-primary font-bold text-center">D</TableHead>
-                          <TableHead className="text-primary font-bold text-center">A</TableHead>
-                          <TableHead className="text-primary font-bold text-center">F</TableHead>
-                          <TableHead className="text-primary font-bold text-center">Pun</TableHead>
-                          <TableHead className="text-primary font-bold text-center">CA</TableHead>
-                          <TableHead className="text-primary font-bold text-center">CV</TableHead>
-                          <TableHead className="text-primary font-bold text-center">G</TableHead>
-                          <TableHead className="text-primary font-bold text-center">Pts</TableHead>
+                          <TableHead className="text-primary font-bold min-w-[120px]">Jogador</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Presença</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Vitória</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Empate</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Derrota</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Atraso</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Falta</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Punição</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Cartão</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Total de Pontos</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -198,9 +199,7 @@ export default function Classification() {
                             <TableCell className="text-center">{stat.atraso}</TableCell>
                             <TableCell className="text-center">{stat.falta}</TableCell>
                             <TableCell className="text-center">{stat.punicao}</TableCell>
-                            <TableCell className="text-center">{stat.cartoes_amarelos}</TableCell>
-                            <TableCell className="text-center">{stat.cartoes_vermelhos}</TableCell>
-                            <TableCell className="text-center">{stat.gols}</TableCell>
+                            <TableCell className="text-center">{stat.cartao_pontos}</TableCell>
                             <TableCell className="text-center font-bold text-primary">
                               {stat.total_pontos}
                             </TableCell>

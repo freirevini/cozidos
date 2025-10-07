@@ -5,13 +5,49 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Shuffle } from "lucide-react";
+
+interface Player {
+  id: string;
+  name: string;
+  nickname: string | null;
+  level: string;
+  position: string;
+}
+
+interface TeamPlayer extends Player {
+  team_color: string;
+}
+
+const teamColors: Record<string, string> = {
+  branco: "bg-white text-black border border-gray-300",
+  vermelho: "bg-red-600 text-white",
+  azul: "bg-blue-600 text-white",
+  laranja: "bg-orange-500 text-white",
+};
+
+const positionLabels: Record<string, string> = {
+  goleiro: "GR",
+  defensor: "DF",
+  meio_campo: "MC",
+  atacante: "AT",
+};
 
 export default function DefineTeams() {
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [numTeams, setNumTeams] = useState<number>(0);
+  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+  const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
+  const [teams, setTeams] = useState<Record<string, TeamPlayer[]>>({});
+  const [step, setStep] = useState<'select-teams' | 'define-players'>('select-teams');
 
   useEffect(() => {
     checkAdmin();
+    loadAvailablePlayers();
   }, []);
 
   const checkAdmin = async () => {
@@ -32,6 +68,172 @@ export default function DefineTeams() {
     }
   };
 
+  const loadAvailablePlayers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("is_player", true)
+        .eq("is_approved", true)
+        .not("level", "is", null)
+        .not("position", "is", null);
+
+      if (error) throw error;
+      setAvailablePlayers(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar jogadores:", error);
+      toast.error("Erro ao carregar jogadores disponíveis");
+    }
+  };
+
+  const handleTeamSelection = () => {
+    if (selectedTeams.length !== numTeams) {
+      toast.error(`Selecione exatamente ${numTeams} times`);
+      return;
+    }
+    setStep('define-players');
+  };
+
+  const balanceTeams = () => {
+    setLoading(true);
+    
+    try {
+      const goalkeepers = availablePlayers.filter(p => p.position === 'goleiro');
+      const levels = ['a', 'b', 'c', 'd', 'e'];
+      const playersByLevel: Record<string, Player[]> = {};
+      
+      levels.forEach(level => {
+        playersByLevel[level] = availablePlayers.filter(
+          p => p.level === level && p.position !== 'goleiro'
+        );
+      });
+
+      if (goalkeepers.length < selectedTeams.length) {
+        toast.error("Não há goleiros suficientes para todos os times");
+        setLoading(false);
+        return;
+      }
+
+      const shuffle = <T,>(array: T[]): T[] => {
+        const arr = [...array];
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      };
+
+      const newTeams: Record<string, TeamPlayer[]> = {};
+      selectedTeams.forEach(team => {
+        newTeams[team] = [];
+      });
+
+      const shuffledGoalkeepers = shuffle(goalkeepers);
+      selectedTeams.forEach((team, index) => {
+        const gk = shuffledGoalkeepers[index];
+        newTeams[team].push({ ...gk, team_color: team });
+      });
+
+      levels.forEach(level => {
+        const shuffled = shuffle(playersByLevel[level]);
+        selectedTeams.forEach((team, index) => {
+          if (shuffled[index]) {
+            newTeams[team].push({ ...shuffled[index], team_color: team });
+          }
+        });
+      });
+
+      setTeams(newTeams);
+      toast.success("Times balanceados com sucesso!");
+    } catch (error) {
+      console.error("Erro ao balancear times:", error);
+      toast.error("Erro ao balancear times");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveTeams = async () => {
+    if (Object.keys(teams).length === 0) {
+      toast.error("Defina os times primeiro");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data: latestRound } = await supabase
+        .from("rounds")
+        .select("round_number")
+        .order("round_number", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const newRoundNumber = (latestRound?.round_number || 0) + 1;
+
+      const today = new Date();
+      const daysUntilThursday = (4 - today.getDay() + 7) % 7 || 7;
+      const nextThursday = new Date(today);
+      nextThursday.setDate(today.getDate() + daysUntilThursday);
+
+      const { data: newRound, error: roundError } = await supabase
+        .from("rounds")
+        .insert({
+          round_number: newRoundNumber,
+          scheduled_date: nextThursday.toISOString().split('T')[0],
+          status: 'pending',
+        })
+        .select()
+        .single();
+
+      if (roundError) throw roundError;
+
+      for (const teamColor of Object.keys(teams)) {
+        const { error: teamError } = await supabase
+          .from("round_teams")
+          .insert({
+            round_id: newRound.id,
+            team_color: teamColor as "branco" | "vermelho" | "azul" | "laranja",
+          });
+
+        if (teamError) throw teamError;
+
+        const teamPlayers = teams[teamColor].map(player => ({
+          round_id: newRound.id,
+          player_id: player.id,
+          team_color: teamColor as "branco" | "vermelho" | "azul" | "laranja",
+        }));
+
+        const { error: playersError } = await supabase
+          .from("round_team_players")
+          .insert(teamPlayers);
+
+        if (playersError) throw playersError;
+
+        const attendanceRecords = teams[teamColor].map(player => ({
+          round_id: newRound.id,
+          player_id: player.id,
+          team_color: teamColor as "branco" | "vermelho" | "azul" | "laranja",
+          status: 'presente' as "presente" | "atrasado" | "falta",
+        }));
+
+        const { error: attendanceError } = await supabase
+          .from("player_attendance")
+          .insert(attendanceRecords);
+
+        if (attendanceError) throw attendanceError;
+      }
+
+      toast.success("Times salvos com sucesso!");
+      navigate("/admin/teams");
+    } catch (error: any) {
+      console.error("Erro ao salvar times:", error);
+      toast.error("Erro ao salvar times: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header isAdmin={isAdmin} />
@@ -43,14 +245,136 @@ export default function DefineTeams() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-12">
-              <p className="text-muted-foreground mb-4">
-                Funcionalidade em desenvolvimento
-              </p>
-              <Button onClick={() => navigate("/admin/teams")}>
-                Voltar
-              </Button>
-            </div>
+            {step === 'select-teams' ? (
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Quantos times jogarão nessa rodada?
+                  </label>
+                  <Select value={numTeams.toString()} onValueChange={(v) => setNumTeams(parseInt(v))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="3">3 times</SelectItem>
+                      <SelectItem value="4">4 times</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {numTeams > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Selecione os {numTeams} times:
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {['branco', 'vermelho', 'azul', 'laranja'].map((team) => (
+                        <button
+                          key={team}
+                          onClick={() => {
+                            if (selectedTeams.includes(team)) {
+                              setSelectedTeams(selectedTeams.filter(t => t !== team));
+                            } else if (selectedTeams.length < numTeams) {
+                              setSelectedTeams([...selectedTeams, team]);
+                            }
+                          }}
+                          className={`p-4 rounded-lg font-bold capitalize transition-all ${
+                            selectedTeams.includes(team)
+                              ? teamColors[team]
+                              : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {team}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <Button onClick={() => navigate("/admin/teams")} variant="outline" className="flex-1">
+                    Voltar
+                  </Button>
+                  <Button 
+                    onClick={handleTeamSelection} 
+                    disabled={selectedTeams.length !== numTeams}
+                    className="flex-1"
+                  >
+                    Definir Jogadores
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <Button
+                  onClick={balanceTeams}
+                  disabled={loading}
+                  className="w-full"
+                >
+                  <Shuffle className="mr-2 h-4 w-4" />
+                  {loading ? "Balanceando..." : "Balancear Times Automaticamente"}
+                </Button>
+
+                {Object.keys(teams).length > 0 && (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr>
+                            {selectedTeams.map((team) => (
+                              <th key={team} className="p-4 border border-border">
+                                <Badge className={teamColors[team] + " text-lg"}>
+                                  {team.toUpperCase()}
+                                </Badge>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[0, 1, 2, 3, 4, 5].map((index) => (
+                            <tr key={index}>
+                              {selectedTeams.map((team) => {
+                                const player = teams[team]?.[index];
+                                return (
+                                  <td key={team} className="p-4 border border-border text-center">
+                                    {player ? (
+                                      <div className="flex items-center justify-between">
+                                        {player.position !== 'goleiro' && (
+                                          <span className="text-xs font-bold text-primary mr-2">
+                                            {player.level?.toUpperCase()}
+                                          </span>
+                                        )}
+                                        <span className="flex-1">
+                                          {player.nickname || player.name}
+                                        </span>
+                                        <span className="text-xs font-bold text-muted-foreground ml-2">
+                                          {positionLabels[player.position]}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground">-</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <Button onClick={() => setStep('select-teams')} variant="outline" className="flex-1">
+                        Voltar
+                      </Button>
+                      <Button onClick={handleSaveTeams} disabled={loading} className="flex-1">
+                        {loading ? "Salvando..." : "Finalizar Times"}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>

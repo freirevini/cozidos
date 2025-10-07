@@ -63,4 +63,10 @@ All colors MUST be HSL.
   .card-glow {
     box-shadow: var(--shadow-card), var(--shadow-glow);
   }
+
+  /* Hide Lovable badge */
+  [data-lovable-badge],
+  a[href*="lovable.dev/projects"] {
+    display: none !important;
+  }
 }

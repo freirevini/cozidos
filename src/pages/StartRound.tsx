@@ -32,6 +32,37 @@ export default function StartRound() {
     }
   };
 
+  const [rounds, setRounds] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadAvailableRounds();
+    }
+  }, [isAdmin]);
+
+  const loadAvailableRounds = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("rounds")
+        .select("*")
+        .eq("status", "pending")
+        .order("round_number", { ascending: false });
+
+      if (error) throw error;
+      setRounds(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar rodadas:", error);
+      toast.error("Erro ao carregar rodadas disponíveis");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startRound = (roundId: string) => {
+    navigate(`/admin/round/manage?round=${roundId}`);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header isAdmin={isAdmin} />
@@ -43,15 +74,37 @@ export default function StartRound() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button
-              onClick={() => toast.info("Funcionalidade em desenvolvimento")}
-              className="w-full bg-primary hover:bg-secondary text-primary-foreground font-bold text-lg py-6"
-            >
-              Nova Rodada
-            </Button>
+            {loading ? (
+              <div className="text-center py-8">Carregando...</div>
+            ) : rounds.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground mb-4">
+                  Nenhuma rodada disponível para iniciar
+                </p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Defina os times primeiro em "Times &gt; Definir Times"
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="text-muted-foreground text-center mb-4">
+                  Selecione uma rodada para iniciar
+                </p>
+                {rounds.map((round) => (
+                  <Button
+                    key={round.id}
+                    onClick={() => startRound(round.id)}
+                    className="w-full bg-primary hover:bg-secondary text-primary-foreground font-bold text-lg py-6"
+                  >
+                    Rodada {round.round_number} - {new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
+                  </Button>
+                ))}
+              </>
+            )}
             <Button
               onClick={() => navigate("/admin/round/manage")}
-              className="w-full bg-secondary hover:bg-primary text-primary-foreground font-bold text-lg py-6"
+              variant="outline"
+              className="w-full font-bold text-lg py-6"
             >
               Gerenciar Rodadas
             </Button>
