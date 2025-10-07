@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PlayerStat {
   player_id: string;
@@ -13,15 +14,33 @@ interface PlayerStat {
   assists: number;
 }
 
+interface Round {
+  id: string;
+  round_number: number;
+}
+
+interface Player {
+  id: string;
+  name: string;
+}
+
 export default function Statistics() {
   const [topScorers, setTopScorers] = useState<PlayerStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [rounds, setRounds] = useState<Round[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [selectedRound, setSelectedRound] = useState<string>("all");
+  const [selectedPlayer, setSelectedPlayer] = useState<string>("all");
 
   useEffect(() => {
     checkAdmin();
-    loadStatistics();
+    loadRoundsAndPlayers();
   }, []);
+
+  useEffect(() => {
+    loadStatistics();
+  }, [selectedRound, selectedPlayer]);
 
   const checkAdmin = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -35,23 +54,74 @@ export default function Statistics() {
     }
   };
 
+  const loadRoundsAndPlayers = async () => {
+    try {
+      const { data: roundsData } = await supabase
+        .from("rounds")
+        .select("id, round_number")
+        .order("round_number", { ascending: true });
+      
+      const { data: playersData } = await supabase
+        .from("players")
+        .select("id, name")
+        .order("name", { ascending: true });
+
+      setRounds(roundsData || []);
+      setPlayers(playersData || []);
+    } catch (error) {
+      console.error("Erro ao carregar rodadas e jogadores:", error);
+    }
+  };
+
   const loadStatistics = async () => {
     try {
-      const { data: players } = await supabase.from("players").select("*");
+      setLoading(true);
+      let playersQuery = supabase.from("players").select("*");
+      
+      if (selectedPlayer !== "all") {
+        playersQuery = playersQuery.eq("id", selectedPlayer);
+      }
 
-      if (!players) return;
+      const { data: playersData } = await playersQuery;
 
-      const statsPromises = players.map(async (player) => {
-        const { data: goals } = await supabase
+      if (!playersData) return;
+
+      const statsPromises = playersData.map(async (player) => {
+        let goalsQuery = supabase
           .from("goals")
-          .select("*")
+          .select("*, match_id")
           .eq("player_id", player.id)
           .eq("is_own_goal", false);
 
-        const { data: assists } = await supabase
+        let assistsQuery = supabase
           .from("assists")
-          .select("*")
+          .select("*, goal_id, goals!inner(match_id)")
           .eq("player_id", player.id);
+
+        if (selectedRound !== "all") {
+          const { data: matches } = await supabase
+            .from("matches")
+            .select("id")
+            .eq("round_id", selectedRound);
+
+          const matchIds = matches?.map(m => m.id) || [];
+          
+          if (matchIds.length > 0) {
+            goalsQuery = goalsQuery.in("match_id", matchIds);
+            assistsQuery = assistsQuery.in("goals.match_id", matchIds);
+          } else {
+            return {
+              player_id: player.id,
+              player_name: player.name,
+              position: player.position,
+              goals: 0,
+              assists: 0,
+            };
+          }
+        }
+
+        const { data: goals } = await goalsQuery;
+        const { data: assists } = await assistsQuery;
 
         return {
           player_id: player.id,
@@ -64,7 +134,7 @@ export default function Statistics() {
 
       const stats = await Promise.all(statsPromises);
       stats.sort((a, b) => b.goals - a.goals);
-      setTopScorers(stats.slice(0, 10));
+      setTopScorers(stats);
     } catch (error) {
       console.error("Erro ao carregar estatísticas:", error);
     } finally {
@@ -86,6 +156,38 @@ export default function Statistics() {
     <div className="min-h-screen bg-background">
       <Header isAdmin={isAdmin} />
       <main className="container mx-auto px-4 py-8">
+        <div className="mb-6 flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <Select value={selectedRound} onValueChange={setSelectedRound}>
+              <SelectTrigger className="w-full bg-card border-border">
+                <SelectValue placeholder="Filtrar por rodada" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as rodadas</SelectItem>
+                {rounds.map((round) => (
+                  <SelectItem key={round.id} value={round.id}>
+                    Rodada {round.round_number}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex-1">
+            <Select value={selectedPlayer} onValueChange={setSelectedPlayer}>
+              <SelectTrigger className="w-full bg-card border-border">
+                <SelectValue placeholder="Filtrar por jogador" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os jogadores</SelectItem>
+                {players.map((player) => (
+                  <SelectItem key={player.id} value={player.id}>
+                    {player.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         <div className="grid gap-8 md:grid-cols-2">
           <Card className="card-glow bg-card border-border">
             <CardHeader>
@@ -96,6 +198,10 @@ export default function Statistics() {
             <CardContent>
               {loading ? (
                 <div className="text-center py-8">Carregando...</div>
+              ) : topScorers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nenhum resultado encontrado
+                </div>
               ) : (
                 <div className="space-y-4">
                   {topScorers.map((player, index) => (
@@ -138,11 +244,14 @@ export default function Statistics() {
             <CardContent>
               {loading ? (
                 <div className="text-center py-8">Carregando...</div>
+              ) : topScorers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nenhum resultado encontrado
+                </div>
               ) : (
                 <div className="space-y-4">
                   {[...topScorers]
                     .sort((a, b) => b.assists - a.assists)
-                    .slice(0, 10)
                     .map((player, index) => (
                       <div
                         key={player.player_id}
