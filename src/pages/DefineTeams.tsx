@@ -162,10 +162,21 @@ export default function DefineTeams() {
   };
 
   const updateTeamPlayer = (teamColor: string, index: number, playerId: string) => {
+    const newTeams = { ...teams };
+    if (!newTeams[teamColor]) newTeams[teamColor] = [];
+
+    // Remover seleção
+    if (!playerId) {
+      if (newTeams[teamColor][index] !== undefined) {
+        newTeams[teamColor].splice(index, 1);
+      }
+      setTeams(newTeams);
+      return;
+    }
+
     const selectedPlayer = availablePlayers.find(p => p.id === playerId);
     if (!selectedPlayer) return;
 
-    const newTeams = { ...teams };
     newTeams[teamColor][index] = { ...selectedPlayer, team_color: teamColor };
     setTeams(newTeams);
   };
@@ -295,7 +306,7 @@ export default function DefineTeams() {
                   <label className="block text-sm font-medium mb-2">
                     Quantos times jogarão nessa rodada?
                   </label>
-                  <Select value={numTeams.toString()} onValueChange={(v) => setNumTeams(parseInt(v))}>
+                  <Select value={numTeams ? numTeams.toString() : undefined} onValueChange={(v) => setNumTeams(parseInt(v))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
@@ -350,14 +361,9 @@ export default function DefineTeams() {
               </div>
             ) : (
               <div className="space-y-6">
-                <Button
-                  onClick={balanceTeams}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  <Shuffle className="mr-2 h-4 w-4" />
-                  {loading ? "Balanceando..." : "Balancear Times Automaticamente"}
-                </Button>
+                <div className="text-sm text-muted-foreground">
+                  Selecione manualmente os jogadores para cada time; não há balanceamento automático.
+                </div>
 
                 {Object.keys(teams).length > 0 && (
                   <>
