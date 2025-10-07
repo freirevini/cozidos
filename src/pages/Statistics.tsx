@@ -62,12 +62,14 @@ export default function Statistics() {
         .order("round_number", { ascending: true });
       
       const { data: playersData } = await supabase
-        .from("players")
-        .select("id, name")
+        .from("profiles")
+        .select("id, name, nickname")
+        .eq("is_player", true)
+        .eq("is_approved", true)
         .order("name", { ascending: true });
 
       setRounds(roundsData || []);
-      setPlayers(playersData || []);
+      setPlayers((playersData || []).map(p => ({ id: p.id, name: p.nickname || p.name })));
     } catch (error) {
       console.error("Erro ao carregar rodadas e jogadores:", error);
     }
@@ -76,7 +78,13 @@ export default function Statistics() {
   const loadStatistics = async () => {
     try {
       setLoading(true);
-      let playersQuery = supabase.from("players").select("*");
+      
+      // Buscar jogadores de profiles ao invés de players
+      let playersQuery = supabase
+        .from("profiles")
+        .select("*")
+        .eq("is_player", true)
+        .eq("is_approved", true);
       
       if (selectedPlayer !== "all") {
         playersQuery = playersQuery.eq("id", selectedPlayer);
@@ -125,8 +133,8 @@ export default function Statistics() {
 
         return {
           player_id: player.id,
-          player_name: player.name,
-          position: player.position,
+          player_name: player.nickname || player.name,
+          position: player.position || "atacante",
           goals: goals?.length || 0,
           assists: assists?.length || 0,
         };

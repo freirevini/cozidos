@@ -238,17 +238,51 @@ export default function AttendanceRecord() {
               </Card>
             )}
 
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col gap-3">
               <Button
                 onClick={() => navigate(`/admin/round/manage?round=${roundId}`)}
                 variant="outline"
-                className="flex-1"
+                className="w-full"
               >
                 Voltar
               </Button>
               <Button
+                onClick={async () => {
+                  if (!roundId) return;
+                  setLoading(true);
+                  try {
+                    for (const record of records) {
+                      const { data: existingAttendance } = await supabase
+                        .from("player_attendance")
+                        .select("*")
+                        .eq("player_id", record.player_id)
+                        .eq("round_id", roundId)
+                        .maybeSingle();
+
+                      if (existingAttendance) {
+                        await supabase
+                          .from("player_attendance")
+                          .update({ status: record.status })
+                          .eq("id", existingAttendance.id);
+                      }
+                    }
+                    toast.success("Atrasos e faltas salvos!");
+                    navigate(`/admin/round/manage?round=${roundId}`);
+                  } catch (error: any) {
+                    toast.error("Erro ao salvar: " + error.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                variant="secondary"
+                className="w-full"
+                disabled={loading}
+              >
+                Salvar e Editar Partidas
+              </Button>
+              <Button
                 onClick={saveAndFinalize}
-                className="flex-1"
+                className="w-full"
                 disabled={loading}
               >
                 Salvar e Encerrar Rodada

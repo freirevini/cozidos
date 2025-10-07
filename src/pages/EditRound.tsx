@@ -31,6 +31,7 @@ const positionLabels: Record<string, string> = {
   goleiro: "GR",
   defensor: "DF",
   "meio-campista": "MC",
+  meio_campo: "MC",
   atacante: "AT",
 };
 
@@ -327,7 +328,7 @@ export default function EditRound() {
                                           {player.nickname || player.name}
                                         </span>
                                         <span className="text-xs font-bold text-muted-foreground ml-2">
-                                          {positionLabels[player.position]}
+                                          {positionLabels[player.position] || player.position || "N/A"}
                                         </span>
                                       </div>
                                     )}
@@ -347,7 +348,7 @@ export default function EditRound() {
                                         <div className="flex items-center gap-2">
                                           <span>{p.nickname || p.name}</span>
                                           <span className="text-xs text-muted-foreground">
-                                            ({positionLabels[p.position]})
+                                            ({positionLabels[p.position] || p.position || "N/A"})
                                           </span>
                                         </div>
                                       </SelectItem>

@@ -277,19 +277,18 @@ export default function Classification() {
                     <Table>
                       <TableHeader>
                         <TableRow className="border-border hover:bg-muted/50">
-                          <TableHead className="text-primary font-bold">Pos</TableHead>
-                          <TableHead className="text-primary font-bold">Jogador</TableHead>
-                          <TableHead className="text-primary font-bold text-center">P</TableHead>
-                          <TableHead className="text-primary font-bold text-center">V</TableHead>
-                          <TableHead className="text-primary font-bold text-center">E</TableHead>
-                          <TableHead className="text-primary font-bold text-center">D</TableHead>
-                          <TableHead className="text-primary font-bold text-center">A</TableHead>
-                          <TableHead className="text-primary font-bold text-center">F</TableHead>
-                          <TableHead className="text-primary font-bold text-center">Pun</TableHead>
-                          <TableHead className="text-primary font-bold text-center">CA</TableHead>
-                          <TableHead className="text-primary font-bold text-center">CV</TableHead>
-                          <TableHead className="text-primary font-bold text-center">G</TableHead>
-                          <TableHead className="text-primary font-bold text-center">Pts</TableHead>
+                          <TableHead className="text-primary font-bold">Posição</TableHead>
+                          <TableHead className="text-primary font-bold min-w-[120px]">Jogador</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Presença</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Vitória</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Empate</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Derrota</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Atraso</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Falta</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Punição</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Cartão Amarelo</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Cartão Vermelho</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Total de Pontos</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -306,7 +305,6 @@ export default function Classification() {
                             <TableCell className="text-center">{stat.punicao}</TableCell>
                             <TableCell className="text-center">{stat.cartoes_amarelos}</TableCell>
                             <TableCell className="text-center">{stat.cartoes_vermelhos}</TableCell>
-                            <TableCell className="text-center">{stat.gols}</TableCell>
                             <TableCell className="text-center font-bold text-primary">
                               {stat.total_pontos}
                             </TableCell>
@@ -326,19 +324,18 @@ export default function Classification() {
                     <Table>
                       <TableHeader>
                         <TableRow className="border-border hover:bg-muted/50">
-                          <TableHead className="text-primary font-bold">Pos</TableHead>
-                          <TableHead className="text-primary font-bold">Jogador</TableHead>
-                          <TableHead className="text-primary font-bold text-center">P</TableHead>
-                          <TableHead className="text-primary font-bold text-center">V</TableHead>
-                          <TableHead className="text-primary font-bold text-center">E</TableHead>
-                          <TableHead className="text-primary font-bold text-center">D</TableHead>
-                          <TableHead className="text-primary font-bold text-center">A</TableHead>
-                          <TableHead className="text-primary font-bold text-center">F</TableHead>
-                          <TableHead className="text-primary font-bold text-center">Pun</TableHead>
-                          <TableHead className="text-primary font-bold text-center">CA</TableHead>
-                          <TableHead className="text-primary font-bold text-center">CV</TableHead>
-                          <TableHead className="text-primary font-bold text-center">G</TableHead>
-                          <TableHead className="text-primary font-bold text-center">Pts</TableHead>
+                          <TableHead className="text-primary font-bold">Posição</TableHead>
+                          <TableHead className="text-primary font-bold min-w-[120px]">Jogador</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Presença</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Vitória</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Empate</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Derrota</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Atraso</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Falta</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Punição</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Cartão Amarelo</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Cartão Vermelho</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Total de Pontos</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -355,7 +352,6 @@ export default function Classification() {
                             <TableCell className="text-center">{stat.punicao}</TableCell>
                             <TableCell className="text-center">{stat.cartoes_amarelos}</TableCell>
                             <TableCell className="text-center">{stat.cartoes_vermelhos}</TableCell>
-                            <TableCell className="text-center">{stat.gols}</TableCell>
                             <TableCell className="text-center font-bold text-primary">
                               {stat.total_pontos}
                             </TableCell>
@@ -375,19 +371,21 @@ export default function Classification() {
                     <Table>
                       <TableHeader>
                         <TableRow className="border-border hover:bg-muted/50">
-                          <TableHead className="text-primary font-bold">Pos</TableHead>
-                          <TableHead className="text-primary font-bold">Jogador</TableHead>
-                          <TableHead className="text-primary font-bold text-center">P</TableHead>
-                          <TableHead className="text-primary font-bold text-center">V</TableHead>
-                          <TableHead className="text-primary font-bold text-center">E</TableHead>
-                          <TableHead className="text-primary font-bold text-center">D</TableHead>
+                          <TableHead className="text-primary font-bold">Posição</TableHead>
+                          <TableHead className="text-primary font-bold min-w-[120px]">Jogador</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Presença</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Vitória</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Empate</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Derrota</TableHead>
                           <TableHead className="text-primary font-bold text-center">A</TableHead>
                           <TableHead className="text-primary font-bold text-center">F</TableHead>
                           <TableHead className="text-primary font-bold text-center">Pun</TableHead>
-                          <TableHead className="text-primary font-bold text-center">CA</TableHead>
-                          <TableHead className="text-primary font-bold text-center">CV</TableHead>
-                          <TableHead className="text-primary font-bold text-center">G</TableHead>
-                          <TableHead className="text-primary font-bold text-center">Pts</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Atraso</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Falta</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Punição</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Cartão Amarelo</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Cartão Vermelho</TableHead>
+                          <TableHead className="text-primary font-bold text-center">Total de Pontos</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -404,7 +402,6 @@ export default function Classification() {
                             <TableCell className="text-center">{stat.punicao}</TableCell>
                             <TableCell className="text-center">{stat.cartoes_amarelos}</TableCell>
                             <TableCell className="text-center">{stat.cartoes_vermelhos}</TableCell>
-                            <TableCell className="text-center">{stat.gols}</TableCell>
                             <TableCell className="text-center font-bold text-primary">
                               {stat.total_pontos}
                             </TableCell>

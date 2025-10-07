@@ -46,7 +46,6 @@ export default function StartRound() {
       const { data, error } = await supabase
         .from("rounds")
         .select("*")
-        .eq("status", "pending")
         .order("round_number", { ascending: false });
 
       if (error) throw error;
@@ -61,6 +60,27 @@ export default function StartRound() {
 
   const startRound = (roundId: string) => {
     navigate(`/admin/round/manage?round=${roundId}`);
+  };
+
+  const deleteRound = async (roundId: string, roundNumber: number) => {
+    if (!confirm(`Tem certeza que deseja excluir a Rodada ${roundNumber}? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("rounds")
+        .delete()
+        .eq("id", roundId);
+
+      if (error) throw error;
+      
+      toast.success("Rodada excluída com sucesso!");
+      loadAvailableRounds();
+    } catch (error: any) {
+      console.error("Erro ao excluir rodada:", error);
+      toast.error("Erro ao excluir rodada: " + error.message);
+    }
   };
 
   return (
@@ -91,13 +111,21 @@ export default function StartRound() {
                   Selecione uma rodada para iniciar
                 </p>
                 {rounds.map((round) => (
-                  <Button
-                    key={round.id}
-                    onClick={() => startRound(round.id)}
-                    className="w-full bg-primary hover:bg-secondary text-primary-foreground font-bold text-lg py-6"
-                  >
-                    Rodada {round.round_number} - {new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
-                  </Button>
+                  <div key={round.id} className="flex gap-2">
+                    <Button
+                      onClick={() => startRound(round.id)}
+                      className="flex-1 bg-primary hover:bg-secondary text-primary-foreground font-bold text-lg py-6"
+                    >
+                      Rodada {round.round_number} - {new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
+                    </Button>
+                    <Button
+                      onClick={() => deleteRound(round.id, round.round_number)}
+                      variant="destructive"
+                      className="py-6 px-4"
+                    >
+                      Excluir
+                    </Button>
+                  </div>
                 ))}
               </>
             )}

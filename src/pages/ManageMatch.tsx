@@ -310,14 +310,17 @@ export default function ManageMatch() {
 
     setLoading(true);
     try {
+      // Se for gol contra, usar player_id null
+      const isOwnGoal = goalData.player_id === "own_goal";
+      
       const { data: goalRecord, error: goalError } = await supabase
         .from("goals")
         .insert([{
           match_id: match.id,
-          player_id: goalData.player_id,
+          player_id: isOwnGoal ? null : goalData.player_id,
           team_color: goalData.team as "branco" | "vermelho" | "azul" | "laranja",
           minute: currentMinute,
-          is_own_goal: goalData.player_id === "own_goal",
+          is_own_goal: isOwnGoal,
         }])
         .select()
         .single();
@@ -446,9 +449,9 @@ export default function ManageMatch() {
               variant="secondary"
               size="icon"
               onClick={toggleTimer}
-              className="rounded-full"
+              className="rounded-full bg-black hover:bg-black/90 border-2 border-white"
             >
-              {timerRunning ? <Pause size={20} /> : <Play size={20} />}
+              {timerRunning ? <Pause size={20} className="text-white" /> : <Play size={20} className="text-white" />}
             </Button>
           </div>
         </div>

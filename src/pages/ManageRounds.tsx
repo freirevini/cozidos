@@ -169,6 +169,16 @@ export default function ManageRounds() {
     }
   };
 
+  const showAttendanceDialog = () => {
+    const yesNo = window.confirm("Houve atraso e falta na rodada?\n\nClique em 'OK' para SIM ou 'Cancelar' para NÃO");
+    if (yesNo) {
+      navigate(`/admin/round/${roundId}/attendance`);
+    } else {
+      // Não houve atrasos/faltas, permitir edição de partidas antes de finalizar
+      toast.info("Você pode editar as partidas agora antes de finalizar");
+    }
+  };
+
   const finalizeRound = async () => {
     if (!roundId || !round) return;
 
@@ -176,12 +186,6 @@ export default function ManageRounds() {
     const unfinishedMatches = matches.filter(m => m.status !== 'finished');
     if (unfinishedMatches.length > 0) {
       toast.error(`Ainda há ${unfinishedMatches.length} partida(s) não finalizada(s)`);
-      return;
-    }
-
-    // Perguntar se houve atrasos ou faltas
-    if (confirm("Houve atraso ou falta na rodada?")) {
-      navigate(`/admin/round/${roundId}/attendance`);
       return;
     }
 
@@ -256,12 +260,21 @@ export default function ManageRounds() {
                   {round && new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
                 </div>
               </CardTitle>
-              <Button
-                onClick={finalizeRound}
-                disabled={loading || matches.some(m => m.status !== 'finished')}
-              >
-                Finalizar Rodada
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={showAttendanceDialog}
+                  disabled={loading || matches.some(m => m.status !== 'finished')}
+                  variant="secondary"
+                >
+                  Registrar Atrasos/Faltas
+                </Button>
+                <Button
+                  onClick={finalizeRound}
+                  disabled={loading || matches.some(m => m.status !== 'finished')}
+                >
+                  Finalizar Rodada
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>

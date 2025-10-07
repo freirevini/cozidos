@@ -315,7 +315,12 @@ export default function Matches() {
                                 .map((goal, idx) => (
                                   <div key={`home-goal-${idx}`} className="text-xs text-center">
                                     <div className="font-medium">
-                                      {goal.player?.nickname || goal.player?.name}
+                                      ⚽ {goal.player?.nickname || goal.player?.name}
+                                      {goal.assist?.player && (
+                                        <span className="text-muted-foreground ml-1">
+                                          ({goal.assist.player.nickname || goal.assist.player.name})
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 ))}
@@ -337,7 +342,12 @@ export default function Matches() {
                                 .map((goal, idx) => (
                                   <div key={`away-goal-${idx}`} className="text-xs text-center">
                                     <div className="font-medium">
-                                      {goal.player?.nickname || goal.player?.name}
+                                      ⚽ {goal.player?.nickname || goal.player?.name}
+                                      {goal.assist?.player && (
+                                        <span className="text-muted-foreground ml-1">
+                                          ({goal.assist.player.nickname || goal.assist.player.name})
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 ))}
