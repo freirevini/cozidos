@@ -12,6 +12,11 @@ import ManagePlayers from "./pages/ManagePlayers";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import Teams from "./pages/Teams";
+import DefineTeams from "./pages/DefineTeams";
+import ManageTeams from "./pages/ManageTeams";
+import StartRound from "./pages/StartRound";
+import ManageRounds from "./pages/ManageRounds";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +63,11 @@ const App = () => (
           <Route path="/matches" element={<ProtectedRoute><Matches /></ProtectedRoute>} />
           <Route path="/statistics" element={<ProtectedRoute><Statistics /></ProtectedRoute>} />
           <Route path="/admin/players" element={<ProtectedRoute><ManagePlayers /></ProtectedRoute>} />
+          <Route path="/admin/teams" element={<ProtectedRoute><Teams /></ProtectedRoute>} />
+          <Route path="/admin/teams/define" element={<ProtectedRoute><DefineTeams /></ProtectedRoute>} />
+          <Route path="/admin/teams/manage" element={<ProtectedRoute><ManageTeams /></ProtectedRoute>} />
+          <Route path="/admin/round" element={<ProtectedRoute><StartRound /></ProtectedRoute>} />
+          <Route path="/admin/round/manage" element={<ProtectedRoute><ManageRounds /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

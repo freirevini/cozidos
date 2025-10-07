@@ -351,6 +351,9 @@ export type Database = {
           name: string
           nickname: string | null
           player_type: string | null
+          player_type_detail:
+            | Database["public"]["Enums"]["player_type_enum"]
+            | null
           position: Database["public"]["Enums"]["player_position"] | null
         }
         Insert: {
@@ -363,6 +366,9 @@ export type Database = {
           name: string
           nickname?: string | null
           player_type?: string | null
+          player_type_detail?:
+            | Database["public"]["Enums"]["player_type_enum"]
+            | null
           position?: Database["public"]["Enums"]["player_position"] | null
         }
         Update: {
@@ -375,6 +381,9 @@ export type Database = {
           name?: string
           nickname?: string | null
           player_type?: string | null
+          player_type_detail?:
+            | Database["public"]["Enums"]["player_type_enum"]
+            | null
           position?: Database["public"]["Enums"]["player_position"] | null
         }
         Relationships: []
@@ -549,6 +558,7 @@ export type Database = {
       card_type: "amarelo" | "vermelho"
       player_level: "A" | "B" | "C" | "D" | "E"
       player_position: "goleiro" | "defensor" | "meio-campista" | "atacante"
+      player_type_enum: "mensal" | "avulso"
       team_color: "branco" | "vermelho" | "azul" | "laranja"
       user_role: "user" | "admin"
     }
@@ -682,6 +692,7 @@ export const Constants = {
       card_type: ["amarelo", "vermelho"],
       player_level: ["A", "B", "C", "D", "E"],
       player_position: ["goleiro", "defensor", "meio-campista", "atacante"],
+      player_type_enum: ["mensal", "avulso"],
       team_color: ["branco", "vermelho", "azul", "laranja"],
       user_role: ["user", "admin"],
     },

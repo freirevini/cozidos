@@ -92,7 +92,7 @@ export default function Auth() {
           nickname,
           birth_date: birthDate,
           is_player: isPlayer === "sim",
-          player_type: isPlayer === "sim" ? playerType : null,
+          player_type_detail: isPlayer === "sim" ? (playerType as "mensal" | "avulso") : null,
         }).eq("id", data.user.id);
 
         toast.success("Conta criada com sucesso! Você já pode fazer login.");
