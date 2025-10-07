@@ -144,6 +144,7 @@ export type Database = {
           score_away: number
           score_home: number
           started_at: string | null
+          status: string | null
           team_away: Database["public"]["Enums"]["team_color"]
           team_home: Database["public"]["Enums"]["team_color"]
         }
@@ -156,6 +157,7 @@ export type Database = {
           score_away?: number
           score_home?: number
           started_at?: string | null
+          status?: string | null
           team_away: Database["public"]["Enums"]["team_color"]
           team_home: Database["public"]["Enums"]["team_color"]
         }
@@ -168,6 +170,7 @@ export type Database = {
           score_away?: number
           score_home?: number
           started_at?: string | null
+          status?: string | null
           team_away?: Database["public"]["Enums"]["team_color"]
           team_home?: Database["public"]["Enums"]["team_color"]
         }
@@ -220,6 +223,96 @@ export type Database = {
           },
         ]
       }
+      player_round_stats: {
+        Row: {
+          absence_points: number | null
+          absences: number | null
+          card_points: number | null
+          created_at: string | null
+          defeat_points: number | null
+          defeats: number | null
+          draw_points: number | null
+          draws: number | null
+          goal_points: number | null
+          id: string
+          late_points: number | null
+          lates: number | null
+          player_id: string
+          presence_points: number | null
+          punishment_points: number | null
+          punishments: number | null
+          red_cards: number | null
+          round_id: string
+          total_points: number | null
+          victories: number | null
+          victory_points: number | null
+          yellow_cards: number | null
+        }
+        Insert: {
+          absence_points?: number | null
+          absences?: number | null
+          card_points?: number | null
+          created_at?: string | null
+          defeat_points?: number | null
+          defeats?: number | null
+          draw_points?: number | null
+          draws?: number | null
+          goal_points?: number | null
+          id?: string
+          late_points?: number | null
+          lates?: number | null
+          player_id: string
+          presence_points?: number | null
+          punishment_points?: number | null
+          punishments?: number | null
+          red_cards?: number | null
+          round_id: string
+          total_points?: number | null
+          victories?: number | null
+          victory_points?: number | null
+          yellow_cards?: number | null
+        }
+        Update: {
+          absence_points?: number | null
+          absences?: number | null
+          card_points?: number | null
+          created_at?: string | null
+          defeat_points?: number | null
+          defeats?: number | null
+          draw_points?: number | null
+          draws?: number | null
+          goal_points?: number | null
+          id?: string
+          late_points?: number | null
+          lates?: number | null
+          player_id?: string
+          presence_points?: number | null
+          punishment_points?: number | null
+          punishments?: number | null
+          red_cards?: number | null
+          round_id?: string
+          total_points?: number | null
+          victories?: number | null
+          victory_points?: number | null
+          yellow_cards?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_round_stats_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_round_stats_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       players: {
         Row: {
           created_at: string
@@ -249,19 +342,40 @@ export type Database = {
       }
       profiles: {
         Row: {
+          birth_date: string | null
           created_at: string
           id: string
+          is_approved: boolean | null
+          is_player: boolean | null
+          level: Database["public"]["Enums"]["player_level"] | null
           name: string
+          nickname: string | null
+          player_type: string | null
+          position: Database["public"]["Enums"]["player_position"] | null
         }
         Insert: {
+          birth_date?: string | null
           created_at?: string
           id: string
+          is_approved?: boolean | null
+          is_player?: boolean | null
+          level?: Database["public"]["Enums"]["player_level"] | null
           name: string
+          nickname?: string | null
+          player_type?: string | null
+          position?: Database["public"]["Enums"]["player_position"] | null
         }
         Update: {
+          birth_date?: string | null
           created_at?: string
           id?: string
+          is_approved?: boolean | null
+          is_player?: boolean | null
+          level?: Database["public"]["Enums"]["player_level"] | null
           name?: string
+          nickname?: string | null
+          player_type?: string | null
+          position?: Database["public"]["Enums"]["player_position"] | null
         }
         Relationships: []
       }
@@ -307,6 +421,45 @@ export type Database = {
           },
         ]
       }
+      round_team_players: {
+        Row: {
+          created_at: string | null
+          id: string
+          player_id: string
+          round_id: string
+          team_color: Database["public"]["Enums"]["team_color"]
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          player_id: string
+          round_id: string
+          team_color: Database["public"]["Enums"]["team_color"]
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          player_id?: string
+          round_id?: string
+          team_color?: Database["public"]["Enums"]["team_color"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "round_team_players_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "round_team_players_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       round_teams: {
         Row: {
           id: string
@@ -339,6 +492,7 @@ export type Database = {
           created_at: string
           id: string
           round_number: number
+          scheduled_date: string | null
           status: string
         }
         Insert: {
@@ -346,6 +500,7 @@ export type Database = {
           created_at?: string
           id?: string
           round_number: number
+          scheduled_date?: string | null
           status?: string
         }
         Update: {
@@ -353,6 +508,7 @@ export type Database = {
           created_at?: string
           id?: string
           round_number?: number
+          scheduled_date?: string | null
           status?: string
         }
         Relationships: []
