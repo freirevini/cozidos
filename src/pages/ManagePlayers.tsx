@@ -217,7 +217,7 @@ export default function ManagePlayers() {
       const playersToInsert: Database['public']['Tables']['profiles']['Insert'][] = data
         .filter((row: any) => row["Nome Completo"] && row["Apelido"] && row["Nivel"] && row["Posicao"])
         .map((row: any) => {
-          const levelKey = row["Nivel"]?.toString().toLowerCase() as Database['public']['Enums']['player_level'];
+          const levelKey = row["Nivel"]?.toString().toUpperCase() as Database['public']['Enums']['player_level'];
           const positionValue = row["Posicao"]?.toString().toLowerCase().replace(/\s+/g, '_') as Database['public']['Enums']['player_position'];
           
           return {
@@ -351,11 +351,12 @@ export default function ManagePlayers() {
                                   <Badge className="bg-red-600">Sim</Badge>
                                 </td>
                                 <td className="py-2 px-2">
-                                  <code className="bg-background px-1 rounded">a</code>,{" "}
-                                  <code className="bg-background px-1 rounded">b</code>,{" "}
-                                  <code className="bg-background px-1 rounded">c</code>,{" "}
-                                  <code className="bg-background px-1 rounded">d</code>,{" "}
-                                  <code className="bg-background px-1 rounded">e</code>
+                                  <code className="bg-background px-1 rounded">A</code>,{" "}
+                                  <code className="bg-background px-1 rounded">B</code>,{" "}
+                                  <code className="bg-background px-1 rounded">C</code>,{" "}
+                                  <code className="bg-background px-1 rounded">D</code>,{" "}
+                                  <code className="bg-background px-1 rounded">E</code>
+                                  <span className="text-xs text-muted-foreground ml-2">(letras maiúsculas)</span>
                                 </td>
                               </tr>
                               <tr>
@@ -391,19 +392,19 @@ export default function ManagePlayers() {
                               <tr className="border-b">
                                 <td className="py-2 px-3">João Silva Santos</td>
                                 <td className="py-2 px-3">João</td>
-                                <td className="py-2 px-3">a</td>
+                                <td className="py-2 px-3">A</td>
                                 <td className="py-2 px-3">atacante</td>
                               </tr>
                               <tr className="border-b">
                                 <td className="py-2 px-3">Pedro Costa Lima</td>
                                 <td className="py-2 px-3">Pedrinho</td>
-                                <td className="py-2 px-3">b</td>
+                                <td className="py-2 px-3">B</td>
                                 <td className="py-2 px-3">meio campo</td>
                               </tr>
                               <tr>
                                 <td className="py-2 px-3">Carlos Eduardo</td>
                                 <td className="py-2 px-3">Carlão</td>
-                                <td className="py-2 px-3">c</td>
+                                <td className="py-2 px-3">C</td>
                                 <td className="py-2 px-3">goleiro</td>
                               </tr>
                             </tbody>
