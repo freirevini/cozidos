@@ -74,7 +74,7 @@ export default function DefineTeams() {
         .from("profiles")
         .select("*")
         .eq("is_player", true)
-        .eq("is_approved", true)
+        .eq("status", "aprovado")
         .not("level", "is", null)
         .not("position", "is", null);
 
@@ -98,18 +98,20 @@ export default function DefineTeams() {
     setLoading(true);
     
     try {
-      const goalkeepers = availablePlayers.filter(p => p.position === 'goleiro');
-      const levels = ['a', 'b', 'c', 'd', 'e'];
+      const levels = ['A', 'B', 'C', 'D', 'E'];
       const playersByLevel: Record<string, Player[]> = {};
       
       levels.forEach(level => {
         playersByLevel[level] = availablePlayers.filter(
-          p => p.level === level && p.position !== 'goleiro'
+          p => p.level?.toUpperCase() === level && p.position !== 'goleiro'
         );
       });
 
-      if (goalkeepers.length < selectedTeams.length) {
-        toast.error("Não há goleiros suficientes para todos os times");
+      const totalFieldPlayers = Object.values(playersByLevel).flat().length;
+      const requiredPlayers = selectedTeams.length * 5; // 5 jogadores de linha por time
+      
+      if (totalFieldPlayers < requiredPlayers) {
+        toast.error(`Não há jogadores de linha suficientes. Necessário: ${requiredPlayers}, Disponível: ${totalFieldPlayers}`);
         setLoading(false);
         return;
       }
@@ -128,19 +130,25 @@ export default function DefineTeams() {
         newTeams[team] = [];
       });
 
-      const shuffledGoalkeepers = shuffle(goalkeepers);
-      selectedTeams.forEach((team, index) => {
-        const gk = shuffledGoalkeepers[index];
-        newTeams[team].push({ ...gk, team_color: team });
-      });
-
+      // Distribuir jogadores de linha por nível
       levels.forEach(level => {
         const shuffled = shuffle(playersByLevel[level]);
-        selectedTeams.forEach((team, index) => {
-          if (shuffled[index]) {
-            newTeams[team].push({ ...shuffled[index], team_color: team });
+        let playerIndex = 0;
+        selectedTeams.forEach((team) => {
+          if (shuffled[playerIndex]) {
+            newTeams[team].push({ ...shuffled[playerIndex], team_color: team });
+            playerIndex++;
           }
         });
+      });
+
+      // Adicionar goleiros disponíveis (se houver)
+      const goalkeepers = availablePlayers.filter(p => p.position === 'goleiro');
+      const shuffledGoalkeepers = shuffle(goalkeepers);
+      selectedTeams.forEach((team, index) => {
+        if (shuffledGoalkeepers[index]) {
+          newTeams[team].push({ ...shuffledGoalkeepers[index], team_color: team });
+        }
       });
 
       setTeams(newTeams);
@@ -153,9 +161,45 @@ export default function DefineTeams() {
     }
   };
 
+  const updateTeamPlayer = (teamColor: string, index: number, playerId: string) => {
+    const selectedPlayer = availablePlayers.find(p => p.id === playerId);
+    if (!selectedPlayer) return;
+
+    const newTeams = { ...teams };
+    newTeams[teamColor][index] = { ...selectedPlayer, team_color: teamColor };
+    setTeams(newTeams);
+  };
+
+  const validateTeams = (): boolean => {
+    for (const teamColor of selectedTeams) {
+      const teamPlayers = teams[teamColor] || [];
+      const fieldPlayers = teamPlayers.filter(p => p.position !== 'goleiro');
+      
+      if (fieldPlayers.length < 5) {
+        toast.error(`Time ${teamColor} precisa ter pelo menos 5 jogadores de linha`);
+        return false;
+      }
+      
+      // Validar que tem pelo menos um jogador de cada nível A, B, C, D, E
+      const levels = ['A', 'B', 'C', 'D', 'E'];
+      for (const level of levels) {
+        const hasLevel = fieldPlayers.some(p => p.level?.toUpperCase() === level);
+        if (!hasLevel) {
+          toast.error(`Time ${teamColor} precisa ter pelo menos um jogador de nível ${level}`);
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
   const handleSaveTeams = async () => {
     if (Object.keys(teams).length === 0) {
       toast.error("Defina os times primeiro");
+      return;
+    }
+
+    if (!validateTeams()) {
       return;
     }
 
@@ -331,29 +375,54 @@ export default function DefineTeams() {
                           </tr>
                         </thead>
                         <tbody>
-                          {[0, 1, 2, 3, 4, 5].map((index) => (
+                          {[0, 1, 2, 3, 4, 5, 6].map((index) => (
                             <tr key={index}>
                               {selectedTeams.map((team) => {
                                 const player = teams[team]?.[index];
                                 return (
-                                  <td key={team} className="p-4 border border-border text-center">
-                                    {player ? (
-                                      <div className="flex items-center justify-between">
-                                        {player.position !== 'goleiro' && (
-                                          <span className="text-xs font-bold text-primary mr-2">
-                                            {player.level?.toUpperCase()}
-                                          </span>
-                                        )}
-                                        <span className="flex-1">
-                                          {player.nickname || player.name}
-                                        </span>
-                                        <span className="text-xs font-bold text-muted-foreground ml-2">
-                                          {positionLabels[player.position]}
-                                        </span>
-                                      </div>
-                                    ) : (
-                                      <span className="text-muted-foreground">-</span>
-                                    )}
+                                  <td key={team} className="p-4 border border-border">
+                                    <Select
+                                      value={player?.id || ""}
+                                      onValueChange={(playerId) => updateTeamPlayer(team, index, playerId)}
+                                    >
+                                      <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Selecione um jogador">
+                                          {player && (
+                                            <div className="flex items-center justify-between w-full">
+                                              {player.position !== 'goleiro' && (
+                                                <span className="text-xs font-bold text-primary mr-2">
+                                                  {player.level?.toUpperCase()}
+                                                </span>
+                                              )}
+                                              <span className="flex-1 text-left">
+                                                {player.nickname || player.name}
+                                              </span>
+                                              <span className="text-xs font-bold text-muted-foreground ml-2">
+                                                {positionLabels[player.position] || player.position}
+                                              </span>
+                                            </div>
+                                          )}
+                                        </SelectValue>
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="">Nenhum</SelectItem>
+                                        {availablePlayers.map((p) => (
+                                          <SelectItem key={p.id} value={p.id}>
+                                            <div className="flex items-center gap-2">
+                                              {p.position !== 'goleiro' && (
+                                                <span className="text-xs font-bold text-primary">
+                                                  {p.level?.toUpperCase()}
+                                                </span>
+                                              )}
+                                              <span>{p.nickname || p.name}</span>
+                                              <span className="text-xs text-muted-foreground">
+                                                ({positionLabels[p.position] || p.position})
+                                              </span>
+                                            </div>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                   </td>
                                 );
                               })}

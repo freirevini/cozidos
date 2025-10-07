@@ -95,8 +95,8 @@ export default function ManageTeams() {
                 <p className="text-muted-foreground mb-4">
                   Nenhuma rodada pendente encontrada
                 </p>
-                <Button onClick={() => navigate("/admin/teams")}>
-                  Voltar
+                <Button onClick={() => navigate("/admin/teams/manage")}>
+                  Voltar para Times
                 </Button>
               </div>
             ) : (
@@ -118,7 +118,7 @@ export default function ManageTeams() {
                         </div>
                         <div className="flex gap-2">
                           <Button
-                            variant="outline"
+                            variant="destructive"
                             onClick={() => {
                               if (confirm("Tem certeza que deseja excluir esta rodada?")) {
                                 deleteRound(round.id);
@@ -127,8 +127,14 @@ export default function ManageTeams() {
                           >
                             Excluir
                           </Button>
+                          <Button 
+                            variant="outline"
+                            onClick={() => navigate(`/admin/round/${round.id}/edit`)}
+                          >
+                            Editar Times
+                          </Button>
                           <Button onClick={() => navigate("/admin/teams")}>
-                            Ver Detalhes
+                            Ver Times
                           </Button>
                         </div>
                       </div>
@@ -136,7 +142,7 @@ export default function ManageTeams() {
                   </Card>
                 ))}
                 <Button onClick={() => navigate("/admin/teams")} variant="outline" className="w-full">
-                  Voltar
+                  Voltar para Times
                 </Button>
               </div>
             )}

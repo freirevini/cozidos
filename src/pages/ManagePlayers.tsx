@@ -26,6 +26,7 @@ interface Player {
   level: string | null;
   position: string | null;
   is_approved: boolean;
+  status: string | null;
 }
 
 const positionMap: Record<string, string> = {
@@ -49,6 +50,7 @@ export default function ManagePlayers() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [editingPlayer, setEditingPlayer] = useState<string | null>(null);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -111,13 +113,32 @@ export default function ManagePlayers() {
         p.id === playerId ? { ...p, [field]: value } : p
       ));
 
-      toast({
-        title: "Jogador atualizado",
-        description: "As informações foram salvas com sucesso.",
-      });
+      sonnerToast.success("Jogador atualizado com sucesso!");
     } catch (error: any) {
       toast({
         title: "Erro ao atualizar",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deletePlayer = async (playerId: string) => {
+    if (!confirm("Tem certeza que deseja remover este jogador?")) return;
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", playerId);
+
+      if (error) throw error;
+
+      setPlayers(players.filter(p => p.id !== playerId));
+      sonnerToast.success("Jogador removido com sucesso!");
+    } catch (error: any) {
+      toast({
+        title: "Erro ao remover",
         description: error.message,
         variant: "destructive",
       });
@@ -142,8 +163,8 @@ export default function ManagePlayers() {
         level: newPlayer.level as Database['public']['Enums']['player_level'],
         position: newPlayer.position as Database['public']['Enums']['player_position'],
         is_player: true,
-        is_approved: true,
         player_type: "avulso",
+        status: "aprovado",
       };
 
       const { error } = await supabase
@@ -238,8 +259,8 @@ export default function ManagePlayers() {
             level: levelKey,
             position: positionValue,
             is_player: true,
-            is_approved: true,
             player_type: "avulso",
+            status: "aprovado",
           };
         });
 
@@ -547,65 +568,154 @@ export default function ManagePlayers() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {players.map((player) => (
-                      <TableRow key={player.id}>
-                        <TableCell>{player.name}</TableCell>
-                        <TableCell>{player.nickname || "-"}</TableCell>
-                        <TableCell>{calculateAge(player.birth_date)}</TableCell>
-                        <TableCell className="capitalize">{player.player_type || "-"}</TableCell>
-                        <TableCell>
-                          <Select
-                            value={player.level || ""}
-                            onValueChange={(value) => updatePlayer(player.id, "level", value)}
-                          >
-                            <SelectTrigger className="w-20">
-                              <SelectValue placeholder="Nível" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.entries(levelMap).map(([key, label]) => (
-                                <SelectItem key={key} value={key}>
-                                  {label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={player.position || ""}
-                            onValueChange={(value) => updatePlayer(player.id, "position", value)}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue placeholder="Posição" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.entries(positionMap).map(([key, label]) => (
-                                <SelectItem key={key} value={key}>
-                                  {label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          {player.is_approved ? (
-                            <Badge className="bg-green-600">Aprovado</Badge>
-                          ) : (
-                            <Badge variant="outline">Pendente</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {!player.is_approved && player.level && player.position && (
-                            <Button
-                              size="sm"
-                              onClick={() => updatePlayer(player.id, "is_approved", true)}
+                    {players.map((player) => {
+                      const isEditing = editingPlayer === player.id;
+                      return (
+                        <TableRow key={player.id}>
+                          <TableCell>
+                            {isEditing ? (
+                              <Input
+                                value={player.name}
+                                onChange={(e) => {
+                                  setPlayers(players.map(p => 
+                                    p.id === player.id ? { ...p, name: e.target.value } : p
+                                  ));
+                                }}
+                                className="min-w-[150px]"
+                              />
+                            ) : (
+                              player.name
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {isEditing ? (
+                              <Input
+                                value={player.nickname || ""}
+                                onChange={(e) => {
+                                  setPlayers(players.map(p => 
+                                    p.id === player.id ? { ...p, nickname: e.target.value } : p
+                                  ));
+                                }}
+                                className="min-w-[120px]"
+                              />
+                            ) : (
+                              player.nickname || "-"
+                            )}
+                          </TableCell>
+                          <TableCell>{calculateAge(player.birth_date)}</TableCell>
+                          <TableCell>
+                            <Select
+                              value={player.player_type || "avulso"}
+                              onValueChange={(value) => updatePlayer(player.id, "player_type", value)}
+                              disabled={!isEditing}
                             >
-                              Aprovar
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                              <SelectTrigger className="w-32">
+                                <SelectValue placeholder="Tipo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="mensal">Mensal</SelectItem>
+                                <SelectItem value="avulso_fixo">Avulso Fixo</SelectItem>
+                                <SelectItem value="avulso">Avulso</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={player.level || ""}
+                              onValueChange={(value) => updatePlayer(player.id, "level", value)}
+                              disabled={!isEditing}
+                            >
+                              <SelectTrigger className="w-20">
+                                <SelectValue placeholder="Nível" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(levelMap).map(([key, label]) => (
+                                  <SelectItem key={key} value={key}>
+                                    {label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={player.position || ""}
+                              onValueChange={(value) => updatePlayer(player.id, "position", value)}
+                              disabled={!isEditing}
+                            >
+                              <SelectTrigger className="w-32">
+                                <SelectValue placeholder="Posição" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(positionMap).map(([key, label]) => (
+                                  <SelectItem key={key} value={key}>
+                                    {label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={player.status || "aprovar"}
+                              onValueChange={(value) => updatePlayer(player.id, "status", value)}
+                              disabled={!isEditing}
+                            >
+                              <SelectTrigger className={`w-32 ${
+                                player.status === "aprovado" ? "border-green-600" : 
+                                player.status === "aprovar" ? "border-yellow-600" : 
+                                "border-gray-600"
+                              }`}>
+                                <SelectValue placeholder="Status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="aprovado">
+                                  <span className="text-green-600">Aprovado</span>
+                                </SelectItem>
+                                <SelectItem value="aprovar">
+                                  <span className="text-yellow-600">Aprovar</span>
+                                </SelectItem>
+                                <SelectItem value="congelado">
+                                  <span className="text-gray-600">Congelado</span>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              {isEditing ? (
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    updatePlayer(player.id, "name", player.name);
+                                    updatePlayer(player.id, "nickname", player.nickname);
+                                    setEditingPlayer(null);
+                                  }}
+                                  className="bg-green-600 hover:bg-green-700"
+                                >
+                                  Salvar
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  onClick={() => setEditingPlayer(player.id)}
+                                  variant="outline"
+                                >
+                                  Editar
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                onClick={() => deletePlayer(player.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Remover
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
