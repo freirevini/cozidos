@@ -295,63 +295,72 @@ export default function Matches() {
                   {currentRound.matches.map((match) => (
                     <Card key={match.id} className="bg-muted/20 border-border">
                       <CardContent className="p-6">
-                        <div className="flex flex-col space-y-4">
-                          <div className="text-center text-sm text-muted-foreground">
-                            {match.scheduled_time}
+                         <div className="flex flex-col space-y-4">
+                          <div className="text-center text-sm text-muted-foreground font-medium">
+                            {match.scheduled_time.substring(0, 5)}
                           </div>
 
-                          <div className="flex items-center justify-center space-x-6">
-                            <div className="flex items-center space-x-3">
-                              <Badge className={teamColors[match.team_home]}>
+                          <div className="flex items-center justify-center gap-8">
+                            <div className="flex flex-col items-center space-y-2 flex-1">
+                              <Badge className={teamColors[match.team_home] + " w-full justify-center py-2"}>
                                 {teamNames[match.team_home]}
                               </Badge>
                               <span className="text-4xl font-bold text-primary">
                                 {match.score_home}
                               </span>
+                              {/* Gols do time da casa */}
+                              {match.goals
+                                .filter(g => g.team_color === match.team_home)
+                                .sort((a, b) => a.minute - b.minute)
+                                .map((goal, idx) => (
+                                  <div key={`home-goal-${idx}`} className="text-xs text-center">
+                                    <div className="font-medium">
+                                      {goal.player?.nickname || goal.player?.name}
+                                    </div>
+                                  </div>
+                                ))}
                             </div>
-                            <span className="text-2xl text-muted-foreground">×</span>
-                            <div className="flex items-center space-x-3">
+
+                            <div className="text-2xl text-muted-foreground font-bold">×</div>
+
+                            <div className="flex flex-col items-center space-y-2 flex-1">
+                              <Badge className={teamColors[match.team_away] + " w-full justify-center py-2"}>
+                                {teamNames[match.team_away]}
+                              </Badge>
                               <span className="text-4xl font-bold text-primary">
                                 {match.score_away}
                               </span>
-                              <Badge className={teamColors[match.team_away]}>
-                                {teamNames[match.team_away]}
-                              </Badge>
+                              {/* Gols do time visitante */}
+                              {match.goals
+                                .filter(g => g.team_color === match.team_away)
+                                .sort((a, b) => a.minute - b.minute)
+                                .map((goal, idx) => (
+                                  <div key={`away-goal-${idx}`} className="text-xs text-center">
+                                    <div className="font-medium">
+                                      {goal.player?.nickname || goal.player?.name}
+                                    </div>
+                                  </div>
+                                ))}
                             </div>
                           </div>
 
-                          {(match.goals.length > 0 || match.cards.length > 0) && (
-                            <div className="border-t border-border pt-4 space-y-2">
-                              {match.goals
-                                .sort((a, b) => a.minute - b.minute)
-                                .map((goal, idx) => (
-                                  <div key={`goal-${idx}`} className="text-sm">
-                                    <span className="text-foreground font-medium">
-                                      ⚽ {goal.player?.nickname || goal.player?.name}
-                                    </span>
-                                    {goal.assist?.player && (
-                                      <span className="text-muted-foreground">
-                                        {" "}({goal.assist.player.nickname || goal.assist.player.name})
+                          {match.cards.length > 0 && (
+                            <div className="border-t border-border pt-4">
+                              <div className="text-xs font-semibold mb-2 text-center">Cartões</div>
+                              <div className="space-y-1">
+                                {match.cards
+                                  .sort((a, b) => a.minute - b.minute)
+                                  .map((card, idx) => (
+                                    <div key={`card-${idx}`} className="text-sm text-center">
+                                      <span className="text-foreground font-medium">
+                                        {card.card_type === "amarelo" ? "🟨" : "🟥"} {card.player?.nickname || card.player?.name}
                                       </span>
-                                    )}
-                                    <span className="text-muted-foreground ml-2">
-                                      {goal.minute}'
-                                    </span>
-                                  </div>
-                                ))}
-                              
-                              {match.cards
-                                .sort((a, b) => a.minute - b.minute)
-                                .map((card, idx) => (
-                                  <div key={`card-${idx}`} className="text-sm">
-                                    <span className="text-foreground font-medium">
-                                      {card.card_type === "amarelo" ? "🟨" : "🟥"} {card.player?.nickname || card.player?.name}
-                                    </span>
-                                    <span className="text-muted-foreground ml-2">
-                                      {card.minute}'
-                                    </span>
-                                  </div>
-                                ))}
+                                      <span className="text-muted-foreground ml-2">
+                                        {card.minute}'
+                                      </span>
+                                    </div>
+                                  ))}
+                              </div>
                             </div>
                           )}
                         </div>

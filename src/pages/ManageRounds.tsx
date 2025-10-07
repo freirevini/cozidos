@@ -7,7 +7,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
-import ManageMatchDialog from "@/components/ManageMatchDialog";
+
 
 interface Match {
   id: string;
@@ -50,8 +50,6 @@ export default function ManageRounds() {
   const [loading, setLoading] = useState(true);
   const [round, setRound] = useState<Round | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
-  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
-  const [manageDialogOpen, setManageDialogOpen] = useState(false);
 
   useEffect(() => {
     checkAdmin();
@@ -181,6 +179,12 @@ export default function ManageRounds() {
       return;
     }
 
+    // Perguntar se houve atrasos ou faltas
+    if (confirm("Houve atraso ou falta na rodada?")) {
+      navigate(`/admin/round/${roundId}/attendance`);
+      return;
+    }
+
     if (!confirm("Tem certeza que deseja finalizar esta rodada?")) {
       return;
     }
@@ -196,9 +200,6 @@ export default function ManageRounds() {
 
       if (updateError) throw updateError;
 
-      // Calcular estatísticas dos jogadores (simplificado)
-      // Aqui você pode adicionar lógica mais complexa conforme necessário
-
       toast.success("Rodada finalizada com sucesso!");
       navigate("/admin/round");
     } catch (error: any) {
@@ -209,15 +210,8 @@ export default function ManageRounds() {
     }
   };
 
-  const openMatchDialog = (match: Match) => {
-    setSelectedMatch(match);
-    setManageDialogOpen(true);
-  };
-
-  const handleMatchUpdate = () => {
-    loadRoundData();
-    setManageDialogOpen(false);
-    setSelectedMatch(null);
+  const openMatchPage = (match: Match) => {
+    navigate(`/admin/match/${match.id}/${roundId}`);
   };
 
   if (!roundId) {
@@ -320,10 +314,9 @@ export default function ManageRounds() {
                           <td className="p-3 text-center">
                             <Button
                               size="sm"
-                              onClick={() => openMatchDialog(match)}
-                              disabled={match.status === 'finished'}
+                              onClick={() => openMatchPage(match)}
                             >
-                              Gerenciar
+                              {match.status === 'finished' ? 'Ver Partida' : 'Gerenciar'}
                             </Button>
                           </td>
                         </tr>
@@ -337,15 +330,6 @@ export default function ManageRounds() {
         </Card>
       </main>
 
-      {selectedMatch && (
-        <ManageMatchDialog
-          match={selectedMatch}
-          roundId={roundId}
-          open={manageDialogOpen}
-          onOpenChange={setManageDialogOpen}
-          onUpdate={handleMatchUpdate}
-        />
-      )}
     </div>
   );
 }

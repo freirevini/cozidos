@@ -19,6 +19,8 @@ import StartRound from "./pages/StartRound";
 import ManageRounds from "./pages/ManageRounds";
 import EditRound from "./pages/EditRound";
 import ViewRound from "./pages/ViewRound";
+import ManageMatch from "./pages/ManageMatch";
+import AttendanceRecord from "./pages/AttendanceRecord";
 
 const queryClient = new QueryClient();
 
@@ -70,6 +72,8 @@ const App = () => (
           <Route path="/admin/teams/manage" element={<ProtectedRoute><ManageTeams /></ProtectedRoute>} />
           <Route path="/admin/round/:roundId/edit" element={<ProtectedRoute><EditRound /></ProtectedRoute>} />
           <Route path="/admin/round/:roundId/view" element={<ProtectedRoute><ViewRound /></ProtectedRoute>} />
+          <Route path="/admin/match/:matchId/:roundId" element={<ProtectedRoute><ManageMatch /></ProtectedRoute>} />
+          <Route path="/admin/round/:roundId/attendance" element={<ProtectedRoute><AttendanceRecord /></ProtectedRoute>} />
           <Route path="/admin/round" element={<ProtectedRoute><StartRound /></ProtectedRoute>} />
           <Route path="/admin/round/manage" element={<ProtectedRoute><ManageRounds /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

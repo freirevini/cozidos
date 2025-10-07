@@ -139,6 +139,9 @@ export type Database = {
           finished_at: string | null
           id: string
           match_number: number
+          match_timer_paused_at: string | null
+          match_timer_started_at: string | null
+          match_timer_total_paused_seconds: number | null
           round_id: string
           scheduled_time: string
           score_away: number
@@ -152,6 +155,9 @@ export type Database = {
           finished_at?: string | null
           id?: string
           match_number: number
+          match_timer_paused_at?: string | null
+          match_timer_started_at?: string | null
+          match_timer_total_paused_seconds?: number | null
           round_id: string
           scheduled_time: string
           score_away?: number
@@ -165,6 +171,9 @@ export type Database = {
           finished_at?: string | null
           id?: string
           match_number?: number
+          match_timer_paused_at?: string | null
+          match_timer_started_at?: string | null
+          match_timer_total_paused_seconds?: number | null
           round_id?: string
           scheduled_time?: string
           score_away?: number

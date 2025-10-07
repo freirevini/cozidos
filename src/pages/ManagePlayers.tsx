@@ -15,6 +15,7 @@ import { Upload, UserPlus, Info } from "lucide-react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { toast as sonnerToast } from "sonner";
+import PunishmentDialog from "@/components/PunishmentDialog";
 
 interface Player {
   id: string;
@@ -51,6 +52,11 @@ export default function ManagePlayers() {
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [importing, setImporting] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<string | null>(null);
+  const [punishmentDialog, setPunishmentDialog] = useState<{ open: boolean; playerId: string; playerName: string }>({
+    open: false,
+    playerId: "",
+    playerName: "",
+  });
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -565,6 +571,7 @@ export default function ManagePlayers() {
                       <TableHead>Nível</TableHead>
                       <TableHead>Posição</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Punição</TableHead>
                       <TableHead>Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -683,7 +690,20 @@ export default function ManagePlayers() {
                             </Select>
                           </TableCell>
                           <TableCell>
-                            <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setPunishmentDialog({
+                                open: true,
+                                playerId: player.id,
+                                playerName: player.nickname || player.name,
+                              })}
+                            >
+                              Gerenciar
+                            </Button>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2 flex-wrap">
                               {isEditing ? (
                                 <Button
                                   size="sm"
@@ -724,6 +744,13 @@ export default function ManagePlayers() {
           </CardContent>
         </Card>
       </main>
+
+      <PunishmentDialog
+        playerId={punishmentDialog.playerId}
+        playerName={punishmentDialog.playerName}
+        open={punishmentDialog.open}
+        onOpenChange={(open) => setPunishmentDialog({ ...punishmentDialog, open })}
+      />
     </div>
   );
 }
