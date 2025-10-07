@@ -183,17 +183,19 @@ export default function Classification() {
         <Card className="card-glow bg-card border-border">
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-primary glow-text">
-              CLASSIFICAÇÃO
+              CLASSIFICAÇÃO GERAL
             </CardTitle>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="geral" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 bg-muted">
-                <TabsTrigger value="geral">Classificação Geral</TabsTrigger>
-                <TabsTrigger value="vitoria">Vitória</TabsTrigger>
-                <TabsTrigger value="empate">Empate</TabsTrigger>
-                <TabsTrigger value="derrota">Derrota</TabsTrigger>
-              </TabsList>
+              <div className="overflow-x-auto w-full">
+                <TabsList className="inline-flex w-auto min-w-full bg-muted">
+                  <TabsTrigger value="geral" className="flex-shrink-0">Classificação</TabsTrigger>
+                  <TabsTrigger value="vitoria" className="flex-shrink-0">Vitória</TabsTrigger>
+                  <TabsTrigger value="empate" className="flex-shrink-0">Empate</TabsTrigger>
+                  <TabsTrigger value="derrota" className="flex-shrink-0">Derrota</TabsTrigger>
+                </TabsList>
+              </div>
               
               <TabsContent value="geral" className="mt-6">
                 {loading ? (
