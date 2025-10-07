@@ -7,7 +7,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Shuffle } from "lucide-react";
+import { Shuffle, Calendar } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 interface Player {
   id: string;
@@ -44,7 +45,8 @@ export default function DefineTeams() {
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Record<string, TeamPlayer[]>>({});
-  const [step, setStep] = useState<'select-teams' | 'define-players'>('select-teams');
+  const [step, setStep] = useState<'select-teams' | 'select-date' | 'define-players'>('select-teams');
+  const [scheduledDate, setScheduledDate] = useState<string>("");
 
   useEffect(() => {
     checkAdmin();
@@ -93,6 +95,15 @@ export default function DefineTeams() {
       return;
     }
     
+    setStep('select-date');
+  };
+
+  const handleDateSelection = () => {
+    if (!scheduledDate) {
+      toast.error("Selecione a data da rodada");
+      return;
+    }
+
     // Inicializar os times vazios
     const initialTeams: Record<string, TeamPlayer[]> = {};
     selectedTeams.forEach(team => {
@@ -234,16 +245,11 @@ export default function DefineTeams() {
 
       const newRoundNumber = (latestRound?.round_number || 0) + 1;
 
-      const today = new Date();
-      const daysUntilThursday = (4 - today.getDay() + 7) % 7 || 7;
-      const nextThursday = new Date(today);
-      nextThursday.setDate(today.getDate() + daysUntilThursday);
-
       const { data: newRound, error: roundError } = await supabase
         .from("rounds")
         .insert({
           round_number: newRoundNumber,
-          scheduled_date: nextThursday.toISOString().split('T')[0],
+          scheduled_date: scheduledDate,
           status: 'pending',
         })
         .select()
@@ -361,6 +367,34 @@ export default function DefineTeams() {
                   <Button 
                     onClick={handleTeamSelection} 
                     disabled={selectedTeams.length !== numTeams}
+                    className="flex-1"
+                  >
+                    Continuar
+                  </Button>
+                </div>
+              </div>
+            ) : step === 'select-date' ? (
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                    <Calendar size={16} />
+                    Data da rodada:
+                  </label>
+                  <Input 
+                    type="date" 
+                    value={scheduledDate}
+                    onChange={(e) => setScheduledDate(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <Button onClick={() => setStep('select-teams')} variant="outline" className="flex-1">
+                    Voltar
+                  </Button>
+                  <Button 
+                    onClick={handleDateSelection} 
+                    disabled={!scheduledDate}
                     className="flex-1"
                   >
                     Definir Jogadores

@@ -464,10 +464,10 @@ export default function ManageMatch() {
         </div>
       )}
 
-      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 max-w-4xl">
         <Card className="card-glow bg-card border-border">
           <CardHeader>
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center justify-between mb-4">
               <Button
                 variant="ghost"
                 size="icon"
@@ -475,23 +475,100 @@ export default function ManageMatch() {
               >
                 <ArrowLeft size={20} />
               </Button>
+              <div className="text-xs text-muted-foreground">
+                {match.scheduled_time.substring(0, 5)}
+              </div>
             </div>
             
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 mb-4">
-              <Badge className={teamColors[match.team_home] + " text-base sm:text-lg py-2 px-3 sm:px-4"}>
-                {teamNames[match.team_home]}
-              </Badge>
-              <span className="text-3xl sm:text-4xl font-bold">{match.score_home}</span>
-              <span className="text-xl sm:text-2xl">×</span>
-              <span className="text-3xl sm:text-4xl font-bold">{match.score_away}</span>
-              <Badge className={teamColors[match.team_away] + " text-base sm:text-lg py-2 px-3 sm:px-4"}>
-                {teamNames[match.team_away]}
-              </Badge>
-            </div>
-            
-            <div className="text-center text-xs sm:text-sm text-muted-foreground">
-              Horário: {match.scheduled_time.substring(0, 5)}
-            </div>
+            {/* Placar estilo FULL TIME */}
+            {match.status === 'in_progress' && (
+              <div className="flex items-center justify-center mb-4">
+                <div className="relative w-full max-w-md">
+                  {/* FULL TIME banner */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+                    <div className="bg-secondary text-secondary-foreground px-4 py-1 text-xs font-bold uppercase rounded">
+                      Em Andamento
+                    </div>
+                  </div>
+                  
+                  {/* Container principal do placar */}
+                  <div className="flex items-stretch bg-gradient-to-r from-card via-muted/30 to-card rounded-lg overflow-hidden shadow-lg border border-border">
+                    {/* Time Casa */}
+                    <div className="flex-1 bg-gradient-to-r from-primary/20 to-transparent py-3 px-2 sm:px-4 flex flex-col items-center justify-center">
+                      <Badge className={teamColors[match.team_home] + " mb-2 text-xs sm:text-sm whitespace-nowrap"}>
+                        {teamNames[match.team_home]}
+                      </Badge>
+                      <div className="text-3xl sm:text-5xl font-bold">{match.score_home}</div>
+                    </div>
+                    
+                    {/* Placar central */}
+                    <div className="bg-primary/90 px-4 sm:px-6 flex items-center justify-center">
+                      <span className="text-2xl sm:text-3xl font-bold text-primary-foreground">-</span>
+                    </div>
+                    
+                    {/* Time Visitante */}
+                    <div className="flex-1 bg-gradient-to-l from-primary/20 to-transparent py-3 px-2 sm:px-4 flex flex-col items-center justify-center">
+                      <Badge className={teamColors[match.team_away] + " mb-2 text-xs sm:text-sm whitespace-nowrap"}>
+                        {teamNames[match.team_away]}
+                      </Badge>
+                      <div className="text-3xl sm:text-5xl font-bold">{match.score_away}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Placar simples para outros status */}
+            {match.status !== 'in_progress' && (
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 mb-4">
+                <Badge className={teamColors[match.team_home] + " text-base sm:text-lg py-2 px-3 sm:px-4"}>
+                  {teamNames[match.team_home]}
+                </Badge>
+                <span className="text-3xl sm:text-4xl font-bold">{match.score_home}</span>
+                <span className="text-xl sm:text-2xl">×</span>
+                <span className="text-3xl sm:text-4xl font-bold">{match.score_away}</span>
+                <Badge className={teamColors[match.team_away] + " text-base sm:text-lg py-2 px-3 sm:px-4"}>
+                  {teamNames[match.team_away]}
+                </Badge>
+              </div>
+            )}
+
+            {/* Lista de gols abaixo do placar (apenas quando em andamento) */}
+            {match.status === 'in_progress' && goals.length > 0 && (
+              <div className="grid grid-cols-2 gap-4 mt-6 text-xs sm:text-sm">
+                {/* Gols do time casa */}
+                <div className="space-y-1">
+                  <div className="font-bold text-center mb-2">{teamNames[match.team_home]}</div>
+                  {goals.filter(g => g.team_color === match.team_home).map((goal) => (
+                    <div key={goal.id} className="flex items-center justify-center gap-1">
+                      <span className="text-base">⚽</span>
+                      <span>{goal.player?.nickname || goal.player?.name || "GC"}</span>
+                      {goal.assists && goal.assists.length > 0 && (
+                        <span className="text-muted-foreground text-xs">
+                          ({goal.assists[0].player?.nickname || goal.assists[0].player?.name})
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Gols do time visitante */}
+                <div className="space-y-1">
+                  <div className="font-bold text-center mb-2">{teamNames[match.team_away]}</div>
+                  {goals.filter(g => g.team_color === match.team_away).map((goal) => (
+                    <div key={goal.id} className="flex items-center justify-center gap-1">
+                      <span className="text-base">⚽</span>
+                      <span>{goal.player?.nickname || goal.player?.name || "GC"}</span>
+                      {goal.assists && goal.assists.length > 0 && (
+                        <span className="text-muted-foreground text-xs">
+                          ({goal.assists[0].player?.nickname || goal.assists[0].player?.name})
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardHeader>
 
           <CardContent className="space-y-4">

@@ -310,7 +310,7 @@ export default function ManageRounds() {
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center mb-4">
               <Button
                 variant="ghost"
                 size="icon"
@@ -322,27 +322,26 @@ export default function ManageRounds() {
               >
                 <ArrowLeft size={24} />
               </Button>
-              <CardTitle className="text-3xl font-bold text-primary glow-text text-center flex-1">
-                {round ? `RODADA ${round.round_number}` : "GERENCIAR RODADA"}
-                <div className="text-sm text-muted-foreground mt-1">
-                  {round && new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
-                </div>
-              </CardTitle>
-              <div className="flex gap-2">
-                <Button
-                  onClick={showAttendanceDialog}
-                  disabled={loading || matches.some(m => m.status !== 'finished')}
-                  variant="secondary"
-                >
-                  Registrar Atrasos/Faltas
-                </Button>
-                <Button
-                  onClick={finalizeRound}
-                  disabled={loading || matches.some(m => m.status !== 'finished')}
-                >
-                  Finalizar Rodada
-                </Button>
-              </div>
+            </div>
+            <CardTitle className="text-2xl sm:text-3xl font-bold text-primary glow-text text-center mb-6">
+              Rodada - {round && new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
+            </CardTitle>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-4">
+              <Button
+                onClick={showAttendanceDialog}
+                disabled={loading || matches.some(m => m.status !== 'finished')}
+                variant="secondary"
+                className="w-full sm:w-auto"
+              >
+                Registrar Atrasos/Faltas
+              </Button>
+              <Button
+                onClick={finalizeRound}
+                disabled={loading || matches.some(m => m.status !== 'finished')}
+                className="w-full sm:w-auto"
+              >
+                Finalizar Rodada
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
