@@ -518,57 +518,6 @@ export default function ManageMatch() {
               </div>
             )}
 
-            {/* Placar simples para outros status */}
-            {match.status !== 'in_progress' && (
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 mb-4">
-                <Badge className={teamColors[match.team_home] + " text-base sm:text-lg py-2 px-3 sm:px-4"}>
-                  {teamNames[match.team_home]}
-                </Badge>
-                <span className="text-3xl sm:text-4xl font-bold">{match.score_home}</span>
-                <span className="text-xl sm:text-2xl">×</span>
-                <span className="text-3xl sm:text-4xl font-bold">{match.score_away}</span>
-                <Badge className={teamColors[match.team_away] + " text-base sm:text-lg py-2 px-3 sm:px-4"}>
-                  {teamNames[match.team_away]}
-                </Badge>
-              </div>
-            )}
-
-            {/* Lista de gols abaixo do placar (apenas quando em andamento) */}
-            {match.status === 'in_progress' && goals.length > 0 && (
-              <div className="grid grid-cols-2 gap-4 mt-6 text-xs sm:text-sm">
-                {/* Gols do time casa */}
-                <div className="space-y-1">
-                  <div className="font-bold text-center mb-2">{teamNames[match.team_home]}</div>
-                  {goals.filter(g => g.team_color === match.team_home).map((goal) => (
-                    <div key={goal.id} className="flex items-center justify-center gap-1">
-                      <span className="text-base">⚽</span>
-                      <span>{goal.player?.nickname || goal.player?.name || "GC"}</span>
-                      {goal.assists && goal.assists.length > 0 && (
-                        <span className="text-muted-foreground text-xs">
-                          ({goal.assists[0].player?.nickname || goal.assists[0].player?.name})
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Gols do time visitante */}
-                <div className="space-y-1">
-                  <div className="font-bold text-center mb-2">{teamNames[match.team_away]}</div>
-                  {goals.filter(g => g.team_color === match.team_away).map((goal) => (
-                    <div key={goal.id} className="flex items-center justify-center gap-1">
-                      <span className="text-base">⚽</span>
-                      <span>{goal.player?.nickname || goal.player?.name || "GC"}</span>
-                      {goal.assists && goal.assists.length > 0 && (
-                        <span className="text-muted-foreground text-xs">
-                          ({goal.assists[0].player?.nickname || goal.assists[0].player?.name})
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </CardHeader>
 
           <CardContent className="space-y-4">

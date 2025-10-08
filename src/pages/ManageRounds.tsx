@@ -7,6 +7,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
+import ManageMatchDialog from "@/components/ManageMatchDialog";
 
 
 interface Match {
@@ -50,6 +51,7 @@ export default function ManageRounds() {
   const [loading, setLoading] = useState(true);
   const [round, setRound] = useState<Round | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
 
   useEffect(() => {
     checkAdmin();
@@ -398,12 +400,21 @@ export default function ManageRounds() {
                             </Badge>
                           </td>
                           <td className="p-3 text-center">
-                            <Button
-                              size="sm"
-                              onClick={() => openMatchPage(match)}
-                            >
-                              {match.status === 'finished' ? 'Ver Partida' : 'Gerenciar'}
-                            </Button>
+                            <div className="flex gap-2 justify-center">
+                              <Button
+                                size="sm"
+                                onClick={() => openMatchPage(match)}
+                              >
+                                {match.status === 'finished' ? 'Ver' : 'Gerenciar'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => setEditingMatchId(match.id)}
+                              >
+                                Editar
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -416,6 +427,15 @@ export default function ManageRounds() {
         </Card>
       </main>
 
+      {editingMatchId && roundId && (
+        <ManageMatchDialog
+          matchId={editingMatchId}
+          roundId={roundId}
+          open={!!editingMatchId}
+          onOpenChange={(open) => !open && setEditingMatchId(null)}
+          onSaved={loadRoundData}
+        />
+      )}
     </div>
   );
 }

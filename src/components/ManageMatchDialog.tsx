@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { toast } from "sonner";
+import { Trash2, Plus } from "lucide-react";
 
 interface Match {
   id: string;
@@ -31,7 +32,7 @@ interface Goal {
   is_own_goal: boolean;
   team_color: string;
   player?: Player;
-  assists?: Array<{ player_id: string; player?: Player }>;
+  assists?: Array<{ id: string; player_id: string; player?: Player }>;
 }
 
 interface Card {
@@ -57,362 +58,578 @@ const teamNames: Record<string, string> = {
 };
 
 interface ManageMatchDialogProps {
-  match: Match;
+  matchId: string;
   roundId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUpdate: () => void;
+  onSaved: () => void;
 }
 
-export default function ManageMatchDialog({
-  match,
-  roundId,
-  open,
-  onOpenChange,
-  onUpdate,
-}: ManageMatchDialogProps) {
+export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange, onSaved }: ManageMatchDialogProps) {
+  const [match, setMatch] = useState<Match | null>(null);
   const [players, setPlayers] = useState<Record<string, Player[]>>({});
   const [goals, setGoals] = useState<Goal[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
-  const [loading, setLoading] = useState(false);
   const [addingGoal, setAddingGoal] = useState(false);
+  const [addingCard, setAddingCard] = useState(false);
   const [goalData, setGoalData] = useState({
     team: "",
     player_id: "",
-    minute: "",
     has_assist: false,
     assist_player_id: "",
+    is_own_goal: false,
+  });
+  const [cardData, setCardData] = useState({
+    team: "",
+    player_id: "",
+    card_type: "",
   });
 
   useEffect(() => {
     if (open) {
       loadMatchData();
+    }
+  }, [open, matchId]);
+
+  useEffect(() => {
+    if (match) {
       loadPlayers();
     }
-  }, [open, match.id]);
+  }, [match, roundId]);
+
+  const loadMatchData = async () => {
+    try {
+      const { data: matchData, error } = await supabase
+        .from("matches")
+        .select("*")
+        .eq("id", matchId)
+        .single();
+
+      if (error) throw error;
+      setMatch(matchData);
+
+      await loadGoals();
+      await loadCards();
+    } catch (error: any) {
+      console.error("Erro ao carregar partida:", error);
+      toast.error("Erro ao carregar dados da partida");
+    }
+  };
 
   const loadPlayers = async () => {
     try {
-      const { data: homePlayers } = await supabase
-        .from("round_team_players")
-        .select("player_id, profiles(id, name, nickname)")
+      if (!match) return;
+
+      const { data: attendance } = await supabase
+        .from("player_attendance")
+        .select(`
+          player_id,
+          team_color,
+          profiles!inner(id, name, nickname)
+        `)
         .eq("round_id", roundId)
-        .eq("team_color", match.team_home as "branco" | "vermelho" | "azul" | "laranja");
+        .eq("status", "presente");
 
-      const { data: awayPlayers } = await supabase
-        .from("round_team_players")
-        .select("player_id, profiles(id, name, nickname)")
-        .eq("round_id", roundId)
-        .eq("team_color", match.team_away as "branco" | "vermelho" | "azul" | "laranja");
+      const playersByTeam: Record<string, Player[]> = {
+        [match.team_home]: [],
+        [match.team_away]: [],
+      };
 
-      const homePlayersList = (homePlayers || []).map((p: any) => p.profiles);
-      const awayPlayersList = (awayPlayers || []).map((p: any) => p.profiles);
-
-      setPlayers({
-        [match.team_home]: homePlayersList,
-        [match.team_away]: awayPlayersList,
+      attendance?.forEach((att: any) => {
+        const player = {
+          id: att.profiles.id,
+          name: att.profiles.name,
+          nickname: att.profiles.nickname,
+        };
+        if (playersByTeam[att.team_color]) {
+          playersByTeam[att.team_color].push(player);
+        }
       });
+
+      setPlayers(playersByTeam);
     } catch (error) {
       console.error("Erro ao carregar jogadores:", error);
     }
   };
 
-  const loadMatchData = async () => {
+  const loadGoals = async () => {
     try {
       const { data: goalsData } = await supabase
         .from("goals")
-        .select("*, assists(player_id)")
-        .eq("match_id", match.id);
+        .select("*")
+        .eq("match_id", matchId)
+        .order("minute", { ascending: true });
 
-      const goalsWithPlayers = await Promise.all(
-        (goalsData || []).map(async (goal: any) => {
+      if (!goalsData) return;
+
+      const goalsWithDetails = await Promise.all(
+        goalsData.map(async (goal) => {
           const { data: player } = await supabase
             .from("profiles")
-            .select("*")
+            .select("id, name, nickname")
             .eq("id", goal.player_id)
             .maybeSingle();
 
-          let assists = [];
-          if (goal.assists && goal.assists.length > 0) {
-            const { data: assistPlayer } = await supabase
-              .from("profiles")
-              .select("*")
-              .eq("id", goal.assists[0].player_id)
-              .maybeSingle();
-            
-            assists = [{ player_id: goal.assists[0].player_id, player: assistPlayer }];
-          }
+          const { data: assistsData } = await supabase
+            .from("assists")
+            .select("id, player_id")
+            .eq("goal_id", goal.id);
+
+          const assists = await Promise.all(
+            (assistsData || []).map(async (assist) => {
+              const { data: assistPlayer } = await supabase
+                .from("profiles")
+                .select("id, name, nickname")
+                .eq("id", assist.player_id)
+                .maybeSingle();
+              return { ...assist, player: assistPlayer };
+            })
+          );
 
           return { ...goal, player, assists };
         })
       );
 
-      setGoals(goalsWithPlayers);
+      setGoals(goalsWithDetails);
+    } catch (error) {
+      console.error("Erro ao carregar gols:", error);
+    }
+  };
 
+  const loadCards = async () => {
+    try {
       const { data: cardsData } = await supabase
         .from("cards")
         .select("*")
-        .eq("match_id", match.id);
+        .eq("match_id", matchId)
+        .order("minute", { ascending: true });
+
+      if (!cardsData) return;
 
       const cardsWithPlayers = await Promise.all(
-        (cardsData || []).map(async (card: any) => {
+        cardsData.map(async (card) => {
           const { data: player } = await supabase
             .from("profiles")
-            .select("*")
+            .select("id, name, nickname")
             .eq("id", card.player_id)
             .maybeSingle();
-
           return { ...card, player };
         })
       );
 
       setCards(cardsWithPlayers);
     } catch (error) {
-      console.error("Erro ao carregar dados da partida:", error);
+      console.error("Erro ao carregar cartões:", error);
     }
   };
 
-  const startMatch = async () => {
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from("matches")
-        .update({ status: 'in_progress', started_at: new Date().toISOString() })
-        .eq("id", match.id);
-
-      if (error) throw error;
-      
-      toast.success("Partida iniciada!");
-      onUpdate();
-    } catch (error: any) {
-      toast.error("Erro ao iniciar partida: " + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addGoal = async () => {
-    if (!goalData.team || !goalData.player_id || !goalData.minute) {
+  const handleAddGoal = async () => {
+    if (!match || !goalData.team || (!goalData.player_id && !goalData.is_own_goal)) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
 
-    setLoading(true);
     try {
-      const { data: goalRecord, error: goalError } = await supabase
+      const currentMinute = Math.floor((Date.now() - new Date().setHours(0, 0, 0, 0)) / 60000);
+      
+      const { data: goalInserted, error: goalError } = await supabase
         .from("goals")
         .insert([{
-          match_id: match.id,
-          player_id: goalData.player_id,
-          team_color: goalData.team as "branco" | "vermelho" | "azul" | "laranja",
-          minute: parseInt(goalData.minute),
-          is_own_goal: goalData.player_id === "own_goal",
+          match_id: matchId,
+          player_id: goalData.is_own_goal ? null : goalData.player_id,
+          team_color: goalData.team as "azul" | "branco" | "laranja" | "vermelho",
+          minute: currentMinute,
+          is_own_goal: goalData.is_own_goal,
         }])
         .select()
         .single();
 
       if (goalError) throw goalError;
 
-      if (goalData.has_assist && goalData.assist_player_id) {
+      if (goalData.has_assist && goalData.assist_player_id && !goalData.is_own_goal) {
         const { error: assistError } = await supabase
           .from("assists")
           .insert({
-            goal_id: goalRecord.id,
+            goal_id: goalInserted.id,
             player_id: goalData.assist_player_id,
           });
 
         if (assistError) throw assistError;
       }
 
-      // Atualizar placar
-      const newScoreHome = goalData.team === match.team_home ? match.score_home + 1 : match.score_home;
-      const newScoreAway = goalData.team === match.team_away ? match.score_away + 1 : match.score_away;
+      const newScore = goalData.team === match.team_home 
+        ? { score_home: match.score_home + 1 } 
+        : { score_away: match.score_away + 1 };
 
       const { error: updateError } = await supabase
         .from("matches")
-        .update({ score_home: newScoreHome, score_away: newScoreAway })
-        .eq("id", match.id);
+        .update(newScore)
+        .eq("id", matchId);
 
       if (updateError) throw updateError;
 
-      toast.success("Gol registrado!");
+      toast.success("Gol adicionado com sucesso!");
       setAddingGoal(false);
-      setGoalData({ team: "", player_id: "", minute: "", has_assist: false, assist_player_id: "" });
-      loadMatchData();
-      onUpdate();
+      setGoalData({ team: "", player_id: "", has_assist: false, assist_player_id: "", is_own_goal: false });
+      await loadMatchData();
     } catch (error: any) {
-      toast.error("Erro ao registrar gol: " + error.message);
-    } finally {
-      setLoading(false);
+      console.error("Erro ao adicionar gol:", error);
+      toast.error("Erro ao adicionar gol");
     }
   };
 
-  const finishMatch = async () => {
-    if (!confirm("Tem certeza que deseja encerrar esta partida?")) {
+  const handleDeleteLastGoal = async () => {
+    if (goals.length === 0) {
+      toast.error("Não há gols para excluir");
       return;
     }
 
-    setLoading(true);
     try {
+      const lastGoal = goals[goals.length - 1];
+
+      await supabase.from("assists").delete().eq("goal_id", lastGoal.id);
+
       const { error } = await supabase
-        .from("matches")
-        .update({ status: 'finished', finished_at: new Date().toISOString() })
-        .eq("id", match.id);
+        .from("goals")
+        .delete()
+        .eq("id", lastGoal.id);
 
       if (error) throw error;
-      
-      toast.success("Partida encerrada!");
-      onUpdate();
-      onOpenChange(false);
+
+      const newScore = lastGoal.team_color === match?.team_home 
+        ? { score_home: (match?.score_home || 1) - 1 } 
+        : { score_away: (match?.score_away || 1) - 1 };
+
+      await supabase.from("matches").update(newScore).eq("id", matchId);
+
+      toast.success("Último gol excluído com sucesso!");
+      await loadMatchData();
     } catch (error: any) {
-      toast.error("Erro ao encerrar partida: " + error.message);
-    } finally {
-      setLoading(false);
+      console.error("Erro ao excluir gol:", error);
+      toast.error("Erro ao excluir gol");
     }
   };
 
+  const handleAddCard = async () => {
+    if (!cardData.team || !cardData.player_id || !cardData.card_type) {
+      toast.error("Preencha todos os campos");
+      return;
+    }
+
+    try {
+      const currentMinute = Math.floor((Date.now() - new Date().setHours(0, 0, 0, 0)) / 60000);
+
+      const { error } = await supabase.from("cards").insert([{
+        match_id: matchId,
+        player_id: cardData.player_id,
+        card_type: cardData.card_type as "amarelo" | "vermelho",
+        minute: currentMinute,
+      }]);
+
+      if (error) throw error;
+
+      toast.success("Cartão adicionado com sucesso!");
+      setAddingCard(false);
+      setCardData({ team: "", player_id: "", card_type: "" });
+      await loadCards();
+    } catch (error: any) {
+      console.error("Erro ao adicionar cartão:", error);
+      toast.error("Erro ao adicionar cartão");
+    }
+  };
+
+  const handleDeleteLastCard = async () => {
+    if (cards.length === 0) {
+      toast.error("Não há cartões para excluir");
+      return;
+    }
+
+    try {
+      const lastCard = cards[cards.length - 1];
+      const { error } = await supabase
+        .from("cards")
+        .delete()
+        .eq("id", lastCard.id);
+
+      if (error) throw error;
+
+      toast.success("Último cartão excluído com sucesso!");
+      await loadCards();
+    } catch (error: any) {
+      console.error("Erro ao excluir cartão:", error);
+      toast.error("Erro ao excluir cartão");
+    }
+  };
+
+  const handleSaveMatch = () => {
+    toast.success("Partida salva com sucesso!");
+    onSaved();
+    onOpenChange(false);
+  };
+
+  if (!match) return null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-center">
-            <div className="flex items-center justify-center gap-3 mb-2">
-              <Badge className={teamColors[match.team_home]}>
-                {teamNames[match.team_home]}
-              </Badge>
-              <span className="text-3xl font-bold">{match.score_home}</span>
-              <span className="text-xl">×</span>
-              <span className="text-3xl font-bold">{match.score_away}</span>
-              <Badge className={teamColors[match.team_away]}>
-                {teamNames[match.team_away]}
-              </Badge>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Rodada - {match.scheduled_time}
-            </div>
-            <Badge variant="outline" className="mt-2">
-              {match.status === 'not_started' ? 'Não Iniciado' :
-               match.status === 'in_progress' ? 'Em Andamento' : 'Encerrado'}
-            </Badge>
+          <DialogTitle className="text-center text-2xl">
+            Editar Partida
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 mt-4">
-          {match.status === 'not_started' && (
-            <Button onClick={startMatch} className="w-full" disabled={loading}>
-              Iniciar Partida
-            </Button>
-          )}
+        <Card className="bg-gradient-to-br from-primary/10 to-secondary/10 border-primary/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center gap-8">
+              <div className="flex flex-col items-center space-y-2">
+                <Badge className={teamColors[match.team_home] + " py-2 px-6"}>
+                  {teamNames[match.team_home]}
+                </Badge>
+                <span className="text-5xl font-bold text-primary">
+                  {match.score_home}
+                </span>
+              </div>
 
-          {match.status === 'in_progress' && (
-            <>
-              <div className="space-y-3">
+              <div className="text-3xl text-muted-foreground font-bold">×</div>
+
+              <div className="flex flex-col items-center space-y-2">
+                <Badge className={teamColors[match.team_away] + " py-2 px-6"}>
+                  {teamNames[match.team_away]}
+                </Badge>
+                <span className="text-5xl font-bold text-primary">
+                  {match.score_away}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Gols ({goals.length})</h3>
+              <div className="flex gap-2">
                 <Button
                   onClick={() => setAddingGoal(!addingGoal)}
-                  className="w-full"
-                  variant={addingGoal ? "secondary" : "default"}
+                  size="sm"
+                  className="bg-primary hover:bg-secondary"
                 >
-                  {addingGoal ? "Cancelar" : "Registrar Gol"}
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Gol
                 </Button>
+                <Button
+                  onClick={handleDeleteLastGoal}
+                  size="sm"
+                  variant="destructive"
+                  disabled={goals.length === 0}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir Último
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {addingGoal && (
+              <Card className="bg-muted/20 p-4 space-y-3">
+                <Select
+                  value={goalData.team}
+                  onValueChange={(value) => setGoalData({ ...goalData, team: value, player_id: "" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={match.team_home}>{teamNames[match.team_home]}</SelectItem>
+                    <SelectItem value={match.team_away}>{teamNames[match.team_away]}</SelectItem>
+                  </SelectContent>
+                </Select>
 
-                {addingGoal && (
-                  <div className="border border-border rounded-lg p-4 space-y-3">
-                    <Select value={goalData.team} onValueChange={(v) => setGoalData({ ...goalData, team: v, player_id: "" })}>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="is_own_goal"
+                    checked={goalData.is_own_goal}
+                    onChange={(e) => setGoalData({ ...goalData, is_own_goal: e.target.checked, player_id: "" })}
+                    className="h-4 w-4"
+                  />
+                  <label htmlFor="is_own_goal" className="text-sm">Gol Contra</label>
+                </div>
+
+                {!goalData.is_own_goal && goalData.team && (
+                  <>
+                    <Select
+                      value={goalData.player_id}
+                      onValueChange={(value) => setGoalData({ ...goalData, player_id: value })}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione o time" />
+                        <SelectValue placeholder="Jogador que marcou" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={match.team_home}>{teamNames[match.team_home]}</SelectItem>
-                        <SelectItem value={match.team_away}>{teamNames[match.team_away]}</SelectItem>
+                        {(players[goalData.team] || []).map((player) => (
+                          <SelectItem key={player.id} value={player.id}>
+                            {player.nickname || player.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
 
-                    {goalData.team && (
-                      <Select value={goalData.player_id} onValueChange={(v) => setGoalData({ ...goalData, player_id: v })}>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="has_assist"
+                        checked={goalData.has_assist}
+                        onChange={(e) => setGoalData({ ...goalData, has_assist: e.target.checked })}
+                        className="h-4 w-4"
+                      />
+                      <label htmlFor="has_assist" className="text-sm">Adicionar assistência</label>
+                    </div>
+
+                    {goalData.has_assist && (
+                      <Select
+                        value={goalData.assist_player_id}
+                        onValueChange={(value) => setGoalData({ ...goalData, assist_player_id: value })}
+                      >
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecione o jogador" />
+                          <SelectValue placeholder="Jogador da assistência" />
                         </SelectTrigger>
                         <SelectContent>
-                          {players[goalData.team]?.map((player) => (
-                            <SelectItem key={player.id} value={player.id}>
-                              {player.nickname || player.name}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="own_goal">Gol Contra</SelectItem>
+                          {(players[goalData.team] || [])
+                            .filter(p => p.id !== goalData.player_id)
+                            .map((player) => (
+                              <SelectItem key={player.id} value={player.id}>
+                                {player.nickname || player.name}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                     )}
-
-                    <Input
-                      type="number"
-                      placeholder="Minuto do gol"
-                      value={goalData.minute}
-                      onChange={(e) => setGoalData({ ...goalData, minute: e.target.value })}
-                    />
-
-                    {goalData.player_id && goalData.player_id !== "own_goal" && (
-                      <>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={goalData.has_assist}
-                            onChange={(e) => setGoalData({ ...goalData, has_assist: e.target.checked })}
-                            className="h-4 w-4"
-                          />
-                          <label className="text-sm">Houve assistência?</label>
-                        </div>
-
-                        {goalData.has_assist && (
-                          <Select value={goalData.assist_player_id} onValueChange={(v) => setGoalData({ ...goalData, assist_player_id: v })}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Quem deu a assistência?" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {players[goalData.team]
-                                ?.filter(p => p.id !== goalData.player_id)
-                                .map((player) => (
-                                  <SelectItem key={player.id} value={player.id}>
-                                    {player.nickname || player.name}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </>
-                    )}
-
-                    <Button onClick={addGoal} className="w-full" disabled={loading}>
-                      Confirmar Gol
-                    </Button>
-                  </div>
+                  </>
                 )}
-              </div>
 
-              {goals.length > 0 && (
-                <div className="border-t border-border pt-4">
-                  <h3 className="font-bold mb-2">Gols da Partida:</h3>
-                  <div className="space-y-2">
-                    {goals.map((goal) => (
-                      <div key={goal.id} className="text-sm">
-                        ⚽ {goal.player?.nickname || goal.player?.name || "Desconhecido"}
-                        {goal.assists && goal.assists.length > 0 && (
-                          <span className="text-muted-foreground">
-                            {" "}({goal.assists[0].player?.nickname || goal.assists[0].player?.name})
-                          </span>
-                        )}
-                        <span className="text-muted-foreground ml-2">{goal.minute}'</span>
-                      </div>
-                    ))}
+                <Button onClick={handleAddGoal} className="w-full bg-primary hover:bg-secondary">
+                  Confirmar Gol
+                </Button>
+              </Card>
+            )}
+
+            <div className="space-y-2">
+              {goals.map((goal) => (
+                <div key={goal.id} className="flex items-center justify-between p-3 bg-muted/10 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Badge className={teamColors[goal.team_color]}>
+                      {teamNames[goal.team_color]}
+                    </Badge>
+                    <span>
+                      ⚽ {goal.is_own_goal ? "GC" : (goal.player?.nickname || goal.player?.name)}
+                    </span>
+                    {goal.assists && goal.assists.length > 0 && (
+                      <span className="text-sm text-muted-foreground">
+                        ({goal.assists[0].player?.nickname || goal.assists[0].player?.name})
+                      </span>
+                    )}
                   </div>
+                  <span className="text-sm text-muted-foreground">{goal.minute}'</span>
                 </div>
-              )}
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-              <Button onClick={finishMatch} variant="secondary" className="w-full" disabled={loading}>
-                Encerrar Partida
-              </Button>
-            </>
-          )}
-        </div>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Cartões ({cards.length})</h3>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setAddingCard(!addingCard)}
+                  size="sm"
+                  className="bg-primary hover:bg-secondary"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Cartão
+                </Button>
+                <Button
+                  onClick={handleDeleteLastCard}
+                  size="sm"
+                  variant="destructive"
+                  disabled={cards.length === 0}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir Último
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {addingCard && (
+              <Card className="bg-muted/20 p-4 space-y-3">
+                <Select
+                  value={cardData.team}
+                  onValueChange={(value) => setCardData({ ...cardData, team: value, player_id: "" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={match.team_home}>{teamNames[match.team_home]}</SelectItem>
+                    <SelectItem value={match.team_away}>{teamNames[match.team_away]}</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {cardData.team && (
+                  <Select
+                    value={cardData.player_id}
+                    onValueChange={(value) => setCardData({ ...cardData, player_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o jogador" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(players[cardData.team] || []).map((player) => (
+                        <SelectItem key={player.id} value={player.id}>
+                          {player.nickname || player.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                <Select
+                  value={cardData.card_type}
+                  onValueChange={(value) => setCardData({ ...cardData, card_type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tipo de cartão" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="amarelo">🟨 Amarelo</SelectItem>
+                    <SelectItem value="vermelho">🟥 Vermelho</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button onClick={handleAddCard} className="w-full bg-primary hover:bg-secondary">
+                  Confirmar Cartão
+                </Button>
+              </Card>
+            )}
+
+            <div className="space-y-2">
+              {cards.map((card) => (
+                <div key={card.id} className="flex items-center justify-between p-3 bg-muted/10 rounded-lg">
+                  <span>
+                    {card.card_type === "amarelo" ? "🟨" : "🟥"} {card.player?.nickname || card.player?.name}
+                  </span>
+                  <span className="text-sm text-muted-foreground">{card.minute}'</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Button onClick={handleSaveMatch} className="w-full bg-primary hover:bg-secondary text-lg py-6">
+          Salvar Partida
+        </Button>
       </DialogContent>
     </Dialog>
   );

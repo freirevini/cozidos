@@ -42,7 +42,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
 
   const adminLinks = [
     { href: "/admin/teams", label: "Times" },
-    { href: "/admin/round", label: "Iniciar Rodada" },
+    { href: "/admin/round", label: "Gerenciar Rodada" },
     { href: "/admin/players", label: "Gerenciar Jogadores" },
   ];
 

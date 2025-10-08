@@ -14,6 +14,7 @@ interface Match {
   score_home: number;
   score_away: number;
   scheduled_time: string;
+  status: string;
   goals: Array<{
     player: { nickname: string; name: string };
     minute: number;
@@ -292,91 +293,119 @@ export default function Matches() {
             ) : (
               <div className="space-y-6">
                 <div className="space-y-4">
-                  {currentRound.matches.map((match) => (
-                    <Card key={match.id} className="bg-muted/20 border-border">
-                      <CardContent className="p-6">
-                         <div className="flex flex-col space-y-4">
-                          <div className="text-center text-sm text-muted-foreground font-medium">
-                            {match.scheduled_time.substring(0, 5)}
-                          </div>
+                  {currentRound.matches.map((match) => {
+                    const getStatusBadge = (status: string) => {
+                      if (status === 'not_started') {
+                        return <Badge className="bg-red-600 text-white">Não Iniciado</Badge>;
+                      } else if (status === 'in_progress') {
+                        return <Badge className="bg-yellow-600 text-white">Em Andamento</Badge>;
+                      } else if (status === 'finished') {
+                        return <Badge className="bg-green-600 text-white">Encerrado</Badge>;
+                      }
+                      return null;
+                    };
 
-                          <div className="flex items-center justify-center gap-8">
-                            <div className="flex flex-col items-center space-y-2 flex-1">
-                              <Badge className={teamColors[match.team_home] + " w-full justify-center py-2"}>
-                                {teamNames[match.team_home]}
-                              </Badge>
-                              <span className="text-4xl font-bold text-primary">
-                                {match.score_home}
-                              </span>
-                              {/* Gols do time da casa */}
-                              {match.goals
-                                .filter(g => g.team_color === match.team_home)
-                                .sort((a, b) => a.minute - b.minute)
-                                .map((goal, idx) => (
-                                  <div key={`home-goal-${idx}`} className="text-xs text-center">
-                                    <div className="font-medium">
-                                      ⚽ {goal.player?.nickname || goal.player?.name}
-                                      {goal.assist?.player && (
-                                        <span className="text-muted-foreground ml-1">
-                                          ({goal.assist.player.nickname || goal.assist.player.name})
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
+                    return (
+                      <Card 
+                        key={match.id} 
+                        className="bg-muted/20 border-border cursor-pointer hover:bg-muted/30 transition-colors"
+                        onClick={() => {
+                          if (match.status === 'in_progress') {
+                            window.location.href = `/admin/round/manage?round=${currentRound.id}&match=${match.id}`;
+                          }
+                        }}
+                      >
+                        <CardContent className="p-4 sm:p-6">
+                          <div className="flex flex-col space-y-3">
+                            {/* Status acima do horário */}
+                            <div className="text-center">
+                              {getStatusBadge(match.status)}
+                            </div>
+                            
+                            <div className="text-center text-xs sm:text-sm text-muted-foreground font-medium">
+                              {match.scheduled_time.substring(0, 5)}
                             </div>
 
-                            <div className="text-2xl text-muted-foreground font-bold">×</div>
-
-                            <div className="flex flex-col items-center space-y-2 flex-1">
-                              <Badge className={teamColors[match.team_away] + " w-full justify-center py-2"}>
-                                {teamNames[match.team_away]}
-                              </Badge>
-                              <span className="text-4xl font-bold text-primary">
-                                {match.score_away}
-                              </span>
-                              {/* Gols do time visitante */}
-                              {match.goals
-                                .filter(g => g.team_color === match.team_away)
-                                .sort((a, b) => a.minute - b.minute)
-                                .map((goal, idx) => (
-                                  <div key={`away-goal-${idx}`} className="text-xs text-center">
-                                    <div className="font-medium">
-                                      ⚽ {goal.player?.nickname || goal.player?.name}
-                                      {goal.assist?.player && (
-                                        <span className="text-muted-foreground ml-1">
-                                          ({goal.assist.player.nickname || goal.assist.player.name})
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                            </div>
-                          </div>
-
-                          {match.cards.length > 0 && (
-                            <div className="border-t border-border pt-4">
-                              <div className="text-xs font-semibold mb-2 text-center">Cartões</div>
-                              <div className="space-y-1">
-                                {match.cards
+                            <div className="flex items-center justify-center gap-4 sm:gap-8">
+                              <div className="flex flex-col items-center space-y-2 flex-1">
+                                <Badge className={teamColors[match.team_home] + " w-full justify-center py-2"}>
+                                  {teamNames[match.team_home]}
+                                </Badge>
+                                <span className="text-3xl sm:text-4xl font-bold text-primary">
+                                  {match.score_home}
+                                </span>
+                                {/* Gols do time da casa */}
+                                {match.goals
+                                  .filter(g => g.team_color === match.team_home)
                                   .sort((a, b) => a.minute - b.minute)
-                                  .map((card, idx) => (
-                                    <div key={`card-${idx}`} className="text-sm text-center">
-                                      <span className="text-foreground font-medium">
-                                        {card.card_type === "amarelo" ? "🟨" : "🟥"} {card.player?.nickname || card.player?.name}
-                                      </span>
-                                      <span className="text-muted-foreground ml-2">
-                                        {card.minute}'
-                                      </span>
+                                  .map((goal, idx) => (
+                                    <div key={`home-goal-${idx}`} className="text-xs text-center">
+                                      <div className="font-medium flex items-center justify-center gap-1">
+                                        <span className="text-sm">⚽</span>
+                                        <span>{goal.player?.nickname || goal.player?.name}</span>
+                                        {goal.assist?.player && (
+                                          <span className="text-muted-foreground ml-1">
+                                            ({goal.assist.player.nickname || goal.assist.player.name})
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+
+                              <div className="text-xl sm:text-2xl text-muted-foreground font-bold">×</div>
+
+                              <div className="flex flex-col items-center space-y-2 flex-1">
+                                <Badge className={teamColors[match.team_away] + " w-full justify-center py-2"}>
+                                  {teamNames[match.team_away]}
+                                </Badge>
+                                <span className="text-3xl sm:text-4xl font-bold text-primary">
+                                  {match.score_away}
+                                </span>
+                                {/* Gols do time visitante */}
+                                {match.goals
+                                  .filter(g => g.team_color === match.team_away)
+                                  .sort((a, b) => a.minute - b.minute)
+                                  .map((goal, idx) => (
+                                    <div key={`away-goal-${idx}`} className="text-xs text-center">
+                                      <div className="font-medium flex items-center justify-center gap-1">
+                                        <span className="text-sm">⚽</span>
+                                        <span>{goal.player?.nickname || goal.player?.name}</span>
+                                        {goal.assist?.player && (
+                                          <span className="text-muted-foreground ml-1">
+                                            ({goal.assist.player.nickname || goal.assist.player.name})
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                   ))}
                               </div>
                             </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+
+                            {match.cards.length > 0 && (
+                              <div className="border-t border-border pt-3">
+                                <div className="text-xs font-semibold mb-2 text-center">Cartões</div>
+                                <div className="space-y-1">
+                                  {match.cards
+                                    .sort((a, b) => a.minute - b.minute)
+                                    .map((card, idx) => (
+                                      <div key={`card-${idx}`} className="text-xs sm:text-sm text-center">
+                                        <span className="text-foreground font-medium">
+                                          {card.card_type === "amarelo" ? "🟨" : "🟥"} {card.player?.nickname || card.player?.name}
+                                        </span>
+                                        <span className="text-muted-foreground ml-2">
+                                          {card.minute}'
+                                        </span>
+                                      </div>
+                                    ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
 
                 {userPerformance && (
