@@ -33,6 +33,7 @@ interface PlayerRanking {
   id: string;
   player_id: string;
   nickname: string;
+  email: string | null;
   gols: number;
   assistencias: number;
   vitorias: number;
@@ -148,17 +149,14 @@ const ManageRanking = () => {
 
   const deleteAllRankings = async () => {
     try {
-      const { error } = await supabase
-        .from("player_rankings")
-        .delete()
-        .neq("id", "00000000-0000-0000-0000-000000000000");
+      const { error } = await supabase.rpc('reset_all_data');
 
       if (error) throw error;
 
       setRankings([]);
       toast({
-        title: "Apagado com sucesso",
-        description: "Toda a classificação foi removida.",
+        title: "Reset completo realizado",
+        description: "Todos os dados do sistema foram removidos.",
       });
     } catch (error: any) {
       toast({
@@ -212,24 +210,23 @@ const ManageRanking = () => {
   };
 
   const processImportedData = async (data: any[]) => {
-    const updates: any[] = [];
-    const notFound: string[] = [];
+    const upserts: any[] = [];
+    const invalidRows: string[] = [];
+    let updated = 0;
+    let created = 0;
 
     for (const row of data) {
+      const email = row["Email"] || row["email"];
       const nickname = row["Apelido"] || row["apelido"];
-      if (!nickname) continue;
-
-      const existing = rankings.find(
-        (r) => r.nickname.toLowerCase() === nickname.toLowerCase()
-      );
-
-      if (!existing) {
-        notFound.push(nickname);
+      
+      if (!email) {
+        invalidRows.push(nickname || "Linha sem e-mail");
         continue;
       }
 
-      updates.push({
-        id: existing.id,
+      const rankingData = {
+        email: email,
+        nickname: nickname || "",
         gols: parseInt(row["Gols"] || row["gols"]) || 0,
         assistencias: parseInt(row["Assistências"] || row["assistencias"]) || 0,
         vitorias: parseInt(row["Vitórias"] || row["vitorias"]) || 0,
@@ -242,37 +239,79 @@ const ManageRanking = () => {
         cartoes_amarelos: parseInt(row["Cartões Amarelos"] || row["cartoes_amarelos"]) || 0,
         cartoes_vermelhos: parseInt(row["Cartões Vermelhos"] || row["cartoes_vermelhos"]) || 0,
         pontos_totais: parseInt(row["Pontos Totais"] || row["pontos_totais"]) || 0,
-      });
+      };
+
+      // Check if email exists in player_rankings
+      const { data: existingRanking } = await supabase
+        .from("player_rankings")
+        .select("id")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (existingRanking) {
+        updated++;
+      } else {
+        created++;
+        
+        // Check if profile exists, if not create it
+        const { data: existingProfile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("email", email)
+          .maybeSingle();
+
+        if (!existingProfile) {
+          await supabase.from("profiles").insert({
+            id: crypto.randomUUID(),
+            email: email,
+            name: nickname || email.split("@")[0],
+            nickname: nickname,
+            is_player: true,
+            player_type: "avulso",
+            status: "aprovado",
+            user_id: null,
+          });
+        }
+      }
+
+      upserts.push(rankingData);
     }
 
-    if (updates.length > 0) {
+    if (upserts.length > 0) {
       try {
-        for (const update of updates) {
-          await supabase
-            .from("player_rankings")
-            .update(update)
-            .eq("id", update.id);
+        const { error } = await supabase
+          .from("player_rankings")
+          .upsert(upserts, { 
+            onConflict: 'email',
+            ignoreDuplicates: false 
+          });
+
+        if (error) throw error;
+
+        let message = `${updated} atualizado(s), ${created} novo(s) criado(s)`;
+        if (invalidRows.length > 0) {
+          message += `, ${invalidRows.length} linha(s) ignorada(s)`;
         }
 
         toast({
-          title: "Classificação atualizada com sucesso",
-          description: `${updates.length} jogador(es) atualizado(s).`,
+          title: "Importação concluída",
+          description: message,
         });
 
         loadRankings();
       } catch (error: any) {
         toast({
-          title: "Erro ao atualizar",
+          title: "Erro ao processar importação",
           description: error.message,
           variant: "destructive",
         });
       }
     }
 
-    if (notFound.length > 0) {
+    if (invalidRows.length > 0 && upserts.length === 0) {
       toast({
-        title: "Jogadores não encontrados",
-        description: `Os seguintes jogadores não foram encontrados: ${notFound.join(", ")}`,
+        title: "Nenhum dado válido",
+        description: `${invalidRows.length} linha(s) sem e-mail foram ignoradas`,
         variant: "destructive",
       });
     }
@@ -345,13 +384,14 @@ const ManageRanking = () => {
                       <p className="font-semibold">
                         1. O arquivo deve conter as colunas abaixo (com os nomes exatamente iguais):
                       </p>
-                      <p className="ml-4">
-                        Apelido | Gols | Assistências | Vitórias | Empates | Derrotas | Presenças | Faltas | Atrasos | Punições | Cartões Amarelos | Cartões Vermelhos | Pontos Totais
+                      <p className="ml-4 font-mono text-xs">
+                        Email | Apelido | Gols | Assistências | Vitórias | Empates | Derrotas | Presenças | Faltas | Atrasos | Punições | Cartões Amarelos | Cartões Vermelhos | Pontos Totais
                       </p>
-                      <p>2. Todas as colunas devem conter apenas números, exceto Apelido.</p>
-                      <p>3. Cada linha representa um jogador.</p>
-                      <p>4. O sistema atualizará automaticamente os dados existentes conforme o apelido informado.</p>
-                      <p>5. Nenhum dado de rodadas será incluído — a atualização é apenas da classificação geral.</p>
+                      <p>2. <strong>Email é obrigatório</strong> e é a chave de atualização/criação.</p>
+                      <p>3. Todas as demais colunas devem conter apenas números, exceto Email e Apelido.</p>
+                      <p>4. Se o e-mail já existir, os dados serão atualizados. Se não existir, um novo jogador será criado.</p>
+                      <p>5. Linhas sem e-mail serão ignoradas e listadas no relatório.</p>
+                      <p>6. Nenhum dado de rodadas será incluído — a atualização é apenas da classificação geral.</p>
                     </DialogDescription>
                   </DialogHeader>
                 </DialogContent>
@@ -390,6 +430,7 @@ const ManageRanking = () => {
                     <TableRow className="border-primary/20">
                       <TableHead className="text-primary">Pos.</TableHead>
                       <TableHead className="text-primary">Apelido</TableHead>
+                      <TableHead className="text-primary">E-mail</TableHead>
                       <TableHead className="text-primary text-center">Gols</TableHead>
                       <TableHead className="text-primary text-center">Assist.</TableHead>
                       <TableHead className="text-primary text-center">V</TableHead>
@@ -410,6 +451,7 @@ const ManageRanking = () => {
                       <TableRow key={ranking.id} className="border-primary/20">
                         <TableCell className="font-medium">{index + 1}º</TableCell>
                         <TableCell>{ranking.nickname}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{ranking.email || "-"}</TableCell>
                         <TableCell className="text-center">
                           <Input
                             type="number"

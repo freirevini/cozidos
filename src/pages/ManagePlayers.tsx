@@ -22,6 +22,7 @@ interface Player {
   id: string;
   name: string;
   nickname: string | null;
+  email: string | null;
   birth_date: string | null;
   is_player: boolean;
   player_type: string | null;
@@ -29,6 +30,7 @@ interface Player {
   position: string | null;
   is_approved: boolean;
   status: string | null;
+  user_id: string | null;
 }
 
 const positionMap: Record<string, string> = {
@@ -154,15 +156,12 @@ export default function ManagePlayers() {
 
   const deleteAllPlayers = async () => {
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .delete()
-        .eq("is_player", true);
+      const { error } = await supabase.rpc('reset_all_data');
 
       if (error) throw error;
 
       setPlayers([]);
-      sonnerToast.success("Todos os jogadores foram removidos com sucesso!");
+      sonnerToast.success("Todos os dados do sistema foram removidos com sucesso!");
     } catch (error: any) {
       toast({
         title: "Erro ao apagar tudo",
@@ -173,10 +172,10 @@ export default function ManagePlayers() {
   };
 
   const handleAddPlayer = async () => {
-    if (!newPlayer.name || !newPlayer.nickname || !newPlayer.level || !newPlayer.position) {
+    if (!newPlayer.name || !newPlayer.nickname || !newPlayer.level || !newPlayer.position || !newPlayer.email) {
       toast({
         title: "Campos obrigatórios",
-        description: "Preencha todos os campos obrigatórios: Nome Completo, Apelido, Nível e Posição.",
+        description: "Preencha todos os campos obrigatórios: Nome Completo, Apelido, E-mail, Nível e Posição.",
         variant: "destructive",
       });
       return;
@@ -187,11 +186,13 @@ export default function ManagePlayers() {
         id: crypto.randomUUID(),
         name: newPlayer.name,
         nickname: newPlayer.nickname,
+        email: newPlayer.email,
         level: newPlayer.level as Database['public']['Enums']['player_level'],
         position: newPlayer.position as Database['public']['Enums']['player_position'],
         is_player: true,
         player_type: "avulso",
         status: "aprovado",
+        user_id: null,
       };
 
       const { error } = await supabase
@@ -262,9 +263,15 @@ export default function ManagePlayers() {
 
   const processImportedData = async (data: any[]) => {
     try {
-      const playersToInsert: Database['public']['Tables']['profiles']['Insert'][] = data
-        .filter((row: any) => row["Nome Completo"] && row["Apelido"] && row["Nivel"] && row["Posicao"])
-        .map((row: any) => {
+      const validRows = data.filter((row: any) => 
+        row["Nome Completo"] && row["Apelido"] && row["Email"] && row["Nivel"] && row["Posicao"]
+      );
+      
+      const invalidRows = data.filter((row: any) => 
+        !row["Email"] || !row["Nome Completo"] || !row["Apelido"]
+      );
+
+      const playersToUpsert: Database['public']['Tables']['profiles']['Insert'][] = validRows.map((row: any) => {
           const levelKey = row["Nivel"]?.toString().toUpperCase() as Database['public']['Enums']['player_level'];
           const rawPos = row["Posicao"]?.toString().toLowerCase().trim().replace(/_/g, ' ');
           let positionKey = rawPos;
@@ -283,25 +290,35 @@ export default function ManagePlayers() {
             id: crypto.randomUUID(),
             name: row["Nome Completo"],
             nickname: row["Apelido"],
+            email: row["Email"],
             level: levelKey,
             position: positionValue,
             is_player: true,
             player_type: "avulso",
             status: "aprovado",
+            user_id: null,
           };
         });
 
-      if (playersToInsert.length === 0) {
+      if (playersToUpsert.length === 0) {
         throw new Error("Nenhum jogador válido encontrado no arquivo");
       }
 
       const { error } = await supabase
         .from("profiles")
-        .insert(playersToInsert);
+        .upsert(playersToUpsert, { 
+          onConflict: 'email',
+          ignoreDuplicates: false 
+        });
 
       if (error) throw error;
 
-      sonnerToast.success(`${playersToInsert.length} jogador(es) importado(s) com sucesso!`);
+      let message = `${playersToUpsert.length} jogador(es) processado(s) com sucesso!`;
+      if (invalidRows.length > 0) {
+        message += ` ${invalidRows.length} linha(s) ignorada(s) por falta de e-mail.`;
+      }
+      
+      sonnerToast.success(message);
       loadPlayers();
     } catch (error: any) {
       toast({
@@ -427,6 +444,13 @@ export default function ManagePlayers() {
                                 <td className="py-2 px-2">Texto livre</td>
                               </tr>
                               <tr className="border-b">
+                                <td className="py-2 px-2 font-mono">Email</td>
+                                <td className="py-2 px-2">
+                                  <Badge className="bg-red-600">Sim</Badge>
+                                </td>
+                                <td className="py-2 px-2">E-mail válido (chave única)</td>
+                              </tr>
+                              <tr className="border-b">
                                 <td className="py-2 px-2 font-mono">Nivel</td>
                                 <td className="py-2 px-2">
                                   <Badge className="bg-red-600">Sim</Badge>
@@ -465,6 +489,7 @@ export default function ManagePlayers() {
                               <tr className="border-b">
                                 <th className="text-left py-2 px-3 bg-primary/10">Nome Completo</th>
                                 <th className="text-left py-2 px-3 bg-primary/10">Apelido</th>
+                                <th className="text-left py-2 px-3 bg-primary/10">Email</th>
                                 <th className="text-left py-2 px-3 bg-primary/10">Nivel</th>
                                 <th className="text-left py-2 px-3 bg-primary/10">Posicao</th>
                               </tr>
@@ -473,18 +498,21 @@ export default function ManagePlayers() {
                               <tr className="border-b">
                                 <td className="py-2 px-3">João Silva Santos</td>
                                 <td className="py-2 px-3">João</td>
+                                <td className="py-2 px-3">joao@email.com</td>
                                 <td className="py-2 px-3">A</td>
                                 <td className="py-2 px-3">atacante</td>
                               </tr>
                               <tr className="border-b">
                                 <td className="py-2 px-3">Pedro Costa Lima</td>
                                 <td className="py-2 px-3">Pedrinho</td>
+                                <td className="py-2 px-3">pedro@email.com</td>
                                 <td className="py-2 px-3">B</td>
                                 <td className="py-2 px-3">meio-campista</td>
                               </tr>
                               <tr>
                                 <td className="py-2 px-3">Carlos Eduardo</td>
                                 <td className="py-2 px-3">Carlão</td>
+                                <td className="py-2 px-3">carlos@email.com</td>
                                 <td className="py-2 px-3">C</td>
                                 <td className="py-2 px-3">goleiro</td>
                               </tr>
@@ -577,13 +605,14 @@ export default function ManagePlayers() {
                         </Select>
                       </div>
                       <div>
-                        <Label htmlFor="email">E-mail (opcional)</Label>
+                        <Label htmlFor="email">E-mail *</Label>
                         <Input
                           id="email"
                           type="email"
                           value={newPlayer.email}
                           onChange={(e) => setNewPlayer({ ...newPlayer, email: e.target.value })}
                           placeholder="joao@email.com"
+                          required
                         />
                       </div>
                       <Button onClick={handleAddPlayer} className="w-full">
@@ -609,6 +638,7 @@ export default function ManagePlayers() {
                     <TableRow>
                       <TableHead>Nome</TableHead>
                       <TableHead>Apelido</TableHead>
+                      <TableHead>E-mail</TableHead>
                       <TableHead>Idade</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Nível</TableHead>
@@ -651,6 +681,23 @@ export default function ManagePlayers() {
                               />
                             ) : (
                               player.nickname || "-"
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {isEditing ? (
+                              <Input
+                                type="email"
+                                value={player.email || ""}
+                                onChange={(e) => {
+                                  setPlayers(players.map(p => 
+                                    p.id === player.id ? { ...p, email: e.target.value } : p
+                                  ));
+                                }}
+                                className="min-w-[180px]"
+                                required
+                              />
+                            ) : (
+                              player.email || "-"
                             )}
                           </TableCell>
                           <TableCell>{calculateAge(player.birth_date)}</TableCell>

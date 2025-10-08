@@ -54,7 +54,7 @@ export default function Profile() {
           event: 'UPDATE',
           schema: 'public',
           table: 'profiles',
-          filter: `id=eq.${userId}`,
+          filter: `user_id=eq.${userId}`,
         },
         () => {
           loadProfile();
@@ -89,11 +89,21 @@ export default function Profile() {
       const { data, error } = await supabase
         .from("profiles")
         .select("name, nickname, birth_date, position, level, is_approved, status")
-        .eq("id", user.id)
-        .single();
+        .eq("user_id", user.id)
+        .maybeSingle();
 
       if (error) throw error;
-      setProfile(data);
+      
+      if (data) {
+        setProfile(data);
+      } else {
+        // Perfil será criado automaticamente pelo trigger handle_new_user
+        toast({
+          title: "Perfil não encontrado",
+          description: "Seu perfil está sendo criado. Recarregue a página em alguns instantes.",
+          variant: "default",
+        });
+      }
     } catch (error: any) {
       toast({
         title: "Erro ao carregar perfil",

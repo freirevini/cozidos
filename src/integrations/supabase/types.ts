@@ -240,6 +240,7 @@ export type Database = {
           cartoes_vermelhos: number
           created_at: string
           derrotas: number
+          email: string | null
           empates: number
           faltas: number
           gols: number
@@ -259,6 +260,7 @@ export type Database = {
           cartoes_vermelhos?: number
           created_at?: string
           derrotas?: number
+          email?: string | null
           empates?: number
           faltas?: number
           gols?: number
@@ -278,6 +280,7 @@ export type Database = {
           cartoes_vermelhos?: number
           created_at?: string
           derrotas?: number
+          email?: string | null
           empates?: number
           faltas?: number
           gols?: number
@@ -432,6 +435,7 @@ export type Database = {
         Row: {
           birth_date: string | null
           created_at: string
+          email: string | null
           id: string
           is_approved: boolean | null
           is_player: boolean | null
@@ -444,10 +448,12 @@ export type Database = {
             | null
           position: Database["public"]["Enums"]["player_position"] | null
           status: Database["public"]["Enums"]["player_status"] | null
+          user_id: string | null
         }
         Insert: {
           birth_date?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           is_approved?: boolean | null
           is_player?: boolean | null
@@ -460,10 +466,12 @@ export type Database = {
             | null
           position?: Database["public"]["Enums"]["player_position"] | null
           status?: Database["public"]["Enums"]["player_status"] | null
+          user_id?: string | null
         }
         Update: {
           birth_date?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           is_approved?: boolean | null
           is_player?: boolean | null
@@ -476,6 +484,7 @@ export type Database = {
             | null
           position?: Database["public"]["Enums"]["player_position"] | null
           status?: Database["public"]["Enums"]["player_status"] | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -642,6 +651,10 @@ export type Database = {
       is_admin: {
         Args: { user_id: string }
         Returns: boolean
+      }
+      reset_all_data: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
     }
     Enums: {
