@@ -347,7 +347,7 @@ export default function Matches() {
 
                   <CardContent className="pt-4">
                     <div className="text-sm text-muted-foreground text-center mb-4">
-                      Horário: {match.scheduled_time?.substring(0, 5)}
+                      {match.scheduled_time?.substring(0, 5)}
                     </div>
 
                     {/* Gols Alinhados por Time */}
