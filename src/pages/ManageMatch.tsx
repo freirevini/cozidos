@@ -445,7 +445,7 @@ export default function ManageMatch() {
     <div className="min-h-screen bg-background">
       <Header isAdmin={isAdmin} />
       
-      {/* Cronômetro fixo no topo */}
+      {/* Cronômetro fixo no topo - apenas quando em andamento */}
       {match.status === 'in_progress' && (
         <div className="sticky top-0 z-50 bg-primary/90 backdrop-blur-sm py-4 shadow-lg">
           <div className="container mx-auto px-4 flex items-center justify-center gap-4">
@@ -465,6 +465,36 @@ export default function ManageMatch() {
       )}
 
       <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 max-w-4xl">
+        {/* Placar Padronizado */}
+        <div className="bg-gradient-to-r from-primary/90 to-secondary/90 backdrop-blur-sm p-6 rounded-2xl shadow-lg mb-6">
+          <div className="text-center mb-4">
+            <Badge className="bg-accent text-accent-foreground font-bold text-sm px-4 py-1">
+              {match.status === 'not_started' && 'AGUARDANDO INÍCIO'}
+              {match.status === 'in_progress' && 'EM ANDAMENTO'}
+              {match.status === 'finished' && 'ENCERRADO'}
+            </Badge>
+          </div>
+          <div className="flex items-center justify-center gap-8">
+            <div className="text-center flex-1">
+              <Badge className={`${teamColors[match.team_home]} mb-2`}>
+                {teamNames[match.team_home]}
+              </Badge>
+              <div className="text-6xl font-bold text-white">
+                {match.score_home}
+              </div>
+            </div>
+            <div className="text-5xl font-bold text-white">-</div>
+            <div className="text-center flex-1">
+              <Badge className={`${teamColors[match.team_away]} mb-2`}>
+                {teamNames[match.team_away]}
+              </Badge>
+              <div className="text-6xl font-bold text-white">
+                {match.score_away}
+              </div>
+            </div>
+          </div>
+        </div>
+
         <Card className="card-glow bg-card border-border">
           <CardHeader>
             <div className="flex items-center justify-between mb-4">
@@ -476,48 +506,66 @@ export default function ManageMatch() {
                 <ArrowLeft size={20} />
               </Button>
               <div className="text-xs text-muted-foreground">
-                {match.scheduled_time.substring(0, 5)}
+                Horário: {match.scheduled_time.substring(0, 5)}
               </div>
             </div>
             
-            {/* Placar estilo FULL TIME */}
-            {match.status === 'in_progress' && (
-              <div className="flex items-center justify-center mb-4">
-                <div className="relative w-full max-w-md">
-                  {/* FULL TIME banner */}
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                    <div className="bg-secondary text-secondary-foreground px-4 py-1 text-xs font-bold uppercase rounded">
-                      Em Andamento
-                    </div>
-                  </div>
-                  
-                  {/* Container principal do placar */}
-                  <div className="flex items-stretch bg-gradient-to-r from-card via-muted/30 to-card rounded-lg overflow-hidden shadow-lg border border-border">
-                    {/* Time Casa */}
-                    <div className="flex-1 bg-gradient-to-r from-primary/20 to-transparent py-3 px-2 sm:px-4 flex flex-col items-center justify-center">
-                      <Badge className={teamColors[match.team_home] + " mb-2 text-xs sm:text-sm whitespace-nowrap"}>
-                        {teamNames[match.team_home]}
-                      </Badge>
-                      <div className="text-3xl sm:text-5xl font-bold">{match.score_home}</div>
-                    </div>
-                    
-                    {/* Placar central */}
-                    <div className="bg-primary/90 px-4 sm:px-6 flex items-center justify-center">
-                      <span className="text-2xl sm:text-3xl font-bold text-primary-foreground">-</span>
-                    </div>
-                    
-                    {/* Time Visitante */}
-                    <div className="flex-1 bg-gradient-to-l from-primary/20 to-transparent py-3 px-2 sm:px-4 flex flex-col items-center justify-center">
-                      <Badge className={teamColors[match.team_away] + " mb-2 text-xs sm:text-sm whitespace-nowrap"}>
-                        {teamNames[match.team_away]}
-                      </Badge>
-                      <div className="text-3xl sm:text-5xl font-bold">{match.score_away}</div>
-                    </div>
-                  </div>
-                </div>
+            {/* Gols Alinhados por Time */}
+            <div className="grid grid-cols-2 gap-8 mb-6">
+              {/* Time Casa */}
+              <div className="text-left space-y-2">
+                {goals
+                  .filter(g => g.team_color === match.team_home)
+                  .sort((a, b) => a.minute - b.minute)
+                  .map((goal, idx) => {
+                    const scorer = goal.player;
+                    const assist = goal.assists && goal.assists.length > 0 ? goal.assists[0] : null;
+                    return (
+                      <div key={idx} className="text-sm flex items-center gap-2">
+                        <span className="text-xl">⚽</span>
+                        <div className="flex flex-col">
+                          <span className="text-foreground font-medium">
+                            {goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}
+                          </span>
+                          {assist?.player && (
+                            <span className="text-xs text-muted-foreground">
+                              Assist: {assist.player.nickname || assist.player.name}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-muted-foreground ml-auto">{goal.minute}'</span>
+                      </div>
+                    );
+                  })}
               </div>
-            )}
-
+              
+              {/* Time Visitante */}
+              <div className="text-right space-y-2">
+                {goals
+                  .filter(g => g.team_color === match.team_away)
+                  .sort((a, b) => a.minute - b.minute)
+                  .map((goal, idx) => {
+                    const scorer = goal.player;
+                    const assist = goal.assists && goal.assists.length > 0 ? goal.assists[0] : null;
+                    return (
+                      <div key={idx} className="text-sm flex items-center justify-end gap-2">
+                        <span className="text-muted-foreground">{goal.minute}'</span>
+                        <div className="flex flex-col items-end">
+                          <span className="text-foreground font-medium">
+                            {goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}
+                          </span>
+                          {assist?.player && (
+                            <span className="text-xs text-muted-foreground">
+                              Assist: {assist.player.nickname || assist.player.name}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xl">⚽</span>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
           </CardHeader>
 
           <CardContent className="space-y-4">
@@ -661,33 +709,6 @@ export default function ManageMatch() {
                   </Card>
                 )}
 
-                {goals.length > 0 && (
-                  <Card className="bg-muted/20 border-border">
-                    <CardContent className="pt-6">
-                      <h3 className="font-bold mb-3">Gols da Partida:</h3>
-                      <div className="space-y-2">
-                        {goals.map((goal) => (
-                          <div key={goal.id} className="text-sm flex items-center gap-2">
-                            {goal.is_own_goal ? (
-                              <>GC <span className="text-muted-foreground ml-auto">{goal.minute}'</span></>
-                            ) : (
-                              <>
-                                ⚽ {goal.player?.nickname || goal.player?.name || "Desconhecido"}
-                                {goal.assists && goal.assists.length > 0 && (
-                                  <span className="text-muted-foreground">
-                                    ({goal.assists[0].player?.nickname || goal.assists[0].player?.name})
-                                  </span>
-                                )}
-                                <span className="text-muted-foreground ml-auto">{goal.minute}'</span>
-                              </>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
                 {cards.length > 0 && (
                   <Card className="bg-muted/20 border-border">
                     <CardContent className="pt-6">
@@ -712,33 +733,6 @@ export default function ManageMatch() {
 
             {match.status === 'finished' && (
               <div className="space-y-4">
-                {goals.length > 0 && (
-                  <Card className="bg-muted/20 border-border">
-                    <CardContent className="pt-6">
-                      <h3 className="font-bold mb-3">Gols da Partida:</h3>
-                      <div className="space-y-2">
-                        {goals.map((goal) => (
-                          <div key={goal.id} className="text-sm flex items-center gap-2">
-                            {goal.is_own_goal ? (
-                              <>GC <span className="text-muted-foreground ml-auto">{goal.minute}'</span></>
-                            ) : (
-                              <>
-                                ⚽ {goal.player?.nickname || goal.player?.name || "Desconhecido"}
-                                {goal.assists && goal.assists.length > 0 && (
-                                  <span className="text-muted-foreground">
-                                    ({goal.assists[0].player?.nickname || goal.assists[0].player?.name})
-                                  </span>
-                                )}
-                                <span className="text-muted-foreground ml-auto">{goal.minute}'</span>
-                              </>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
                 {cards.length > 0 && (
                   <Card className="bg-muted/20 border-border">
                     <CardContent className="pt-6">

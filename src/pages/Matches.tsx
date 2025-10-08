@@ -306,104 +306,120 @@ export default function Matches() {
                     };
 
                     return (
-                      <Card 
-                        key={match.id} 
-                        className="bg-muted/20 border-border cursor-pointer hover:bg-muted/30 transition-colors"
-                        onClick={() => {
-                          if (match.status === 'in_progress') {
-                            window.location.href = `/admin/round/manage?round=${currentRound.id}&match=${match.id}`;
-                          }
-                        }}
-                      >
-                        <CardContent className="p-4 sm:p-6">
-                          <div className="flex flex-col space-y-3">
-                            {/* Status acima do horário */}
-                            <div className="text-center">
-                              {getStatusBadge(match.status)}
-                            </div>
-                            
-                            <div className="text-center text-xs sm:text-sm text-muted-foreground font-medium">
-                              {match.scheduled_time.substring(0, 5)}
-                            </div>
+                <Card 
+                  key={match.id} 
+                  className="card-glow overflow-hidden hover:shadow-xl transition-shadow cursor-pointer"
+                  onClick={() => {
+                    if (match.status === 'in_progress') {
+                      window.location.href = `/admin/round/manage?round=${currentRound.id}&match=${match.id}`;
+                    }
+                  }}
+                >
+                  {/* Placar Padronizado */}
+                  <div className="bg-gradient-to-r from-primary/90 to-secondary/90 p-6 rounded-t-2xl">
+                    <div className="text-center mb-3">
+                      <Badge className="bg-accent text-accent-foreground font-bold text-xs px-3 py-1">
+                        {match.status === 'not_started' && 'AGUARDANDO INÍCIO'}
+                        {match.status === 'in_progress' && 'EM ANDAMENTO'}
+                        {match.status === 'finished' && 'ENCERRADO'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-center gap-6">
+                      <div className="text-center flex-1">
+                        <Badge className={`${teamColors[match.team_home]} mb-2 text-xs`}>
+                          {teamNames[match.team_home]}
+                        </Badge>
+                        <div className="text-5xl font-bold text-white">
+                          {match.score_home}
+                        </div>
+                      </div>
+                      <div className="text-4xl font-bold text-white">-</div>
+                      <div className="text-center flex-1">
+                        <Badge className={`${teamColors[match.team_away]} mb-2 text-xs`}>
+                          {teamNames[match.team_away]}
+                        </Badge>
+                        <div className="text-5xl font-bold text-white">
+                          {match.score_away}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-                            <div className="flex items-center justify-center gap-4 sm:gap-8">
-                              <div className="flex flex-col items-center space-y-2 flex-1">
-                                <Badge className={teamColors[match.team_home] + " w-full justify-center py-2"}>
-                                  {teamNames[match.team_home]}
-                                </Badge>
-                                <span className="text-3xl sm:text-4xl font-bold text-primary">
-                                  {match.score_home}
+                  <CardContent className="pt-4">
+                    <div className="text-sm text-muted-foreground text-center mb-4">
+                      Horário: {match.scheduled_time?.substring(0, 5)}
+                    </div>
+
+                    {/* Gols Alinhados por Time */}
+                    <div className="grid grid-cols-2 gap-6 mb-4">
+                      {/* Time Casa */}
+                      <div className="text-left space-y-1.5">
+                        {match.goals
+                          ?.filter(g => g.team_color === match.team_home)
+                          .sort((a, b) => a.minute - b.minute)
+                          .map((goal, idx) => (
+                            <div key={idx} className="text-xs flex items-start gap-1.5">
+                              <span className="text-base">⚽</span>
+                              <div className="flex flex-col">
+                                <span className="text-foreground font-medium">
+                                  {goal.player?.nickname || goal.player?.name || 'Desconhecido'}
                                 </span>
-                                {/* Gols do time da casa */}
-                                {match.goals
-                                  .filter(g => g.team_color === match.team_home)
-                                  .sort((a, b) => a.minute - b.minute)
-                                  .map((goal, idx) => (
-                                    <div key={`home-goal-${idx}`} className="text-xs text-center">
-                                      <div className="font-medium flex items-center justify-center gap-1">
-                                        <span className="text-sm">⚽</span>
-                                        <span>{goal.player?.nickname || goal.player?.name}</span>
-                                        {goal.assist?.player && (
-                                          <span className="text-muted-foreground ml-1">
-                                            ({goal.assist.player.nickname || goal.assist.player.name})
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))}
+                                {goal.assist?.player && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    Assist: {goal.assist.player.nickname || goal.assist.player.name}
+                                  </span>
+                                )}
                               </div>
-
-                              <div className="text-xl sm:text-2xl text-muted-foreground font-bold">×</div>
-
-                              <div className="flex flex-col items-center space-y-2 flex-1">
-                                <Badge className={teamColors[match.team_away] + " w-full justify-center py-2"}>
-                                  {teamNames[match.team_away]}
-                                </Badge>
-                                <span className="text-3xl sm:text-4xl font-bold text-primary">
-                                  {match.score_away}
-                                </span>
-                                {/* Gols do time visitante */}
-                                {match.goals
-                                  .filter(g => g.team_color === match.team_away)
-                                  .sort((a, b) => a.minute - b.minute)
-                                  .map((goal, idx) => (
-                                    <div key={`away-goal-${idx}`} className="text-xs text-center">
-                                      <div className="font-medium flex items-center justify-center gap-1">
-                                        <span className="text-sm">⚽</span>
-                                        <span>{goal.player?.nickname || goal.player?.name}</span>
-                                        {goal.assist?.player && (
-                                          <span className="text-muted-foreground ml-1">
-                                            ({goal.assist.player.nickname || goal.assist.player.name})
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))}
-                              </div>
+                              <span className="text-muted-foreground ml-auto">{goal.minute}'</span>
                             </div>
-
-                            {match.cards.length > 0 && (
-                              <div className="border-t border-border pt-3">
-                                <div className="text-xs font-semibold mb-2 text-center">Cartões</div>
-                                <div className="space-y-1">
-                                  {match.cards
-                                    .sort((a, b) => a.minute - b.minute)
-                                    .map((card, idx) => (
-                                      <div key={`card-${idx}`} className="text-xs sm:text-sm text-center">
-                                        <span className="text-foreground font-medium">
-                                          {card.card_type === "amarelo" ? "🟨" : "🟥"} {card.player?.nickname || card.player?.name}
-                                        </span>
-                                        <span className="text-muted-foreground ml-2">
-                                          {card.minute}'
-                                        </span>
-                                      </div>
-                                    ))}
-                                </div>
+                          ))}
+                      </div>
+                      
+                      {/* Time Visitante */}
+                      <div className="text-right space-y-1.5">
+                        {match.goals
+                          ?.filter(g => g.team_color === match.team_away)
+                          .sort((a, b) => a.minute - b.minute)
+                          .map((goal, idx) => (
+                            <div key={idx} className="text-xs flex items-start justify-end gap-1.5">
+                              <span className="text-muted-foreground">{goal.minute}'</span>
+                              <div className="flex flex-col items-end">
+                                <span className="text-foreground font-medium">
+                                  {goal.player?.nickname || goal.player?.name || 'Desconhecido'}
+                                </span>
+                                {goal.assist?.player && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    Assist: {goal.assist.player.nickname || goal.assist.player.name}
+                                  </span>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
+                              <span className="text-base">⚽</span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+
+                    {match.cards.length > 0 && (
+                      <div className="border-t border-border pt-3">
+                        <div className="text-xs font-semibold mb-2 text-center">Cartões</div>
+                        <div className="space-y-1">
+                          {match.cards
+                            .sort((a, b) => a.minute - b.minute)
+                            .map((card, idx) => (
+                              <div key={`card-${idx}`} className="text-xs sm:text-sm text-center">
+                                <span className="text-foreground font-medium">
+                                  {card.card_type === "amarelo" ? "🟨" : "🟥"} {card.player?.nickname || card.player?.name}
+                                </span>
+                                <span className="text-muted-foreground ml-2">
+                                  {card.minute}'
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
                     );
                   })}
                 </div>
