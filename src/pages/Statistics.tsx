@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
 interface PlayerStat {
   player_id: string;
   player_name: string;
@@ -13,17 +12,14 @@ interface PlayerStat {
   goals: number;
   assists: number;
 }
-
 interface Round {
   id: string;
   round_number: number;
 }
-
 interface Player {
   id: string;
   name: string;
 }
-
 export default function Statistics() {
   const [topScorers, setTopScorers] = useState<PlayerStat[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,88 +28,68 @@ export default function Statistics() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [selectedRound, setSelectedRound] = useState<string>("all");
   const [selectedPlayer, setSelectedPlayer] = useState<string>("all");
-
   useEffect(() => {
     checkAdmin();
     loadRoundsAndPlayers();
   }, []);
-
   useEffect(() => {
     loadStatistics();
   }, [selectedRound, selectedPlayer]);
-
   const checkAdmin = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: {
+        user
+      }
+    } = await supabase.auth.getUser();
     if (user) {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .single();
+      const {
+        data
+      } = await supabase.from("user_roles").select("role").eq("user_id", user.id).single();
       setIsAdmin(data?.role === "admin");
     }
   };
-
   const loadRoundsAndPlayers = async () => {
     try {
-      const { data: roundsData } = await supabase
-        .from("rounds")
-        .select("id, round_number")
-        .order("round_number", { ascending: true });
-      
-      const { data: playersData } = await supabase
-        .from("profiles")
-        .select("id, name, nickname")
-        .eq("is_player", true)
-        .eq("is_approved", true)
-        .order("name", { ascending: true });
-
+      const {
+        data: roundsData
+      } = await supabase.from("rounds").select("id, round_number").order("round_number", {
+        ascending: true
+      });
+      const {
+        data: playersData
+      } = await supabase.from("profiles").select("id, name, nickname").eq("is_player", true).eq("is_approved", true).order("name", {
+        ascending: true
+      });
       setRounds(roundsData || []);
-      setPlayers((playersData || []).map(p => ({ id: p.id, name: p.nickname || p.name })));
+      setPlayers((playersData || []).map(p => ({
+        id: p.id,
+        name: p.nickname || p.name
+      })));
     } catch (error) {
       console.error("Erro ao carregar rodadas e jogadores:", error);
     }
   };
-
   const loadStatistics = async () => {
     try {
       setLoading(true);
-      
+
       // Buscar jogadores de profiles ao invés de players
-      let playersQuery = supabase
-        .from("profiles")
-        .select("*")
-        .eq("is_player", true)
-        .eq("is_approved", true);
-      
+      let playersQuery = supabase.from("profiles").select("*").eq("is_player", true).eq("is_approved", true);
       if (selectedPlayer !== "all") {
         playersQuery = playersQuery.eq("id", selectedPlayer);
       }
-
-      const { data: playersData } = await playersQuery;
-
+      const {
+        data: playersData
+      } = await playersQuery;
       if (!playersData) return;
-
-      const statsPromises = playersData.map(async (player) => {
-        let goalsQuery = supabase
-          .from("goals")
-          .select("*, match_id")
-          .eq("player_id", player.id)
-          .eq("is_own_goal", false);
-
-        let assistsQuery = supabase
-          .from("assists")
-          .select("*, goal_id, goals!inner(match_id)")
-          .eq("player_id", player.id);
-
+      const statsPromises = playersData.map(async player => {
+        let goalsQuery = supabase.from("goals").select("*, match_id").eq("player_id", player.id).eq("is_own_goal", false);
+        let assistsQuery = supabase.from("assists").select("*, goal_id, goals!inner(match_id)").eq("player_id", player.id);
         if (selectedRound !== "all") {
-          const { data: matches } = await supabase
-            .from("matches")
-            .select("id")
-            .eq("round_id", selectedRound);
-
+          const {
+            data: matches
+          } = await supabase.from("matches").select("id").eq("round_id", selectedRound);
           const matchIds = matches?.map(m => m.id) || [];
-          
           if (matchIds.length > 0) {
             goalsQuery = goalsQuery.in("match_id", matchIds);
             assistsQuery = assistsQuery.in("goals.match_id", matchIds);
@@ -123,23 +99,24 @@ export default function Statistics() {
               player_name: player.name,
               position: player.position,
               goals: 0,
-              assists: 0,
+              assists: 0
             };
           }
         }
-
-        const { data: goals } = await goalsQuery;
-        const { data: assists } = await assistsQuery;
-
+        const {
+          data: goals
+        } = await goalsQuery;
+        const {
+          data: assists
+        } = await assistsQuery;
         return {
           player_id: player.id,
           player_name: player.nickname || player.name,
           position: player.position || "atacante",
           goals: goals?.length || 0,
-          assists: assists?.length || 0,
+          assists: assists?.length || 0
         };
       });
-
       const stats = await Promise.all(statsPromises);
       stats.sort((a, b) => b.goals - a.goals);
       setTopScorers(stats);
@@ -149,19 +126,16 @@ export default function Statistics() {
       setLoading(false);
     }
   };
-
   const getPositionLabel = (position: string) => {
     const labels: Record<string, string> = {
       goleiro: "Goleiro",
       defensor: "Defensor",
       "meio-campista": "Meio-Campo",
-      atacante: "Atacante",
+      atacante: "Atacante"
     };
     return labels[position] || position;
   };
-
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       <Header isAdmin={isAdmin} />
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6 flex flex-col sm:flex-row gap-4">
@@ -172,11 +146,9 @@ export default function Statistics() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas as rodadas</SelectItem>
-                {rounds.map((round) => (
-                  <SelectItem key={round.id} value={round.id}>
+                {rounds.map(round => <SelectItem key={round.id} value={round.id}>
                     Rodada {round.round_number}
-                  </SelectItem>
-                ))}
+                  </SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -187,11 +159,9 @@ export default function Statistics() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os jogadores</SelectItem>
-                {players.map((player) => (
-                  <SelectItem key={player.id} value={player.id}>
+                {players.map(player => <SelectItem key={player.id} value={player.id}>
                     {player.name}
-                  </SelectItem>
-                ))}
+                  </SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -204,19 +174,10 @@ export default function Statistics() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <div className="text-center py-8">Carregando...</div>
-              ) : topScorers.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+              {loading ? <div className="text-center py-8">Carregando...</div> : topScorers.length === 0 ? <div className="text-center py-8 text-muted-foreground">
                   Nenhum resultado encontrado
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {topScorers.map((player, index) => (
-                    <div
-                      key={player.player_id}
-                      className="flex items-center justify-between p-4 rounded-lg bg-muted/20 border border-border hover:bg-muted/30 transition-colors"
-                    >
+                </div> : <div className="space-y-4">
+                  {topScorers.map((player, index) => <div key={player.player_id} className="flex items-center justify-between p-4 rounded-lg bg-muted/20 border border-border hover:bg-muted/30 transition-colors">
                       <div className="flex items-center space-x-4">
                         <span className="text-2xl font-bold text-primary w-8">
                           {index + 1}
@@ -233,10 +194,8 @@ export default function Statistics() {
                         </div>
                       </div>
                       <div className="text-3xl font-bold text-primary">{player.goals}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    </div>)}
+                </div>}
             </CardContent>
           </Card>
 
@@ -247,30 +206,15 @@ export default function Statistics() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <div className="text-center py-8">Carregando...</div>
-              ) : topScorers.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+              {loading ? <div className="text-center py-8">Carregando...</div> : topScorers.length === 0 ? <div className="text-center py-8 text-muted-foreground">
                   Nenhum resultado encontrado
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {[...topScorers]
-                    .sort((a, b) => b.assists - a.assists)
-                    .map((player, index) => (
-                      <div
-                        key={player.player_id}
-                        className="flex items-center justify-between p-4 rounded-lg bg-muted/20 border border-border hover:bg-muted/30 transition-colors"
-                      >
+                </div> : <div className="space-y-4">
+                  {[...topScorers].sort((a, b) => b.assists - a.assists).map((player, index) => <div key={player.player_id} className="flex items-center justify-between p-4 rounded-lg bg-muted/20 border border-border hover:bg-muted/30 transition-colors">
                         <div className="flex items-center space-x-4">
                           <span className="text-2xl font-bold text-primary w-8">
                             {index + 1}
                           </span>
-                          <Avatar className="h-12 w-12 border-2 border-primary">
-                            <AvatarFallback className="bg-primary/20 text-primary font-bold">
-                              {player.player_name.substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
+                          
                           <div>
                             <div className="font-bold text-foreground">
                               {player.player_name}
@@ -278,14 +222,11 @@ export default function Statistics() {
                           </div>
                         </div>
                         <div className="text-3xl font-bold text-primary">{player.assists}</div>
-                      </div>
-                    ))}
-                </div>
-              )}
+                      </div>)}
+                </div>}
             </CardContent>
           </Card>
         </div>
       </main>
-    </div>
-  );
+    </div>;
 }
