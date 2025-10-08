@@ -15,6 +15,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 
@@ -129,6 +140,29 @@ const ManageRanking = () => {
     } catch (error: any) {
       toast({
         title: "Erro ao remover",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteAllRankings = async () => {
+    try {
+      const { error } = await supabase
+        .from("player_rankings")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+
+      if (error) throw error;
+
+      setRankings([]);
+      toast({
+        title: "Apagado com sucesso",
+        description: "Toda a classificação foi removida.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao apagar tudo",
         description: error.message,
         variant: "destructive",
       });
@@ -274,6 +308,28 @@ const ManageRanking = () => {
               Gerenciar Classificação Geral
             </CardTitle>
             <div className="flex gap-2">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Apagar Tudo
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação não pode ser desfeita. Isso vai apagar permanentemente TODA a classificação geral do sistema.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={deleteAllRankings} className="bg-destructive hover:bg-destructive/90">
+                      Sim, apagar tudo
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               <Dialog>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="icon">

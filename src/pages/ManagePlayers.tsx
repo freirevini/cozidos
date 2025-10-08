@@ -11,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, UserPlus, Info } from "lucide-react";
+import { Upload, UserPlus, Info, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { toast as sonnerToast } from "sonner";
@@ -145,6 +146,26 @@ export default function ManagePlayers() {
     } catch (error: any) {
       toast({
         title: "Erro ao remover",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteAllPlayers = async () => {
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("is_player", true);
+
+      if (error) throw error;
+
+      setPlayers([]);
+      sonnerToast.success("Todos os jogadores foram removidos com sucesso!");
+    } catch (error: any) {
+      toast({
+        title: "Erro ao apagar tudo",
         description: error.message,
         variant: "destructive",
       });
@@ -338,6 +359,28 @@ export default function ManagePlayers() {
                   accept=".csv,.xlsx,.xls"
                   className="hidden"
                 />
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Apagar Tudo
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta ação não pode ser desfeita. Isso vai apagar permanentemente TODOS os jogadores do sistema.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={deleteAllPlayers} className="bg-destructive hover:bg-destructive/90">
+                        Sim, apagar tudo
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button variant="ghost" size="icon">
