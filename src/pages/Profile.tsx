@@ -172,7 +172,7 @@ export default function Profile() {
                     )}
                   </div>
                 </div>
-                {!profile.is_approved && (
+                {profile.status !== 'aprovado' && !profile.is_approved && (
                   <div className="mt-6 p-4 bg-muted/20 rounded-lg border border-border">
                     <p className="text-sm text-muted-foreground">
                       Seu perfil está pendente de aprovação pelo administrador. 
