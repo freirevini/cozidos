@@ -22,6 +22,7 @@ import ViewRound from "./pages/ViewRound";
 import ManageMatch from "./pages/ManageMatch";
 import AttendanceRecord from "./pages/AttendanceRecord";
 import ViewTeams from "./pages/ViewTeams";
+import ManageRanking from "./pages/ManageRanking";
 
 const queryClient = new QueryClient();
 
@@ -68,6 +69,7 @@ const App = () => (
           <Route path="/matches" element={<ProtectedRoute><Matches /></ProtectedRoute>} />
           <Route path="/statistics" element={<ProtectedRoute><Statistics /></ProtectedRoute>} />
           <Route path="/admin/players" element={<ProtectedRoute><ManagePlayers /></ProtectedRoute>} />
+          <Route path="/admin/ranking" element={<ProtectedRoute><ManageRanking /></ProtectedRoute>} />
           <Route path="/admin/teams" element={<ProtectedRoute><Teams /></ProtectedRoute>} />
           <Route path="/admin/teams/define" element={<ProtectedRoute><DefineTeams /></ProtectedRoute>} />
           <Route path="/admin/teams/manage" element={<ProtectedRoute><ManageTeams /></ProtectedRoute>} />

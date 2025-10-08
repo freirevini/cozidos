@@ -44,6 +44,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
     { href: "/admin/teams", label: "Times" },
     { href: "/admin/round", label: "Gerenciar Rodada" },
     { href: "/admin/players", label: "Gerenciar Jogadores" },
+    { href: "/admin/ranking", label: "Gerenciar Classificação Geral" },
   ];
 
   const userLinks = [

@@ -232,6 +232,74 @@ export type Database = {
           },
         ]
       }
+      player_rankings: {
+        Row: {
+          assistencias: number
+          atrasos: number
+          cartoes_amarelos: number
+          cartoes_vermelhos: number
+          created_at: string
+          derrotas: number
+          empates: number
+          faltas: number
+          gols: number
+          id: string
+          nickname: string
+          player_id: string
+          pontos_totais: number
+          presencas: number
+          punicoes: number
+          updated_at: string
+          vitorias: number
+        }
+        Insert: {
+          assistencias?: number
+          atrasos?: number
+          cartoes_amarelos?: number
+          cartoes_vermelhos?: number
+          created_at?: string
+          derrotas?: number
+          empates?: number
+          faltas?: number
+          gols?: number
+          id?: string
+          nickname: string
+          player_id: string
+          pontos_totais?: number
+          presencas?: number
+          punicoes?: number
+          updated_at?: string
+          vitorias?: number
+        }
+        Update: {
+          assistencias?: number
+          atrasos?: number
+          cartoes_amarelos?: number
+          cartoes_vermelhos?: number
+          created_at?: string
+          derrotas?: number
+          empates?: number
+          faltas?: number
+          gols?: number
+          id?: string
+          nickname?: string
+          player_id?: string
+          pontos_totais?: number
+          presencas?: number
+          punicoes?: number
+          updated_at?: string
+          vitorias?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_rankings_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: true
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_round_stats: {
         Row: {
           absence_points: number | null
