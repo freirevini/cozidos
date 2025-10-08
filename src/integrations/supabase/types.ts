@@ -326,28 +326,39 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          level: Database["public"]["Enums"]["player_level"]
+          level: Database["public"]["Enums"]["player_level"] | null
           name: string
-          position: Database["public"]["Enums"]["player_position"]
+          position: Database["public"]["Enums"]["player_position"] | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
-          level: Database["public"]["Enums"]["player_level"]
+          level?: Database["public"]["Enums"]["player_level"] | null
           name: string
-          position: Database["public"]["Enums"]["player_position"]
+          position?: Database["public"]["Enums"]["player_position"] | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
-          level?: Database["public"]["Enums"]["player_level"]
+          level?: Database["public"]["Enums"]["player_level"] | null
           name?: string
-          position?: Database["public"]["Enums"]["player_position"]
+          position?: Database["public"]["Enums"]["player_position"] | null
           updated_at?: string
+          user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "players_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
