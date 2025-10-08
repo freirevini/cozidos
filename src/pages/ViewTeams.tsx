@@ -104,7 +104,7 @@ export default function ViewTeams() {
           id,
           player_id,
           team_color,
-          profiles:player_id (
+          profiles!inner (
             name,
             nickname,
             position,

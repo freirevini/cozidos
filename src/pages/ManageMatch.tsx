@@ -213,13 +213,13 @@ export default function ManageMatch() {
       
       const { data: homePlayers } = await supabase
         .from("round_team_players")
-        .select("player_id, profiles(id, name, nickname)")
+        .select("player_id, profiles!inner(id, name, nickname)")
         .eq("round_id", roundId)
         .eq("team_color", match.team_home as "branco" | "vermelho" | "azul" | "laranja");
 
       const { data: awayPlayers } = await supabase
         .from("round_team_players")
-        .select("player_id, profiles(id, name, nickname)")
+        .select("player_id, profiles!inner(id, name, nickname)")
         .eq("round_id", roundId)
         .eq("team_color", match.team_away as "branco" | "vermelho" | "azul" | "laranja");
 

@@ -167,6 +167,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
           const { data: player } = await supabase
             .from("profiles")
             .select("id, name, nickname")
+            .eq("is_approved", true)
             .eq("id", goal.player_id)
             .maybeSingle();
 
@@ -180,6 +181,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
               const { data: assistPlayer } = await supabase
                 .from("profiles")
                 .select("id, name, nickname")
+                .eq("is_approved", true)
                 .eq("id", assist.player_id)
                 .maybeSingle();
               return { ...assist, player: assistPlayer };
@@ -211,6 +213,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
           const { data: player } = await supabase
             .from("profiles")
             .select("id, name, nickname")
+            .eq("is_approved", true)
             .eq("id", card.player_id)
             .maybeSingle();
           return { ...card, player };
