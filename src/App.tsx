@@ -21,6 +21,7 @@ import EditRound from "./pages/EditRound";
 import ViewRound from "./pages/ViewRound";
 import ManageMatch from "./pages/ManageMatch";
 import AttendanceRecord from "./pages/AttendanceRecord";
+import ViewTeams from "./pages/ViewTeams";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +78,7 @@ const App = () => (
           <Route path="/admin/round" element={<ProtectedRoute><StartRound /></ProtectedRoute>} />
           <Route path="/admin/round/manage" element={<ProtectedRoute><ManageRounds /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/times" element={<ProtectedRoute><ViewTeams /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

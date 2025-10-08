@@ -17,28 +17,54 @@ interface UserProfile {
 const positionMap: Record<string, string> = {
   goleiro: "Goleiro",
   defensor: "Defensor",
-  meio_campo: "Meio Campo",
+  "meio-campista": "Meio-Campista",
   atacante: "Atacante",
 };
 
 const levelMap: Record<string, string> = {
-  a: "A",
-  b: "B",
-  c: "C",
-  d: "D",
-  e: "E",
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  E: "E",
 };
 
 export default function Profile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userId, setUserId] = useState<string>("");
   const { toast } = useToast();
 
   useEffect(() => {
     checkAdmin();
     loadProfile();
   }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    // Subscribe to profile changes
+    const channel = supabase
+      .channel('profile-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${userId}`,
+        },
+        () => {
+          loadProfile();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
 
   const checkAdmin = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -56,6 +82,8 @@ export default function Profile() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
+
+      setUserId(user.id);
 
       const { data, error } = await supabase
         .from("profiles")

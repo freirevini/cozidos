@@ -47,6 +47,7 @@ export default function Header({ isAdmin = false }: HeaderProps) {
   ];
 
   const userLinks = [
+    { href: "/times", label: "Times" },
     { href: "/profile", label: "Meu Perfil" },
   ];
 
