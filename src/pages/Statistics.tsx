@@ -182,11 +182,7 @@ export default function Statistics() {
                         <span className="text-2xl font-bold text-primary w-8">
                           {index + 1}
                         </span>
-                        <Avatar className="h-12 w-12 border-2 border-primary">
-                          <AvatarFallback className="bg-primary/20 text-primary font-bold">
-                            {player.player_name.substring(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
+                        
                         <div>
                           <div className="font-bold text-foreground">
                             {player.player_name}
