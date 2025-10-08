@@ -12,6 +12,7 @@ interface UserProfile {
   position: string | null;
   level: string | null;
   is_approved: boolean;
+  status: string | null;
 }
 
 const positionMap: Record<string, string> = {
@@ -87,7 +88,7 @@ export default function Profile() {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("name, nickname, birth_date, position, level, is_approved")
+        .select("name, nickname, birth_date, position, level, is_approved, status")
         .eq("id", user.id)
         .single();
 
@@ -162,8 +163,10 @@ export default function Profile() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Status</p>
-                    {profile.is_approved ? (
+                    {profile.status === 'aprovado' || profile.is_approved ? (
                       <Badge className="bg-green-600">Aprovado</Badge>
+                    ) : profile.status === 'rejeitado' ? (
+                      <Badge variant="destructive">Rejeitado</Badge>
                     ) : (
                       <Badge variant="outline">Pendente de Aprovação</Badge>
                     )}
