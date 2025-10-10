@@ -133,18 +133,15 @@ export default function ManagePlayers() {
   };
 
   const deletePlayer = async (playerId: string) => {
-    if (!confirm("Tem certeza que deseja remover este jogador?")) return;
+    if (!confirm("Tem certeza que deseja remover este jogador e todos os seus dados relacionados?")) return;
 
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .delete()
-        .eq("id", playerId);
+      const { error } = await supabase.rpc('delete_player_by_id', { profile_id: playerId });
 
       if (error) throw error;
 
       setPlayers(players.filter(p => p.id !== playerId));
-      sonnerToast.success("Jogador removido com sucesso!");
+      sonnerToast.success("Jogador e todos os dados relacionados removidos com sucesso!");
     } catch (error: any) {
       toast({
         title: "Erro ao remover",
@@ -186,7 +183,7 @@ export default function ManagePlayers() {
         id: crypto.randomUUID(),
         name: newPlayer.name,
         nickname: newPlayer.nickname,
-        email: newPlayer.email,
+        email: newPlayer.email.toLowerCase().trim(), // Normalizar email
         level: newPlayer.level as Database['public']['Enums']['player_level'],
         position: newPlayer.position as Database['public']['Enums']['player_position'],
         is_player: true,
@@ -290,7 +287,7 @@ export default function ManagePlayers() {
             id: crypto.randomUUID(),
             name: row["Nome Completo"],
             nickname: row["Apelido"],
-            email: row["Email"],
+            email: row["Email"]?.toString().toLowerCase().trim(), // Normalizar email
             level: levelKey,
             position: positionValue,
             is_player: true,

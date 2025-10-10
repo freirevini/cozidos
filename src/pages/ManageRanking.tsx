@@ -48,11 +48,18 @@ interface PlayerRanking {
   pontos_totais: number;
 }
 
+interface EditedRanking {
+  id: string;
+  changes: Partial<PlayerRanking>;
+}
+
 const ManageRanking = () => {
   const [rankings, setRankings] = useState<PlayerRanking[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [editedRankings, setEditedRankings] = useState<Map<string, Partial<PlayerRanking>>>(new Map());
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -96,29 +103,65 @@ const ManageRanking = () => {
     }
   };
 
-  const updateRanking = async (id: string, field: keyof PlayerRanking, value: number) => {
+  const updateRankingField = (id: string, field: keyof PlayerRanking, value: number | string) => {
+    // Atualizar estado local
+    setRankings((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
+    );
+
+    // Rastrear mudanças
+    setEditedRankings((prev) => {
+      const newMap = new Map(prev);
+      const existing = newMap.get(id) || {};
+      newMap.set(id, { ...existing, [field]: value });
+      return newMap;
+    });
+  };
+
+  const saveChanges = async () => {
+    if (editedRankings.size === 0) {
+      toast({
+        title: "Nenhuma alteração",
+        description: "Não há alterações para salvar.",
+      });
+      return;
+    }
+
+    setSaving(true);
     try {
+      // Pegar dados completos dos rankings editados
+      const updates = Array.from(editedRankings.entries()).map(([id, changes]) => {
+        const currentRanking = rankings.find(r => r.id === id);
+        return {
+          id,
+          player_id: currentRanking?.player_id || "",
+          nickname: currentRanking?.nickname || "",
+          email: currentRanking?.email,
+          ...changes,
+        };
+      });
+
       const { error } = await supabase
         .from("player_rankings")
-        .update({ [field]: value })
-        .eq("id", id);
+        .upsert(updates, { onConflict: 'id' });
 
       if (error) throw error;
 
-      setRankings((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
-      );
+      setEditedRankings(new Map());
+      await loadRankings(); // Recarregar para ordenar por pontos
 
       toast({
-        title: "Atualizado com sucesso",
-        description: "Classificação atualizada.",
+        title: "Alterações salvas",
+        description: `${updates.length} registro(s) atualizado(s) com sucesso.`,
       });
     } catch (error: any) {
       toast({
-        title: "Erro ao atualizar",
+        title: "Erro ao salvar",
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -210,13 +253,27 @@ const ManageRanking = () => {
   };
 
   const processImportedData = async (data: any[]) => {
+    // Validar se a coluna Email existe
+    if (data.length > 0) {
+      const firstRow = data[0];
+      const hasEmailColumn = "Email" in firstRow || "email" in firstRow;
+      if (!hasEmailColumn) {
+        toast({
+          title: "Coluna obrigatória ausente",
+          description: "A coluna 'Email' é obrigatória para importação de classificação.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     const upserts: any[] = [];
     const invalidRows: string[] = [];
     let updated = 0;
     let created = 0;
 
     for (const row of data) {
-      const email = row["Email"] || row["email"];
+      const email = (row["Email"] || row["email"])?.toString().toLowerCase().trim();
       const nickname = row["Apelido"] || row["apelido"];
       
       if (!email) {
@@ -225,8 +282,8 @@ const ManageRanking = () => {
       }
 
       const rankingData = {
-        email: email,
-        nickname: nickname || "",
+        email: email, // já normalizado acima
+        nickname: nickname || email.split("@")[0],
         gols: parseInt(row["Gols"] || row["gols"]) || 0,
         assistencias: parseInt(row["Assistências"] || row["assistencias"]) || 0,
         vitorias: parseInt(row["Vitórias"] || row["vitorias"]) || 0,
@@ -347,6 +404,14 @@ const ManageRanking = () => {
               Gerenciar Classificação Geral
             </CardTitle>
             <div className="flex gap-2">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={saveChanges}
+                disabled={saving || editedRankings.size === 0}
+              >
+                {saving ? "Salvando..." : `Salvar Alterações${editedRankings.size > 0 ? ` (${editedRankings.size})` : ""}`}
+              </Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" size="sm">
@@ -457,7 +522,7 @@ const ManageRanking = () => {
                             type="number"
                             value={ranking.gols}
                             onChange={(e) =>
-                              updateRanking(ranking.id, "gols", parseInt(e.target.value) || 0)
+                              updateRankingField(ranking.id, "gols", parseInt(e.target.value) || 0)
                             }
                             className="w-16 text-center bg-background/50 border-primary/20"
                           />
@@ -467,7 +532,7 @@ const ManageRanking = () => {
                             type="number"
                             value={ranking.assistencias}
                             onChange={(e) =>
-                              updateRanking(ranking.id, "assistencias", parseInt(e.target.value) || 0)
+                              updateRankingField(ranking.id, "assistencias", parseInt(e.target.value) || 0)
                             }
                             className="w-16 text-center bg-background/50 border-primary/20"
                           />
@@ -477,7 +542,7 @@ const ManageRanking = () => {
                             type="number"
                             value={ranking.vitorias}
                             onChange={(e) =>
-                              updateRanking(ranking.id, "vitorias", parseInt(e.target.value) || 0)
+                              updateRankingField(ranking.id, "vitorias", parseInt(e.target.value) || 0)
                             }
                             className="w-16 text-center bg-background/50 border-primary/20"
                           />
@@ -487,7 +552,7 @@ const ManageRanking = () => {
                             type="number"
                             value={ranking.empates}
                             onChange={(e) =>
-                              updateRanking(ranking.id, "empates", parseInt(e.target.value) || 0)
+                              updateRankingField(ranking.id, "empates", parseInt(e.target.value) || 0)
                             }
                             className="w-16 text-center bg-background/50 border-primary/20"
                           />
@@ -497,7 +562,7 @@ const ManageRanking = () => {
                             type="number"
                             value={ranking.derrotas}
                             onChange={(e) =>
-                              updateRanking(ranking.id, "derrotas", parseInt(e.target.value) || 0)
+                              updateRankingField(ranking.id, "derrotas", parseInt(e.target.value) || 0)
                             }
                             className="w-16 text-center bg-background/50 border-primary/20"
                           />
@@ -507,7 +572,7 @@ const ManageRanking = () => {
                             type="number"
                             value={ranking.presencas}
                             onChange={(e) =>
-                              updateRanking(ranking.id, "presencas", parseInt(e.target.value) || 0)
+                              updateRankingField(ranking.id, "presencas", parseInt(e.target.value) || 0)
                             }
                             className="w-16 text-center bg-background/50 border-primary/20"
                           />
@@ -517,7 +582,7 @@ const ManageRanking = () => {
                             type="number"
                             value={ranking.faltas}
                             onChange={(e) =>
-                              updateRanking(ranking.id, "faltas", parseInt(e.target.value) || 0)
+                              updateRankingField(ranking.id, "faltas", parseInt(e.target.value) || 0)
                             }
                             className="w-16 text-center bg-background/50 border-primary/20"
                           />
@@ -527,7 +592,7 @@ const ManageRanking = () => {
                             type="number"
                             value={ranking.atrasos}
                             onChange={(e) =>
-                              updateRanking(ranking.id, "atrasos", parseInt(e.target.value) || 0)
+                              updateRankingField(ranking.id, "atrasos", parseInt(e.target.value) || 0)
                             }
                             className="w-16 text-center bg-background/50 border-primary/20"
                           />
@@ -537,7 +602,7 @@ const ManageRanking = () => {
                             type="number"
                             value={ranking.punicoes}
                             onChange={(e) =>
-                              updateRanking(ranking.id, "punicoes", parseInt(e.target.value) || 0)
+                              updateRankingField(ranking.id, "punicoes", parseInt(e.target.value) || 0)
                             }
                             className="w-16 text-center bg-background/50 border-primary/20"
                           />
@@ -547,7 +612,7 @@ const ManageRanking = () => {
                             type="number"
                             value={ranking.cartoes_amarelos}
                             onChange={(e) =>
-                              updateRanking(ranking.id, "cartoes_amarelos", parseInt(e.target.value) || 0)
+                              updateRankingField(ranking.id, "cartoes_amarelos", parseInt(e.target.value) || 0)
                             }
                             className="w-16 text-center bg-background/50 border-primary/20"
                           />
@@ -557,7 +622,7 @@ const ManageRanking = () => {
                             type="number"
                             value={ranking.cartoes_vermelhos}
                             onChange={(e) =>
-                              updateRanking(ranking.id, "cartoes_vermelhos", parseInt(e.target.value) || 0)
+                              updateRankingField(ranking.id, "cartoes_vermelhos", parseInt(e.target.value) || 0)
                             }
                             className="w-16 text-center bg-background/50 border-primary/20"
                           />
@@ -567,7 +632,7 @@ const ManageRanking = () => {
                             type="number"
                             value={ranking.pontos_totais}
                             onChange={(e) =>
-                              updateRanking(ranking.id, "pontos_totais", parseInt(e.target.value) || 0)
+                              updateRankingField(ranking.id, "pontos_totais", parseInt(e.target.value) || 0)
                             }
                             className="w-20 text-center bg-background/50 border-primary/20 font-bold"
                           />

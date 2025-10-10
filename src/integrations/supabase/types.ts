@@ -648,6 +648,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_player_by_email: {
+        Args: { player_email: string }
+        Returns: undefined
+      }
+      delete_player_by_id: {
+        Args: { profile_id: string }
+        Returns: undefined
+      }
       is_admin: {
         Args: { user_id: string }
         Returns: boolean
