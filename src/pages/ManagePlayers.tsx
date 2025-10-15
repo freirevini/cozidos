@@ -132,11 +132,9 @@ export default function ManagePlayers() {
     }
   };
 
-  const deletePlayer = async (playerId: string) => {
-    if (!confirm("Tem certeza que deseja remover este jogador e todos os seus dados relacionados?")) return;
-
+  const deletePlayer = async (playerId: string, playerEmail: string) => {
     try {
-      const { error } = await supabase.rpc('delete_player_by_id', { profile_id: playerId });
+      const { error } = await supabase.rpc('delete_player_by_email', { player_email: playerEmail });
 
       if (error) throw error;
 
@@ -384,7 +382,7 @@ export default function ManagePlayers() {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Esta ação não pode ser desfeita. Isso vai apagar permanentemente TODOS os jogadores do sistema.
+                        Esta ação removerá todos os jogadores, partidas, estatísticas e classificações. Não pode ser desfeita!
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -812,13 +810,33 @@ export default function ManagePlayers() {
                                   Editar
                                 </Button>
                               )}
-                              <Button
-                                size="sm"
-                                onClick={() => deletePlayer(player.id)}
-                                className="bg-red-600 hover:bg-red-700"
-                              >
-                                Remover
-                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    className="bg-red-600 hover:bg-red-700"
+                                  >
+                                    Remover
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Tem certeza que deseja remover {player.nickname || player.name} e todos os seus dados relacionados (gols, assistências, cartões, estatísticas)?
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction 
+                                      onClick={() => deletePlayer(player.id, player.email || "")}
+                                      className="bg-destructive hover:bg-destructive/90"
+                                    >
+                                      Sim, remover
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </div>
                           </TableCell>
                         </TableRow>
