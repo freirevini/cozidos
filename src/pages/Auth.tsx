@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import logoAuth from "@/assets/logo-auth.png";
+import logoColorido from "@/assets/logo-colorido.png";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -109,13 +109,9 @@ export default function Auth() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md card-glow bg-card border-border">
         <CardHeader className="text-center space-y-4">
-          <CardTitle className="text-4xl font-bold text-primary glow-text">
-            COZIDOS FC
-          </CardTitle>
-          <div className="flex justify-center">
-            <img src={logoAuth} alt="Cozidos FC" className="h-32 w-32" />
+          <div className="flex justify-center mb-6">
+            <img src={logoColorido} alt="Logo" className="h-48 w-auto object-contain" />
           </div>
-          <p className="text-2xl font-bold text-primary">2020</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
