@@ -71,6 +71,10 @@ export default function ManagePlayers() {
     email: "",
   });
 
+  // Deletion states
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   useEffect(() => {
     checkAdmin();
     loadPlayers();
@@ -132,11 +136,26 @@ export default function ManagePlayers() {
     }
   };
 
-  const deletePlayer = async (playerId: string, playerEmail: string) => {
+  const deletePlayer = async (playerId: string, playerEmail: string | null) => {
+    const normalizedEmail = (playerEmail || "").trim().toLowerCase();
+    setDeletingId(playerId);
     try {
-      const { error } = await supabase.rpc('delete_player_by_email', { player_email: playerEmail });
+      let rpcError = null as any;
 
-      if (error) throw error;
+      if (normalizedEmail) {
+        const { error } = await supabase.rpc('delete_player_by_email', { player_email: normalizedEmail });
+        rpcError = error;
+      } else {
+        rpcError = new Error('no-email');
+      }
+
+      // Fallback: if email not found or missing, delete by profile id
+      if (rpcError && (rpcError.message?.toLowerCase().includes('jogador não encontrado') || rpcError.message === 'no-email')) {
+        const { error: byIdError } = await supabase.rpc('delete_player_by_id', { profile_id: playerId });
+        if (byIdError) throw byIdError;
+      } else if (rpcError) {
+        throw rpcError;
+      }
 
       setPlayers(players.filter(p => p.id !== playerId));
       sonnerToast.success("Jogador e todos os dados relacionados removidos com sucesso!");
@@ -146,10 +165,13 @@ export default function ManagePlayers() {
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setDeletingId(null);
     }
   };
 
   const deleteAllPlayers = async () => {
+    setDeletingAll(true);
     try {
       const { error } = await supabase.rpc('reset_all_data');
 
@@ -163,6 +185,8 @@ export default function ManagePlayers() {
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setDeletingAll(false);
     }
   };
 
@@ -387,8 +411,8 @@ export default function ManagePlayers() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={deleteAllPlayers} className="bg-destructive hover:bg-destructive/90">
-                        Sim, apagar tudo
+                      <AlertDialogAction onClick={deleteAllPlayers} disabled={deletingAll} className="bg-destructive hover:bg-destructive/90">
+                        {deletingAll ? 'Apagando...' : 'Sim, apagar tudo'}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -829,10 +853,11 @@ export default function ManagePlayers() {
                                   <AlertDialogFooter>
                                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                     <AlertDialogAction 
-                                      onClick={() => deletePlayer(player.id, player.email || "")}
+                                      onClick={() => deletePlayer(player.id, player.email)}
+                                      disabled={deletingId === player.id}
                                       className="bg-destructive hover:bg-destructive/90"
                                     >
-                                      Sim, remover
+                                      {deletingId === player.id ? 'Removendo...' : 'Sim, remover'}
                                     </AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
