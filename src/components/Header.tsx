@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import logo from "@/assets/logo-cozidos.png";
+import logo from "@/assets/novo-logo.png";
 
 interface HeaderProps {
   isAdmin?: boolean;

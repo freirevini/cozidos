@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import logoColorido from "@/assets/logo-colorido.png";
+import novoLogo from "@/assets/novo-logo.png";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -108,7 +108,7 @@ export default function Auth() {
       <Card className="w-full max-w-md card-glow bg-card border-border">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center mb-6">
-            <img src={logoColorido} alt="Logo" className="h-48 w-auto object-contain" />
+            <img src={novoLogo} alt="Logo" className="h-48 w-auto object-contain" />
           </div>
         </CardHeader>
         <CardContent>
