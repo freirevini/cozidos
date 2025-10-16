@@ -57,7 +57,7 @@ export default function Auth() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!nickname || !birthDate) {
+    if (!birthDate) {
       toast.error("Por favor, preencha todos os campos obrigatórios.");
       return;
     }
@@ -75,7 +75,6 @@ export default function Auth() {
         options: {
           data: {
             name: name,
-            nickname,
             birth_date: birthDate,
             is_player: isPlayer === "sim",
             player_type: isPlayer === "sim" ? playerType : null,
@@ -89,7 +88,6 @@ export default function Auth() {
       // Update profile with additional data
       if (data.user) {
         await supabase.from("profiles").update({
-          nickname,
           birth_date: birthDate,
           is_player: isPlayer === "sim",
           player_type_detail: isPlayer === "sim" ? (playerType as "mensal" | "avulso") : null,
@@ -125,17 +123,6 @@ export default function Auth() {
                     placeholder="Seu nome"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="nickname">Apelido</Label>
-                  <Input
-                    id="nickname"
-                    type="text"
-                    placeholder="Seu apelido"
-                    value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
                     required
                   />
                 </div>

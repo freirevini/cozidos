@@ -15,6 +15,15 @@ interface UserProfile {
   status: string | null;
 }
 
+interface PlayerStats {
+  matches: number;
+  victories: number;
+  draws: number;
+  defeats: number;
+  goals: number;
+  assists: number;
+}
+
 const positionMap: Record<string, string> = {
   goleiro: "Goleiro",
   defensor: "Defensor",
@@ -32,6 +41,7 @@ const levelMap: Record<string, string> = {
 
 export default function Profile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [stats, setStats] = useState<PlayerStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userId, setUserId] = useState<string>("");
@@ -40,6 +50,7 @@ export default function Profile() {
   useEffect(() => {
     checkAdmin();
     loadProfile();
+    loadStats();
   }, []);
 
   useEffect(() => {
@@ -112,6 +123,35 @@ export default function Profile() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: rankingData } = await supabase
+        .from("player_rankings")
+        .select("vitorias, empates, derrotas, gols, assistencias")
+        .eq("email", user.email)
+        .maybeSingle();
+
+      if (rankingData) {
+        // Calculate total matches
+        const totalMatches = rankingData.vitorias + rankingData.empates + rankingData.derrotas;
+        
+        setStats({
+          matches: totalMatches,
+          victories: rankingData.vitorias,
+          draws: rankingData.empates,
+          defeats: rankingData.derrotas,
+          goals: rankingData.gols,
+          assists: rankingData.assistencias,
+        });
+      }
+    } catch (error: any) {
+      console.error("Erro ao carregar estatísticas:", error);
     }
   };
 
@@ -194,6 +234,44 @@ export default function Profile() {
             )}
           </CardContent>
         </Card>
+
+        {profile && stats && (
+          <Card className="card-glow bg-card border-border max-w-2xl mx-auto mt-6">
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold text-primary glow-text">
+                Minhas Estatísticas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="text-center p-4 bg-muted/20 rounded-lg border border-border">
+                  <p className="text-3xl font-bold text-primary">{stats.matches}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Partidas Disputadas</p>
+                </div>
+                <div className="text-center p-4 bg-muted/20 rounded-lg border border-border">
+                  <p className="text-3xl font-bold text-green-600">{stats.victories}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Vitórias</p>
+                </div>
+                <div className="text-center p-4 bg-muted/20 rounded-lg border border-border">
+                  <p className="text-3xl font-bold text-yellow-600">{stats.draws}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Empates</p>
+                </div>
+                <div className="text-center p-4 bg-muted/20 rounded-lg border border-border">
+                  <p className="text-3xl font-bold text-red-600">{stats.defeats}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Derrotas</p>
+                </div>
+                <div className="text-center p-4 bg-muted/20 rounded-lg border border-border">
+                  <p className="text-3xl font-bold text-primary">{stats.goals}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Gols</p>
+                </div>
+                <div className="text-center p-4 bg-muted/20 rounded-lg border border-border">
+                  <p className="text-3xl font-bold text-primary">{stats.assists}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Assistências</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   );

@@ -395,28 +395,6 @@ export default function ManagePlayers() {
                   accept=".csv,.xlsx,.xls"
                   className="hidden"
                 />
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Apagar Tudo
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Esta ação removerá todos os jogadores, partidas, estatísticas e classificações. Não pode ser desfeita!
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={deleteAllPlayers} disabled={deletingAll} className="bg-destructive hover:bg-destructive/90">
-                        {deletingAll ? 'Apagando...' : 'Sim, apagar tudo'}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button variant="ghost" size="icon">
