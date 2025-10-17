@@ -15,6 +15,9 @@ interface Match {
   score_away: number;
   scheduled_time: string;
   status: string;
+  match_timer_started_at: string | null;
+  match_timer_paused_at: string | null;
+  match_timer_total_paused_seconds: number;
   goals: Array<{
     player: { nickname: string; name: string };
     minute: number;
@@ -66,6 +69,7 @@ export default function Matches() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userPerformance, setUserPerformance] = useState<UserPerformance | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [matchTimers, setMatchTimers] = useState<Record<string, number>>({});
 
   useEffect(() => {
     loadUserAndData();
@@ -76,6 +80,34 @@ export default function Matches() {
       loadUserPerformance(rounds[currentRoundIndex].id);
     }
   }, [currentRoundIndex, rounds, userId]);
+
+  // Atualizar cronômetros das partidas em andamento
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (rounds[currentRoundIndex]?.matches) {
+        const newTimers: Record<string, number> = {};
+        rounds[currentRoundIndex].matches.forEach(match => {
+          if (match.status === 'in_progress' && match.match_timer_started_at) {
+            const startTime = new Date(match.match_timer_started_at).getTime();
+            const now = Date.now();
+            let pausedSeconds = match.match_timer_total_paused_seconds || 0;
+            
+            if (match.match_timer_paused_at) {
+              const pausedAt = new Date(match.match_timer_paused_at).getTime();
+              pausedSeconds += Math.floor((now - pausedAt) / 1000);
+            }
+            
+            const elapsedSeconds = Math.floor((now - startTime) / 1000) - pausedSeconds;
+            const remainingTime = Math.max(0, 720 - elapsedSeconds);
+            newTimers[match.id] = remainingTime;
+          }
+        });
+        setMatchTimers(newTimers);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [rounds, currentRoundIndex]);
 
   const loadUserAndData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -144,6 +176,12 @@ export default function Matches() {
     } catch (error) {
       console.error("Erro ao carregar aproveitamento:", error);
     }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const loadRounds = async () => {
@@ -306,7 +344,7 @@ export default function Matches() {
                     };
 
                     return (
-                <Card 
+                 <Card 
                   key={match.id} 
                   className="card-glow overflow-hidden hover:shadow-xl transition-shadow cursor-pointer"
                   onClick={() => {
@@ -317,12 +355,17 @@ export default function Matches() {
                 >
                   {/* Placar Padronizado */}
                   <div className="bg-gradient-to-r from-primary/90 to-secondary/90 p-6 rounded-t-2xl">
-                    <div className="text-center mb-3">
+                    <div className="text-center mb-3 flex flex-col items-center gap-2">
                       <Badge className="bg-accent text-accent-foreground font-bold text-xs px-3 py-1">
                         {match.status === 'not_started' && 'AGUARDANDO INÍCIO'}
                         {match.status === 'in_progress' && 'EM ANDAMENTO'}
                         {match.status === 'finished' && 'ENCERRADO'}
                       </Badge>
+                      {match.status === 'in_progress' && matchTimers[match.id] !== undefined && (
+                        <div className="text-2xl font-bold text-white font-mono bg-black/30 px-4 py-1 rounded-full">
+                          {formatTime(matchTimers[match.id])}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center justify-center gap-6">
                       <div className="text-center flex-1">

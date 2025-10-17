@@ -708,7 +708,18 @@ export default function ManagePlayers() {
                               player.email || "-"
                             )}
                           </TableCell>
-                          <TableCell>{calculateAge(player.birth_date)}</TableCell>
+                          <TableCell>
+                            {isEditing ? (
+                              <Input
+                                type="date"
+                                value={player.birth_date || ""}
+                                onChange={(e) => updatePlayer(player.id, "birth_date", e.target.value)}
+                                className="min-w-[130px]"
+                              />
+                            ) : (
+                              calculateAge(player.birth_date)
+                            )}
+                          </TableCell>
                           <TableCell>
                             <Select
                               value={player.player_type || "avulso"}

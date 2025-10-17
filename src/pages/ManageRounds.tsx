@@ -249,6 +249,40 @@ export default function ManageRounds() {
     }
   };
 
+  const finishAllMatches = async () => {
+    if (!roundId) return;
+
+    if (!confirm("Tem certeza que deseja encerrar TODAS as partidas desta rodada?")) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const unfinishedMatches = matches.filter(m => m.status !== 'finished');
+      
+      for (const match of unfinishedMatches) {
+        const { error } = await supabase
+          .from("matches")
+          .update({ 
+            status: 'finished', 
+            finished_at: new Date().toISOString(),
+            match_timer_paused_at: null 
+          })
+          .eq("id", match.id);
+
+        if (error) throw error;
+      }
+
+      toast.success(`${unfinishedMatches.length} partida(s) encerrada(s) com sucesso!`);
+      loadRoundData();
+    } catch (error: any) {
+      console.error("Erro ao encerrar partidas:", error);
+      toast.error("Erro ao encerrar partidas: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const finalizeRound = async () => {
     if (!roundId || !round) return;
 
@@ -329,6 +363,14 @@ export default function ManageRounds() {
               Rodada - {round && new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
             </CardTitle>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-4">
+              <Button
+                onClick={finishAllMatches}
+                disabled={loading || matches.every(m => m.status === 'finished')}
+                variant="outline"
+                className="w-full sm:w-auto"
+              >
+                Encerrar Todas as Partidas
+              </Button>
               <Button
                 onClick={showAttendanceDialog}
                 disabled={loading || matches.some(m => m.status !== 'finished')}

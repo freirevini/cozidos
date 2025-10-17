@@ -401,6 +401,8 @@ export default function ManageMatch() {
   };
 
   const finishMatch = async () => {
+    if (!match) return;
+
     if (!confirm("Tem certeza que deseja encerrar esta partida?")) {
       return;
     }
@@ -409,8 +411,12 @@ export default function ManageMatch() {
     try {
       const { error } = await supabase
         .from("matches")
-        .update({ status: 'finished', finished_at: new Date().toISOString() })
-        .eq("id", match?.id);
+        .update({ 
+          status: 'finished', 
+          finished_at: new Date().toISOString(),
+          match_timer_paused_at: null 
+        })
+        .eq("id", match.id);
 
       if (error) throw error;
       
