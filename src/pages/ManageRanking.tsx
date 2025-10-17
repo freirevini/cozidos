@@ -412,28 +412,6 @@ const ManageRanking = () => {
               >
                 {saving ? "Salvando..." : `Salvar Alterações${editedRankings.size > 0 ? ` (${editedRankings.size})` : ""}`}
               </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm">
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Apagar Tudo
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta ação não pode ser desfeita. Isso vai apagar permanentemente TODA a classificação geral do sistema.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={deleteAllRankings} className="bg-destructive hover:bg-destructive/90">
-                      Sim, apagar tudo
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
               <Dialog>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="icon">

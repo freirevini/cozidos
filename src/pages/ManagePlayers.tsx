@@ -282,6 +282,17 @@ export default function ManagePlayers() {
 
   const processImportedData = async (data: any[]) => {
     try {
+      // Validar se as colunas obrigatórias existem
+      if (data.length > 0) {
+        const firstRow = data[0];
+        const requiredColumns = ["Nome Completo", "Apelido", "Email", "Nivel", "Posicao"];
+        const missingColumns = requiredColumns.filter(col => !(col in firstRow));
+        
+        if (missingColumns.length > 0) {
+          throw new Error(`Colunas obrigatórias ausentes: ${missingColumns.join(", ")}`);
+        }
+      }
+
       const validRows = data.filter((row: any) => 
         row["Nome Completo"] && row["Apelido"] && row["Email"] && row["Nivel"] && row["Posicao"]
       );
