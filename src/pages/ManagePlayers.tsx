@@ -115,18 +115,41 @@ export default function ManagePlayers() {
 
   const updatePlayer = async (playerId: string, field: string, value: any) => {
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ [field]: value })
-        .eq("id", playerId);
+      // Se for birth_date, usar RPC para validação
+      if (field === 'birth_date') {
+        const { data, error } = await supabase.rpc('set_player_birth_date', {
+          p_player_id: playerId,
+          p_birth_date: value
+        });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      setPlayers(players.map(p => 
-        p.id === playerId ? { ...p, [field]: value } : p
-      ));
+        const result = data as { success: boolean; error?: string; age_years?: number };
+        if (!result.success) {
+          throw new Error(result.error || 'Erro ao atualizar data de nascimento');
+        }
 
-      sonnerToast.success("Jogador atualizado com sucesso!");
+        // Atualizar na interface com a idade calculada
+        setPlayers(players.map(p => 
+          p.id === playerId ? { ...p, birth_date: value } : p
+        ));
+
+        sonnerToast.success(`Data de nascimento atualizada! Idade: ${result.age_years} anos`);
+        loadPlayers(); // Recarregar para pegar idade atualizada
+      } else {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ [field]: value })
+          .eq("id", playerId);
+
+        if (error) throw error;
+
+        setPlayers(players.map(p => 
+          p.id === playerId ? { ...p, [field]: value } : p
+        ));
+
+        sonnerToast.success("Jogador atualizado com sucesso!");
+      }
     } catch (error: any) {
       toast({
         title: "Erro ao atualizar",
@@ -474,6 +497,18 @@ export default function ManagePlayers() {
                               </tr>
                               <tr>
                                 <td className="py-2 px-2 font-mono">Posicao</td>
+                                <td className="py-2 px-2">
+                                  <Badge className="bg-red-600">Sim</Badge>
+                                </td>
+                                <td className="py-2 px-2">
+                                  <code className="bg-background px-1 rounded">goleiro</code>,{" "}
+                                  <code className="bg-background px-1 rounded">defensor</code>,{" "}
+                                  <code className="bg-background px-1 rounded">meio-campista</code>,{" "}
+                                  <code className="bg-background px-1 rounded">atacante</code>
+                                </td>
+                              </tr>
+                              <tr>
+                                <td className="py-2 px-2 font-mono">Data de Nascimento</td>
                                 <td className="py-2 px-2">
                                   <Badge className="bg-red-600">Sim</Badge>
                                 </td>

@@ -258,22 +258,25 @@ export default function ManageRounds() {
 
     setLoading(true);
     try {
-      const unfinishedMatches = matches.filter(m => m.status !== 'finished');
-      
-      for (const match of unfinishedMatches) {
-        const { error } = await supabase
-          .from("matches")
-          .update({ 
-            status: 'finished', 
-            finished_at: new Date().toISOString(),
-            match_timer_paused_at: null 
-          })
-          .eq("id", match.id);
+      const { data, error } = await supabase.rpc('close_all_matches_by_round', {
+        p_round_id: roundId
+      });
 
-        if (error) throw error;
+      if (error) throw error;
+
+      const result = data as {
+        success: boolean;
+        error?: string;
+        message?: string;
+        newly_closed?: number;
+        already_closed?: number;
+      };
+
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao encerrar partidas');
       }
 
-      toast.success(`${unfinishedMatches.length} partida(s) encerrada(s) com sucesso!`);
+      toast.success(result.message || `${result.newly_closed} partida(s) encerrada(s) com sucesso!`);
       loadRoundData();
     } catch (error: any) {
       console.error("Erro ao encerrar partidas:", error);

@@ -395,6 +395,8 @@ export type Database = {
       }
       players: {
         Row: {
+          age_years: number | null
+          birth_date: string | null
           created_at: string
           id: string
           level: Database["public"]["Enums"]["player_level"] | null
@@ -404,6 +406,8 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          age_years?: number | null
+          birth_date?: string | null
           created_at?: string
           id?: string
           level?: Database["public"]["Enums"]["player_level"] | null
@@ -413,6 +417,8 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          age_years?: number | null
+          birth_date?: string | null
           created_at?: string
           id?: string
           level?: Database["public"]["Enums"]["player_level"] | null
@@ -648,6 +654,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_age_years: {
+        Args: { birth_date: string }
+        Returns: number
+      }
+      close_all_matches_by_round: {
+        Args: { p_round_id: string }
+        Returns: Json
+      }
+      close_match: {
+        Args: { p_match_id: string }
+        Returns: Json
+      }
       delete_player_by_email: {
         Args: { player_email: string }
         Returns: undefined
@@ -660,9 +678,17 @@ export type Database = {
         Args: { user_id: string }
         Returns: boolean
       }
+      recalc_round_aggregates: {
+        Args: { p_round_id: string }
+        Returns: Json
+      }
       reset_all_data: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      set_player_birth_date: {
+        Args: { p_birth_date: string; p_player_id: string }
+        Returns: Json
       }
     }
     Enums: {

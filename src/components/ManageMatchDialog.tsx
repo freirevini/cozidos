@@ -528,7 +528,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
                     </span>
                     {goal.assists && goal.assists.length > 0 && (
                       <span className="text-sm text-muted-foreground">
-                        ({goal.assists[0].player?.nickname || goal.assists[0].player?.name})
+                        (assistência: {goal.assists[0].player?.nickname || goal.assists[0].player?.name})
                       </span>
                     )}
                   </div>

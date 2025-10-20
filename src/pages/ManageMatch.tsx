@@ -409,19 +409,25 @@ export default function ManageMatch() {
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from("matches")
-        .update({ 
-          status: 'finished', 
-          finished_at: new Date().toISOString(),
-          match_timer_paused_at: null 
-        })
-        .eq("id", match.id);
+      const { data, error } = await supabase.rpc('close_match', {
+        p_match_id: match.id
+      });
 
       if (error) throw error;
+
+      const result = data as {
+        success: boolean;
+        error?: string;
+        message?: string;
+        already_closed?: boolean;
+      };
+
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao encerrar partida');
+      }
       
       setTimerRunning(false);
-      toast.success("Partida encerrada!");
+      toast.success(result.message || "Partida encerrada!");
       navigate(`/admin/round/manage?round=${roundId}`);
     } catch (error: any) {
       toast.error("Erro ao encerrar partida: " + error.message);
@@ -731,7 +737,7 @@ export default function ManageMatch() {
                   </Card>
                 )}
 
-                <Button onClick={finishMatch} variant="secondary" className="w-full" disabled={loading}>
+                <Button onClick={finishMatch} variant="secondary" className="w-full">
                   Encerrar Partida
                 </Button>
               </>
