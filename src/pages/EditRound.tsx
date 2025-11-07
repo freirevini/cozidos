@@ -219,12 +219,25 @@ export default function EditRound() {
       }
 
       if (allTeamPlayers.length > 0) {
-        const { error: playersError } = await supabase
-          .from("round_team_players")
-          .insert(allTeamPlayers);
+  // Normaliza o formato dos cartões antes de enviar ao Supabase
+  const normalizedPlayers = allTeamPlayers.map((p) => ({
+    ...p,
+    card_type:
+      p.card_type === "yellow"
+        ? "YELLOW_CARD"
+        : p.card_type === "red"
+        ? "RED_CARD"
+        : p.card_type || null, // mantém ou define nulo se não existir
+  }));
 
-        if (playersError) throw playersError;
-      }
+  const { error: playersError } = await supabase
+    .from("round_team_players")
+    .insert(normalizedPlayers);
+
+  if (playersError) throw playersError;
+}
+
+
 
       toast.success("Times atualizados com sucesso!");
       navigate("/admin/teams/manage");
