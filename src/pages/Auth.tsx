@@ -19,8 +19,14 @@ const signUpSchema = z.object({
   email: z.string().trim().email({ message: "E-mail inválido" }).max(255, { message: "E-mail muito longo" }),
   password: z.string().min(6, { message: "Senha deve ter no mínimo 6 caracteres" }),
   name: z.string().trim().min(1, { message: "Nome é obrigatório" }).max(100, { message: "Nome muito longo" }),
+  nickname: z.string().trim().min(1, { message: "Apelido é obrigatório" }).max(50, { message: "Apelido muito longo" }),
   birthDate: z.string().min(1, { message: "Data de nascimento é obrigatória" }),
 });
+
+interface NewPlayer {
+  level: string;
+  position: string;
+}
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -33,6 +39,10 @@ export default function Auth() {
   const [birthDate, setBirthDate] = useState("");
   const [isPlayer, setIsPlayer] = useState("nao");
   const [playerType, setPlayerType] = useState("");
+  const [newPlayer, setNewPlayer] = useState<NewPlayer>({
+    level: "",
+    position: "",
+  });
 
   useEffect(() => {
     checkUser();
@@ -79,14 +89,14 @@ export default function Auth() {
     e.preventDefault();
     
     // Validação básica de entrada
-    const validation = signUpSchema.safeParse({ email, password, name, birthDate });
+    const validation = signUpSchema.safeParse({ email, password, name, nickname, birthDate });
     if (!validation.success) {
       toast.error(validation.error.errors[0].message);
       return;
     }
 
-    if (isPlayer === "sim" && !playerType) {
-      toast.error("Por favor, selecione o tipo de jogador.");
+    if (isPlayer === "sim" && (!playerType || !newPlayer.level || !newPlayer.position)) {
+      toast.error("Por favor, preencha todos os campos de jogador (tipo, nível e posição).");
       return;
     }
 
@@ -110,9 +120,12 @@ export default function Auth() {
         options: {
           data: {
             name: validation.data.name,
+            nickname: validation.data.nickname,
             birth_date: validation.data.birthDate,
             is_player: isPlayer === "sim",
             player_type: isPlayer === "sim" ? playerType : null,
+            level: isPlayer === "sim" ? newPlayer.level : null,
+            position: isPlayer === "sim" ? newPlayer.position : null,
           },
           emailRedirectTo: `${window.location.origin}/`,
         },
@@ -123,12 +136,16 @@ export default function Auth() {
       // Update profile with additional data
       if (data.user) {
         await supabase.from("profiles").update({
+          nickname: validation.data.nickname,
           birth_date: validation.data.birthDate,
           is_player: isPlayer === "sim",
           player_type_detail: isPlayer === "sim" ? (playerType as "mensal" | "avulso") : null,
+          level: isPlayer === "sim" ? (newPlayer.level as any) : null,
+          position: isPlayer === "sim" ? (newPlayer.position as any) : null,
+          status: isPlayer === "sim" ? "aprovar" : "aprovado",
         }).eq("id", data.user.id);
 
-        toast.success("Conta criada com sucesso! Você já pode fazer login.");
+        toast.success("Conta criada com sucesso! Aguarde aprovação do administrador.");
         navigate("/");
       }
     } catch (error: any) {
@@ -162,6 +179,17 @@ export default function Auth() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="nickname">Apelido</Label>
+                  <Input
+                    id="nickname"
+                    type="text"
+                    placeholder="Seu apelido"
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="birthDate">Data de Nascimento</Label>
                   <Input
                     id="birthDate"
@@ -184,18 +212,49 @@ export default function Auth() {
                   </Select>
                 </div>
                 {isPlayer === "sim" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="playerType">Tipo de Jogador</Label>
-                    <Select value={playerType} onValueChange={setPlayerType}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="mensal">Mensal</SelectItem>
-                        <SelectItem value="avulso">Avulso</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="playerType">Tipo de Jogador</Label>
+                      <Select value={playerType} onValueChange={setPlayerType}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mensal">Mensal</SelectItem>
+                          <SelectItem value="avulso">Avulso</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="level">Nível</Label>
+                      <Select value={newPlayer.level} onValueChange={(value) => setNewPlayer({...newPlayer, level: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o nível" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="A">A</SelectItem>
+                          <SelectItem value="B">B</SelectItem>
+                          <SelectItem value="C">C</SelectItem>
+                          <SelectItem value="D">D</SelectItem>
+                          <SelectItem value="E">E</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="position">Posição</Label>
+                      <Select value={newPlayer.position} onValueChange={(value) => setNewPlayer({...newPlayer, position: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a posição" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="goleiro">Goleiro</SelectItem>
+                          <SelectItem value="defensor">Defensor</SelectItem>
+                          <SelectItem value="meio-campista">Meio-Campista</SelectItem>
+                          <SelectItem value="atacante">Atacante</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
                 )}
               </>
             )}

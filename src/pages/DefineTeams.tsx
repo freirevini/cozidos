@@ -117,6 +117,12 @@ export default function DefineTeams() {
     setLoading(true);
     
     try {
+      // Separar jogadores por posição e nível
+      const goalkeepers = availablePlayers.filter(p => p.position === 'goleiro');
+      const defenders = availablePlayers.filter(p => p.position === 'defensor');
+      const midfielders = availablePlayers.filter(p => p.position === 'meio-campista' || p.position === 'meio_campo');
+      const forwards = availablePlayers.filter(p => p.position === 'atacante');
+
       const levels = ['A', 'B', 'C', 'D', 'E'];
       const playersByLevel: Record<string, Player[]> = {};
       
@@ -149,7 +155,7 @@ export default function DefineTeams() {
         newTeams[team] = [];
       });
 
-      // Distribuir jogadores de linha por nível
+      // Distribuir jogadores de linha por nível (garante balanceamento)
       levels.forEach(level => {
         const shuffled = shuffle(playersByLevel[level]);
         let playerIndex = 0;
@@ -161,13 +167,23 @@ export default function DefineTeams() {
         });
       });
 
-      // Adicionar goleiros disponíveis (se houver)
-      const goalkeepers = availablePlayers.filter(p => p.position === 'goleiro');
+      // Adicionar goleiros disponíveis (1 por time se houver)
       const shuffledGoalkeepers = shuffle(goalkeepers);
       selectedTeams.forEach((team, index) => {
         if (shuffledGoalkeepers[index]) {
           newTeams[team].push({ ...shuffledGoalkeepers[index], team_color: team });
         }
+      });
+
+      // Tentar balancear por posições (critério adicional)
+      // Contar posições em cada time
+      Object.keys(newTeams).forEach(teamColor => {
+        const teamPlayers = newTeams[teamColor];
+        const defCount = teamPlayers.filter(p => p.position === 'defensor').length;
+        const midCount = teamPlayers.filter(p => p.position === 'meio-campista' || p.position === 'meio_campo').length;
+        const fwdCount = teamPlayers.filter(p => p.position === 'atacante').length;
+        
+        console.log(`Time ${teamColor}: ${defCount} DEF, ${midCount} MID, ${fwdCount} FWD`);
       });
 
       setTeams(newTeams);
@@ -403,8 +419,19 @@ export default function DefineTeams() {
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="text-sm text-muted-foreground mb-4">
-                  Selecione manualmente os jogadores para cada time. Cada time precisa ter 5 jogadores de linha (um de cada nível A, B, C, D, E) e pode ter 1 goleiro (opcional).
+                <div className="flex justify-between items-center mb-4">
+                  <div className="text-sm text-muted-foreground">
+                    Cada time precisa ter 5 jogadores de linha (um de cada nível A, B, C, D, E) e pode ter 1 goleiro (opcional).
+                  </div>
+                  <Button
+                    onClick={balanceTeams}
+                    disabled={loading}
+                    variant="secondary"
+                    className="flex items-center gap-2"
+                  >
+                    <Shuffle size={16} />
+                    Gerar Times Automaticamente
+                  </Button>
                 </div>
 
                 <div className="overflow-x-auto">

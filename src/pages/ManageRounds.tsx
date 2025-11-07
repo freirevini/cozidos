@@ -296,22 +296,34 @@ export default function ManageRounds() {
       return;
     }
 
-    if (!confirm("Tem certeza que deseja finalizar esta rodada?")) {
+    if (!confirm("Tem certeza que deseja finalizar esta rodada? Isso irá recalcular todas as estatísticas.")) {
       return;
     }
 
     setLoading(true);
 
     try {
-      // Atualizar status da rodada
+      // Recalcular estatísticas da rodada
+      const { data: recalcData, error: recalcError } = await supabase.rpc('recalc_round_aggregates', {
+        p_round_id: roundId
+      });
+
+      if (recalcError) throw recalcError;
+
+      const recalcResult = recalcData as { success: boolean; error?: string; message?: string };
+      if (!recalcResult.success) {
+        throw new Error(recalcResult.error || 'Erro ao recalcular estatísticas');
+      }
+
+      // Atualizar status da rodada para "finalizada"
       const { error: updateError } = await supabase
         .from("rounds")
-        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .update({ status: 'finalizada', completed_at: new Date().toISOString() })
         .eq("id", roundId);
 
       if (updateError) throw updateError;
 
-      toast.success("Rodada finalizada com sucesso!");
+      toast.success("Rodada finalizada e estatísticas atualizadas com sucesso!");
       navigate("/admin/round");
     } catch (error: any) {
       console.error("Erro ao finalizar rodada:", error);

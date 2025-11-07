@@ -196,6 +196,12 @@ export default function Profile() {
                     <p className="text-lg font-medium">{profile.nickname || "-"}</p>
                   </div>
                   <div>
+                    <p className="text-sm text-muted-foreground mb-1">Data de Nascimento</p>
+                    <p className="text-lg font-medium">
+                      {profile.birth_date ? new Date(profile.birth_date).toLocaleDateString('pt-BR') : "-"}
+                    </p>
+                  </div>
+                  <div>
                     <p className="text-sm text-muted-foreground mb-1">Idade</p>
                     <p className="text-lg font-medium">{calculateAge(profile.birth_date)} anos</p>
                   </div>
