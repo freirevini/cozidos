@@ -8,6 +8,19 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import novoLogo from "@/assets/novo-logo.png";
+import { z } from "zod";
+
+const loginSchema = z.object({
+  email: z.string().trim().email({ message: "E-mail inválido" }).max(255, { message: "E-mail muito longo" }),
+  password: z.string().min(6, { message: "Senha deve ter no mínimo 6 caracteres" }),
+});
+
+const signUpSchema = z.object({
+  email: z.string().trim().email({ message: "E-mail inválido" }).max(255, { message: "E-mail muito longo" }),
+  password: z.string().min(6, { message: "Senha deve ter no mínimo 6 caracteres" }),
+  name: z.string().trim().min(1, { message: "Nome é obrigatório" }).max(100, { message: "Nome muito longo" }),
+  birthDate: z.string().min(1, { message: "Data de nascimento é obrigatória" }),
+});
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -34,11 +47,19 @@ export default function Auth() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validação de entrada
+    const validation = loginSchema.safeParse({ email, password });
+    if (!validation.success) {
+      toast.error(validation.error.errors[0].message);
+      return;
+    }
+
     try {
       setLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: validation.data.email,
+        password: validation.data.password,
       });
 
       if (error) throw error;
@@ -57,8 +78,10 @@ export default function Auth() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!birthDate) {
-      toast.error("Por favor, preencha todos os campos obrigatórios.");
+    // Validação básica de entrada
+    const validation = signUpSchema.safeParse({ email, password, name, birthDate });
+    if (!validation.success) {
+      toast.error(validation.error.errors[0].message);
       return;
     }
 
@@ -67,15 +90,27 @@ export default function Auth() {
       return;
     }
 
+    // Validação de data de nascimento
+    const birthDateObj = new Date(birthDate);
+    const today = new Date();
+    if (birthDateObj > today) {
+      toast.error("Data de nascimento não pode ser no futuro");
+      return;
+    }
+    if (birthDateObj < new Date('1900-01-01')) {
+      toast.error("Data de nascimento inválida");
+      return;
+    }
+
     try {
       setLoading(true);
       const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
+        email: validation.data.email,
+        password: validation.data.password,
         options: {
           data: {
-            name: name,
-            birth_date: birthDate,
+            name: validation.data.name,
+            birth_date: validation.data.birthDate,
             is_player: isPlayer === "sim",
             player_type: isPlayer === "sim" ? playerType : null,
           },
@@ -88,7 +123,7 @@ export default function Auth() {
       // Update profile with additional data
       if (data.user) {
         await supabase.from("profiles").update({
-          birth_date: birthDate,
+          birth_date: validation.data.birthDate,
           is_player: isPlayer === "sim",
           player_type_detail: isPlayer === "sim" ? (playerType as "mensal" | "avulso") : null,
         }).eq("id", data.user.id);
