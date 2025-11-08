@@ -318,7 +318,7 @@ export default function ManageRounds() {
       // Atualizar status da rodada para "finalizada"
       const { error: updateError } = await supabase
         .from("rounds")
-        .update({ status: 'finalizada', completed_at: new Date().toISOString() })
+        .update({ status: 'finalizada' })
         .eq("id", roundId);
 
       if (updateError) throw updateError;
