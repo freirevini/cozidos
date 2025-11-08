@@ -41,7 +41,8 @@ export default function EditRound() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [round, setRound] = useState<any>(null);
+  interface Round { id: string; round_number?: number; scheduled_date?: string; status?: string }
+  const [round, setRound] = useState<Round | null>(null);
   const [teams, setTeams] = useState<Record<string, TeamPlayer[]>>({});
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
@@ -119,7 +120,7 @@ export default function EditRound() {
       const teamsData: Record<string, TeamPlayer[]> = {};
       const colors = new Set<string>();
 
-      teamPlayers.forEach((tp: any) => {
+      teamPlayers.forEach((tp: { profiles: Player; team_color: string }) => {
         const player = tp.profiles;
         const teamColor = tp.team_color;
         colors.add(teamColor);
@@ -140,7 +141,7 @@ export default function EditRound() {
 
       setTeams(teamsData);
       setSelectedTeams(Array.from(colors));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao carregar rodada:", error);
       toast.error("Erro ao carregar dados da rodada");
     } finally {
@@ -202,7 +203,7 @@ export default function EditRound() {
       if (deleteError) throw deleteError;
 
       // Insert updated team players (remove duplicates)
-      const allTeamPlayers: any[] = [];
+      const allTeamPlayers: { round_id: string | undefined; player_id: string; team_color: 'branco'|'vermelho'|'azul'|'laranja' }[] = [];
       const insertedPlayerIds = new Set<string>();
 
       for (const teamColor of Object.keys(teams)) {
@@ -219,31 +220,22 @@ export default function EditRound() {
       }
 
       if (allTeamPlayers.length > 0) {
-  // Normaliza o formato dos cartões antes de enviar ao Supabase
-  const normalizedPlayers = allTeamPlayers.map((p) => ({
-    ...p,
-    card_type:
-      p.card_type === "yellow"
-        ? "YELLOW_CARD"
-        : p.card_type === "red"
-        ? "RED_CARD"
-        : p.card_type || null, // mantém ou define nulo se não existir
-  }));
+        // Inserir jogadores do time para a rodada (sem transformar campos inesperados)
+        const { error: playersError } = await supabase
+          .from("round_team_players")
+          .insert(allTeamPlayers);
 
-  const { error: playersError } = await supabase
-    .from("round_team_players")
-    .insert(normalizedPlayers);
-
-  if (playersError) throw playersError;
-}
+        if (playersError) throw playersError;
+      }
 
 
 
       toast.success("Times atualizados com sucesso!");
       navigate("/admin/teams/manage");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao salvar alterações:", error);
-      toast.error("Erro ao salvar alterações: " + error.message);
+      const msg = error instanceof Error ? error.message : String(error);
+      toast.error("Erro ao salvar alterações: " + msg);
     } finally {
       setSaving(false);
     }

@@ -30,7 +30,13 @@ export default function PunishmentDialog({ playerId, playerName, open, onOpenCha
   const [punishments, setPunishments] = useState<Punishment[]>([]);
   const [rounds, setRounds] = useState<Array<{ id: string; round_number: number }>>([]);
   const [loading, setLoading] = useState(false);
-  const [newPunishment, setNewPunishment] = useState({
+  interface NewPunishment {
+    round_id: string;
+    points: string;
+    reason: string;
+  }
+
+  const [newPunishment, setNewPunishment] = useState<NewPunishment>({
     round_id: "",
     points: "",
     reason: "",
@@ -58,8 +64,10 @@ export default function PunishmentDialog({ playerId, playerName, open, onOpenCha
 
       if (error) throw error;
       setPunishments(data || []);
-    } catch (error) {
-      console.error("Erro ao carregar punições:", error);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error("Erro ao carregar punições:", msg);
+      toast.error("Erro ao carregar punições");
     }
   };
 
@@ -72,8 +80,10 @@ export default function PunishmentDialog({ playerId, playerName, open, onOpenCha
 
       if (error) throw error;
       setRounds(data || []);
-    } catch (error) {
-      console.error("Erro ao carregar rodadas:", error);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error("Erro ao carregar rodadas:", msg);
+      toast.error("Erro ao carregar rodadas");
     }
   };
 
@@ -99,8 +109,9 @@ export default function PunishmentDialog({ playerId, playerName, open, onOpenCha
       toast.success("Punição adicionada com sucesso");
       setNewPunishment({ round_id: "", points: "", reason: "" });
       loadPunishments();
-    } catch (error: any) {
-      toast.error("Erro ao adicionar punição: " + error.message);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      toast.error("Erro ao adicionar punição: " + msg);
     } finally {
       setLoading(false);
     }
@@ -121,8 +132,9 @@ export default function PunishmentDialog({ playerId, playerName, open, onOpenCha
 
       toast.success("Punição excluída");
       loadPunishments();
-    } catch (error: any) {
-      toast.error("Erro ao excluir punição: " + error.message);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      toast.error("Erro ao excluir punição: " + msg);
     }
   };
 
