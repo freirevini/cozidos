@@ -608,7 +608,7 @@ export type Database = {
           id: string
           round_number: number
           scheduled_date: string | null
-          status: string
+          status: Database["public"]["Enums"]["round_status"]
         }
         Insert: {
           completed_at?: string | null
@@ -616,7 +616,7 @@ export type Database = {
           id?: string
           round_number: number
           scheduled_date?: string | null
-          status?: string
+          status?: Database["public"]["Enums"]["round_status"]
         }
         Update: {
           completed_at?: string | null
@@ -624,7 +624,7 @@ export type Database = {
           id?: string
           round_number?: number
           scheduled_date?: string | null
-          status?: string
+          status?: Database["public"]["Enums"]["round_status"]
         }
         Relationships: []
       }
@@ -654,38 +654,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      calculate_age_years: {
-        Args: { birth_date: string }
-        Returns: number
-      }
+      calculate_age_years: { Args: { birth_date: string }; Returns: number }
       close_all_matches_by_round: {
         Args: { p_round_id: string }
         Returns: Json
       }
-      close_match: {
-        Args: { p_match_id: string }
-        Returns: Json
-      }
+      close_match: { Args: { p_match_id: string }; Returns: Json }
       delete_player_by_email: {
         Args: { player_email: string }
         Returns: undefined
       }
-      delete_player_by_id: {
-        Args: { profile_id: string }
-        Returns: undefined
-      }
-      is_admin: {
-        Args: { user_id: string }
-        Returns: boolean
-      }
-      recalc_round_aggregates: {
-        Args: { p_round_id: string }
-        Returns: Json
-      }
-      reset_all_data: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      delete_player_by_id: { Args: { profile_id: string }; Returns: undefined }
+      is_admin: { Args: { user_id: string }; Returns: boolean }
+      recalc_round_aggregates: { Args: { p_round_id: string }; Returns: Json }
+      reset_all_data: { Args: never; Returns: undefined }
       set_player_birth_date: {
         Args: { p_birth_date: string; p_player_id: string }
         Returns: Json
@@ -698,6 +680,7 @@ export type Database = {
       player_position: "goleiro" | "defensor" | "meio-campista" | "atacante"
       player_status: "aprovado" | "aprovar" | "congelado"
       player_type_enum: "mensal" | "avulso" | "avulso_fixo"
+      round_status: "a_iniciar" | "em_andamento" | "finalizada"
       team_color: "branco" | "vermelho" | "azul" | "laranja"
       user_role: "user" | "admin"
     }
@@ -833,6 +816,7 @@ export const Constants = {
       player_position: ["goleiro", "defensor", "meio-campista", "atacante"],
       player_status: ["aprovado", "aprovar", "congelado"],
       player_type_enum: ["mensal", "avulso", "avulso_fixo"],
+      round_status: ["a_iniciar", "em_andamento", "finalizada"],
       team_color: ["branco", "vermelho", "azul", "laranja"],
       user_role: ["user", "admin"],
     },

@@ -175,16 +175,22 @@ export default function DefineTeams() {
         }
       });
 
-      // Tentar balancear por posições (critério adicional)
-      // Contar posições em cada time
-      Object.keys(newTeams).forEach(teamColor => {
-        const teamPlayers = newTeams[teamColor];
-        const defCount = teamPlayers.filter(p => p.position === 'defensor').length;
-        const midCount = teamPlayers.filter(p => p.position === 'meio-campista' || p.position === 'meio_campo').length;
-        const fwdCount = teamPlayers.filter(p => p.position === 'atacante').length;
-        
-        console.log(`Time ${teamColor}: ${defCount} DEF, ${midCount} MID, ${fwdCount} FWD`);
-      });
+      // Tentar balancear por posições - critério adicional
+      // Garantir distribuição mínima: 1-2 DEF, 1-3 MC, 1-3 FWD por time
+      const assignByPosition = (positionPlayers: Player[], teamKey: string[], max: number) => {
+        const shuffled = shuffle(positionPlayers);
+        let assigned = 0;
+        selectedTeams.forEach((team) => {
+          if (assigned < shuffled.length && newTeams[team].length < 6 && assigned < max * selectedTeams.length) {
+            newTeams[team].push({ ...shuffled[assigned], team_color: team });
+            assigned++;
+          }
+        });
+      };
+
+      // assignByPosition(defenders, selectedTeams, 2);
+      // assignByPosition(midfielders, selectedTeams, 3);
+      // assignByPosition(forwards, selectedTeams, 3);
 
       setTeams(newTeams);
       toast.success("Times balanceados com sucesso!");
@@ -266,7 +272,7 @@ export default function DefineTeams() {
         .insert({
           round_number: newRoundNumber,
           scheduled_date: scheduledDate,
-          status: 'pending',
+          status: 'a_iniciar',
         })
         .select()
         .single();

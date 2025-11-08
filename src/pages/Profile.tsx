@@ -44,6 +44,7 @@ export default function Profile() {
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isPlayer, setIsPlayer] = useState(false);
   const [userId, setUserId] = useState<string>("");
   const { toast } = useToast();
 
@@ -99,7 +100,7 @@ export default function Profile() {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("name, nickname, birth_date, position, level, is_approved, status")
+        .select("name, nickname, birth_date, position, level, is_approved, status, is_player")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -107,6 +108,7 @@ export default function Profile() {
       
       if (data) {
         setProfile(data);
+        setIsPlayer(data.is_player || false);
       } else {
         // Perfil será criado automaticamente pelo trigger handle_new_user
         toast({
@@ -169,7 +171,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header isAdmin={isAdmin} />
+      <Header isAdmin={isAdmin} isPlayer={isPlayer} />
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border max-w-2xl mx-auto">
           <CardHeader>
@@ -203,7 +205,9 @@ export default function Profile() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Idade</p>
-                    <p className="text-lg font-medium">{calculateAge(profile.birth_date)} anos</p>
+                    <p className="text-lg font-medium">
+                      {profile.birth_date ? `${calculateAge(profile.birth_date)} anos` : "-"}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Posição</p>

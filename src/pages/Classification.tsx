@@ -33,6 +33,7 @@ export default function Classification() {
   const [stats, setStats] = useState<PlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isPlayer, setIsPlayer] = useState(false);
 
   useEffect(() => {
     checkAdmin();
@@ -48,6 +49,14 @@ export default function Classification() {
         .eq("user_id", user.id)
         .single();
       setIsAdmin(data?.role === "admin");
+
+      // Verificar se é jogador
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_player")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      setIsPlayer(profile?.is_player || false);
     }
   };
 
@@ -71,13 +80,13 @@ export default function Classification() {
             rounds!inner(status)
           `)
           .eq("player_id", player.id)
-          .eq("rounds.status", "completed");
+          .eq("rounds.status", "finalizada");
 
         const presenca = attendance?.filter((a) => a.status === "presente").length || 0;
         const atraso = attendance?.filter((a) => a.status === "atrasado").length || 0;
         const falta = attendance?.filter((a) => a.status === "falta").length || 0;
 
-        // Buscar todas as partidas do jogador em rodadas completas
+        // Buscar todas as partidas do jogador em rodadas finalizadas
         const { data: playerMatches } = await supabase
           .from("round_team_players")
           .select(`
@@ -86,7 +95,7 @@ export default function Classification() {
             rounds!inner(status)
           `)
           .eq("player_id", player.id)
-          .eq("rounds.status", "completed");
+          .eq("rounds.status", "finalizada");
 
         let vitoria = 0;
         let empate = 0;
@@ -119,7 +128,7 @@ export default function Classification() {
           }
         }
 
-        // Cartões (apenas de rodadas completas)
+        // Cartões (apenas de rodadas finalizadas)
         const { data: cards } = await supabase
           .from("cards")
           .select(`
@@ -130,13 +139,13 @@ export default function Classification() {
             )
           `)
           .eq("player_id", player.id)
-          .eq("matches.rounds.status", "completed");
+          .eq("matches.rounds.status", "finalizada");
 
         const cartoes_amarelos = cards?.filter((c) => c.card_type === "amarelo").length || 0;
         const cartoes_vermelhos = cards?.filter((c) => c.card_type === "vermelho").length || 0;
         const cartao_pontos = (cartoes_amarelos * -1) + (cartoes_vermelhos * -2);
 
-        // Gols (apenas de rodadas completas)
+        // Gols (apenas de rodadas finalizadas)
         const { data: goals } = await supabase
           .from("goals")
           .select(`
@@ -148,11 +157,11 @@ export default function Classification() {
           `)
           .eq("player_id", player.id)
           .eq("is_own_goal", false)
-          .eq("matches.rounds.status", "completed");
+          .eq("matches.rounds.status", "finalizada");
 
         const gols = goals?.length || 0;
 
-        // Punições (apenas de rodadas completas)
+        // Punições (apenas de rodadas finalizadas)
         const { data: punishments } = await supabase
           .from("punishments")
           .select(`
@@ -160,7 +169,7 @@ export default function Classification() {
             rounds!inner(status)
           `)
           .eq("player_id", player.id)
-          .eq("rounds.status", "completed");
+          .eq("rounds.status", "finalizada");
 
         const punicao = punishments?.reduce((sum, p) => sum + p.points, 0) || 0;
 
@@ -205,7 +214,7 @@ export default function Classification() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header isAdmin={isAdmin} />
+      <Header isAdmin={isAdmin} isPlayer={isPlayer} />
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border">
           <CardHeader>

@@ -143,9 +143,13 @@ export default function Auth() {
           level: isPlayer === "sim" ? (newPlayer.level as any) : null,
           position: isPlayer === "sim" ? (newPlayer.position as any) : null,
           status: isPlayer === "sim" ? "aprovar" : "aprovado",
-        }).eq("id", data.user.id);
+        }).eq("user_id", data.user.id);
 
-        toast.success("Conta criada com sucesso! Aguarde aprovação do administrador.");
+        const message = isPlayer === "sim" 
+          ? "Conta criada com sucesso! Aguarde aprovação do administrador para participar das rodadas."
+          : "Conta criada com sucesso! Você pode acessar as informações do sistema.";
+        
+        toast.success(message);
         navigate("/");
       }
     } catch (error: any) {

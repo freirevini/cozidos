@@ -154,7 +154,7 @@ export default function AttendanceRecord() {
       // Finalizar rodada
       const { error: updateError } = await supabase
         .from("rounds")
-        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .update({ status: 'finalizada', completed_at: new Date().toISOString() })
         .eq("id", roundId);
 
       if (updateError) throw updateError;

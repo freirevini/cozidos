@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,9 +7,10 @@ import logo from "@/assets/novo-logo.png";
 
 interface HeaderProps {
   isAdmin?: boolean;
+  isPlayer?: boolean;
 }
 
-export default function Header({ isAdmin = false }: HeaderProps) {
+export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -47,10 +48,14 @@ export default function Header({ isAdmin = false }: HeaderProps) {
     { href: "/admin/ranking", label: "Gerenciar Classificação Geral" },
   ];
 
-  const userLinks = [
-    { href: "/times", label: "Times" },
-    { href: "/profile", label: "Meu Perfil" },
-  ];
+  const userLinks = isPlayer 
+    ? [
+        { href: "/times", label: "Times" },
+        { href: "/profile", label: "Meu Perfil" },
+      ]
+    : [
+        { href: "/profile", label: "Meu Perfil" },
+      ];
 
   const allLinks = isAdmin 
     ? [...navLinks, ...adminLinks] 

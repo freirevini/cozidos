@@ -97,7 +97,6 @@ export default function ManagePlayers() {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("is_player", true)
         .order("name");
 
       if (error) throw error;
@@ -808,30 +807,36 @@ export default function ManagePlayers() {
                             </Select>
                           </TableCell>
                           <TableCell>
-                            <Select
-                              value={player.status || "aprovar"}
-                              onValueChange={(value) => updatePlayer(player.id, "status", value)}
-                              disabled={!isEditing}
-                            >
-                              <SelectTrigger className={`w-32 ${
-                                player.status === "aprovado" ? "border-green-600" : 
-                                player.status === "aprovar" ? "border-yellow-600" : 
-                                "border-gray-600"
-                              }`}>
-                                <SelectValue placeholder="Status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="aprovado">
-                                  <span className="text-green-600">Aprovado</span>
-                                </SelectItem>
-                                <SelectItem value="aprovar">
-                                  <span className="text-yellow-600">Aprovar</span>
-                                </SelectItem>
-                                <SelectItem value="congelado">
-                                  <span className="text-gray-600">Congelado</span>
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
+                            {player.status === 'aprovar' && !isEditing ? (
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => updatePlayer(player.id, "status", "aprovado")}
+                                  className="bg-green-600 hover:bg-green-700"
+                                >
+                                  Aprovar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => updatePlayer(player.id, "status", "rejeitado")}
+                                >
+                                  Rejeitar
+                                </Button>
+                              </div>
+                            ) : (
+                              <Badge className={
+                                player.status === "aprovado" ? "bg-green-600" : 
+                                player.status === "aprovar" ? "bg-yellow-600" :
+                                player.status === "rejeitado" ? "bg-red-600" :
+                                "bg-gray-600"
+                              }>
+                                {player.status === "aprovado" ? "Aprovado" :
+                                 player.status === "aprovar" ? "Aprovar" :
+                                 player.status === "rejeitado" ? "Rejeitado" :
+                                 player.status || "Aprovar"}
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
                             <Button

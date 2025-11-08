@@ -47,7 +47,7 @@ export default function ManageTeams() {
       const { data, error } = await supabase
         .from("rounds")
         .select("*")
-        .eq("status", "pending")
+        .eq("status", "a_iniciar")
         .order("round_number", { ascending: false });
 
       if (error) throw error;
