@@ -283,8 +283,8 @@ BEGIN
     
     -- Count cards
     SELECT 
-      COALESCE(COUNT(*) FILTER (WHERE card_type = 'amarelo'), 0),
-      COALESCE(COUNT(*) FILTER (WHERE card_type = 'vermelho'), 0)
+      COALESCE(COUNT(*) FILTER (WHERE card_type = 'yellow'), 0),
+      COALESCE(COUNT(*) FILTER (WHERE card_type = 'red'), 0)
     INTO yellow_cards, red_cards
     FROM public.cards c
     JOIN public.matches m ON m.id = c.match_id

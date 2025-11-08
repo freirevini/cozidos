@@ -35,11 +35,6 @@ interface Goal {
   assists?: Array<{ id: string; player_id: string; player?: Player }>;
 }
 
-interface AttendanceEntry {
-  profiles: { id: string; name: string; nickname: string | null };
-  team_color: string;
-}
-
 interface Card {
   id: string;
   player_id: string;
@@ -94,7 +89,6 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     if (open) {
       loadMatchData();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, matchId]);
 
   useEffect(() => {
@@ -116,7 +110,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
       await loadGoals();
       await loadCards();
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error("Erro ao carregar partida:", error);
       toast.error("Erro ao carregar dados da partida");
     }
@@ -141,7 +135,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
         [match.team_away]: [],
       };
 
-      attendance?.forEach((att: AttendanceEntry) => {
+      attendance?.forEach((att: any) => {
         const player = {
           id: att.profiles.id,
           name: att.profiles.name,
@@ -169,7 +163,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
       if (!goalsData) return;
 
       const goalsWithDetails = await Promise.all(
-        goalsData.map(async (goal: Goal) => {
+        goalsData.map(async (goal) => {
           const { data: player } = await supabase
             .from("profiles")
             .select("id, name, nickname")
@@ -183,7 +177,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
             .eq("goal_id", goal.id);
 
           const assists = await Promise.all(
-            (assistsData || []).map(async (assist: { id: string; player_id: string }) => {
+            (assistsData || []).map(async (assist) => {
               const { data: assistPlayer } = await supabase
                 .from("profiles")
                 .select("id, name, nickname")
@@ -215,7 +209,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
       if (!cardsData) return;
 
       const cardsWithPlayers = await Promise.all(
-        cardsData.map(async (card: Card) => {
+        cardsData.map(async (card) => {
           const { data: player } = await supabase
             .from("profiles")
             .select("id, name, nickname")
@@ -227,7 +221,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
       );
 
       setCards(cardsWithPlayers);
-    } catch (error: unknown) {
+    } catch (error) {
       console.error("Erro ao carregar cartões:", error);
     }
   };
@@ -281,7 +275,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
       setAddingGoal(false);
       setGoalData({ team: "", player_id: "", has_assist: false, assist_player_id: "", is_own_goal: false });
       await loadMatchData();
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error("Erro ao adicionar gol:", error);
       toast.error("Erro ao adicionar gol");
     }
@@ -313,7 +307,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
       toast.success("Último gol excluído com sucesso!");
       await loadMatchData();
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error("Erro ao excluir gol:", error);
       toast.error("Erro ao excluir gol");
     }
@@ -341,7 +335,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
       setAddingCard(false);
       setCardData({ team: "", player_id: "", card_type: "" });
       await loadCards();
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error("Erro ao adicionar cartão:", error);
       toast.error("Erro ao adicionar cartão");
     }
@@ -364,7 +358,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
       toast.success("Último cartão excluído com sucesso!");
       await loadCards();
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error("Erro ao excluir cartão:", error);
       toast.error("Erro ao excluir cartão");
     }

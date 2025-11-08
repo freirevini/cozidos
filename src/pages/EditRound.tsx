@@ -41,8 +41,7 @@ export default function EditRound() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  interface Round { id: string; round_number?: number; scheduled_date?: string; status?: string }
-  const [round, setRound] = useState<Round | null>(null);
+  const [round, setRound] = useState<any>(null);
   const [teams, setTeams] = useState<Record<string, TeamPlayer[]>>({});
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
@@ -120,7 +119,7 @@ export default function EditRound() {
       const teamsData: Record<string, TeamPlayer[]> = {};
       const colors = new Set<string>();
 
-      teamPlayers.forEach((tp: { profiles: Player; team_color: string }) => {
+      teamPlayers.forEach((tp: any) => {
         const player = tp.profiles;
         const teamColor = tp.team_color;
         colors.add(teamColor);
@@ -141,7 +140,7 @@ export default function EditRound() {
 
       setTeams(teamsData);
       setSelectedTeams(Array.from(colors));
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error("Erro ao carregar rodada:", error);
       toast.error("Erro ao carregar dados da rodada");
     } finally {
@@ -203,7 +202,7 @@ export default function EditRound() {
       if (deleteError) throw deleteError;
 
       // Insert updated team players (remove duplicates)
-      const allTeamPlayers: { round_id: string | undefined; player_id: string; team_color: 'branco'|'vermelho'|'azul'|'laranja' }[] = [];
+      const allTeamPlayers: any[] = [];
       const insertedPlayerIds = new Set<string>();
 
       for (const teamColor of Object.keys(teams)) {
@@ -220,7 +219,6 @@ export default function EditRound() {
       }
 
       if (allTeamPlayers.length > 0) {
-        // Inserir jogadores do time para a rodada (sem transformar campos inesperados)
         const { error: playersError } = await supabase
           .from("round_team_players")
           .insert(allTeamPlayers);
@@ -228,14 +226,11 @@ export default function EditRound() {
         if (playersError) throw playersError;
       }
 
-
-
       toast.success("Times atualizados com sucesso!");
       navigate("/admin/teams/manage");
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error("Erro ao salvar alterações:", error);
-      const msg = error instanceof Error ? error.message : String(error);
-      toast.error("Erro ao salvar alterações: " + msg);
+      toast.error("Erro ao salvar alterações: " + error.message);
     } finally {
       setSaving(false);
     }

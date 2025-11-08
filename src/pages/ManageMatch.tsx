@@ -62,13 +62,6 @@ const teamNames: Record<string, string> = {
 };
 
 export default function ManageMatch() {
-  const extractErrorMessage = (err: unknown) => {
-    if (!err) return '';
-    if (typeof err === 'string') return err;
-    if (err instanceof Error) return err.message;
-    try { return JSON.stringify(err); } catch { return String(err); }
-  };
-
   const { matchId, roundId } = useParams();
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -162,7 +155,7 @@ export default function ManageMatch() {
         .eq("match_id", matchId);
 
       const goalsWithPlayers = await Promise.all(
-        (goalsData || []).map(async (goal: Goal) => {
+        (goalsData || []).map(async (goal: any) => {
           const { data: player } = await supabase
             .from("profiles")
             .select("*")
@@ -192,7 +185,7 @@ export default function ManageMatch() {
         .eq("match_id", matchId);
 
       const cardsWithPlayers = await Promise.all(
-        (cardsData || []).map(async (card: Card) => {
+        (cardsData || []).map(async (card: any) => {
           const { data: player } = await supabase
             .from("profiles")
             .select("*")
@@ -230,8 +223,8 @@ export default function ManageMatch() {
         .eq("round_id", roundId)
         .eq("team_color", match.team_away as "branco" | "vermelho" | "azul" | "laranja");
 
-      const homePlayersList = (homePlayers || []).map((p: { profiles: Player }) => p.profiles).filter(Boolean);
-      const awayPlayersList = (awayPlayers || []).map((p: { profiles: Player }) => p.profiles).filter(Boolean);
+      const homePlayersList = (homePlayers || []).map((p: any) => p.profiles).filter(Boolean);
+      const awayPlayersList = (awayPlayers || []).map((p: any) => p.profiles).filter(Boolean);
 
       setPlayers({
         [match.team_home]: homePlayersList,
@@ -264,8 +257,8 @@ export default function ManageMatch() {
       setTimerRunning(true);
       toast.success("Partida iniciada! Cronômetro começou.");
       loadMatchData();
-    } catch (error: unknown) {
-      toast.error("Erro ao iniciar partida: " + extractErrorMessage(error));
+    } catch (error: any) {
+      toast.error("Erro ao iniciar partida: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -308,8 +301,8 @@ export default function ManageMatch() {
         toast.info("Cronômetro retomado");
       }
       loadMatchData();
-    } catch (error: unknown) {
-      toast.error("Erro ao pausar/retomar cronômetro: " + extractErrorMessage(error));
+    } catch (error: any) {
+      toast.error("Erro ao pausar/retomar cronômetro: " + error.message);
     }
   };
 
@@ -367,8 +360,8 @@ export default function ManageMatch() {
       setAddingGoal(false);
       setGoalData({ team: "", player_id: "", has_assist: false, assist_player_id: "" });
       loadMatchData();
-    } catch (error: unknown) {
-      toast.error("Erro ao registrar gol: " + extractErrorMessage(error));
+    } catch (error: any) {
+      toast.error("Erro ao registrar gol: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -400,8 +393,8 @@ export default function ManageMatch() {
       setAddingCard(false);
       setCardData({ team: "", player_id: "", card_type: "" });
       loadMatchData();
-    } catch (error: unknown) {
-      toast.error("Erro ao registrar cartão: " + extractErrorMessage(error));
+    } catch (error: any) {
+      toast.error("Erro ao registrar cartão: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -436,8 +429,8 @@ export default function ManageMatch() {
       setTimerRunning(false);
       toast.success(result.message || "Partida encerrada!");
       navigate(`/admin/round/manage?round=${roundId}`);
-    } catch (error: unknown) {
-      toast.error("Erro ao encerrar partida: " + extractErrorMessage(error));
+    } catch (error: any) {
+      toast.error("Erro ao encerrar partida: " + error.message);
     } finally {
       setLoading(false);
     }
