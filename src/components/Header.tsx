@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, LogOut } from "lucide-react";
+import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/novo-logo.png";
@@ -106,12 +107,19 @@ export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps
           </nav>
 
           {/* Mobile Menu Button */}
-          <button
+          <motion.button
             className="md:hidden p-2 text-foreground hover:bg-muted rounded-md transition-colors"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            whileTap={{ scale: 0.95 }}
           >
-            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+            <motion.div
+              initial={false}
+              animate={{ rotate: mobileMenuOpen ? 90 : 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+            >
+              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </motion.div>
+          </motion.button>
         </div>
 
         {/* Mobile Navigation */}
