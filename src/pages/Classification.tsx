@@ -12,6 +12,18 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Info } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface PlayerStats {
   player_id: string;
@@ -35,6 +47,7 @@ export default function Classification() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isPlayer, setIsPlayer] = useState(false);
+  const [showRules, setShowRules] = useState(false);
 
   useEffect(() => {
     checkAdmin();
@@ -111,9 +124,65 @@ export default function Classification() {
       <main className="container mx-auto px-4 py-8 flex-1">
         <Card className="card-glow bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-3xl font-bold text-primary glow-text text-center">
-              CLASSIFICAÇÃO GERAL
-            </CardTitle>
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <CardTitle className="text-3xl font-bold text-primary glow-text text-center flex-1">
+                CLASSIFICAÇÃO GERAL
+              </CardTitle>
+              <AlertDialog open={showRules} onOpenChange={setShowRules}>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Info className="h-4 w-4" />
+                    Pontuação
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="border-border max-w-2xl">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="text-primary text-2xl">
+                      📊 Regras de Pontuação
+                    </AlertDialogTitle>
+                    <AlertDialogDescription asChild>
+                      <div className="text-foreground space-y-4 mt-4">
+                        <div className="space-y-2">
+                          <h3 className="font-bold text-lg text-primary">Pontos Positivos:</h3>
+                          <ul className="space-y-1 ml-4">
+                            <li>✅ <strong>Presença:</strong> +10 pontos (status: presente ou atrasado)</li>
+                            <li>🏆 <strong>Vitória:</strong> +10 pontos</li>
+                            <li>🤝 <strong>Empate:</strong> +5 pontos</li>
+                            <li>⚽ <strong>Gol:</strong> +1 ponto</li>
+                            <li>🎯 <strong>Assistência:</strong> +2 pontos</li>
+                          </ul>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <h3 className="font-bold text-lg text-destructive">Pontos Negativos:</h3>
+                          <ul className="space-y-1 ml-4">
+                            <li>⏰ <strong>Atraso:</strong> -5 pontos</li>
+                            <li>❌ <strong>Falta:</strong> -10 pontos</li>
+                            <li>🟨 <strong>Cartão Amarelo:</strong> -1 ponto</li>
+                            <li>🟥 <strong>Cartão Vermelho:</strong> -1 ponto</li>
+                            <li>⚠️ <strong>Punições:</strong> pontos negativos variáveis</li>
+                          </ul>
+                        </div>
+
+                        <div className="space-y-2">
+                          <h3 className="font-bold text-lg text-muted-foreground">Observações:</h3>
+                          <ul className="space-y-1 ml-4 text-sm">
+                            <li>• Derrota não pontua (0 pontos)</li>
+                            <li>• O total de pontos é a soma de todos os componentes</li>
+                            <li>• Apenas jogadores aprovados são contabilizados</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogAction className="bg-primary hover:bg-primary/90">
+                      Entendido
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </CardHeader>
           <CardContent>
             {loading ? (
