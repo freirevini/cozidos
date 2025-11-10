@@ -135,15 +135,36 @@ export default function Auth() {
       
       // Update profile with additional data
       if (data.user) {
-        await supabase.from("profiles").update({
+        const { error: profileError } = await supabase.from("profiles").update({
           nickname: validation.data.nickname,
           birth_date: validation.data.birthDate,
           is_player: isPlayer === "sim",
           player_type_detail: isPlayer === "sim" ? (playerType as "mensal" | "avulso") : null,
-          level: isPlayer === "sim" ? (newPlayer.level as any) : null,
-          position: isPlayer === "sim" ? (newPlayer.position as any) : null,
           status: isPlayer === "sim" ? "aprovar" : "aprovado",
         }).eq("user_id", data.user.id);
+
+        if (profileError) {
+          console.error("Erro ao atualizar perfil:", profileError);
+          toast.error("Erro ao atualizar perfil: " + profileError.message);
+          return;
+        }
+
+        // Se for jogador, criar entrada na tabela players
+        if (isPlayer === "sim") {
+          const { error: playerError } = await supabase.from("players").insert({
+            user_id: data.user.id,
+            name: validation.data.name,
+            birth_date: validation.data.birthDate,
+            level: newPlayer.level as any,
+            position: newPlayer.position as any,
+          });
+
+          if (playerError) {
+            console.error("Erro ao criar jogador:", playerError);
+            toast.error("Erro ao criar jogador: " + playerError.message);
+            return;
+          }
+        }
 
         const message = isPlayer === "sim" 
           ? "Conta criada com sucesso! Aguarde aprovação do administrador para participar das rodadas."
