@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -58,8 +60,21 @@ export default function StartRound() {
     }
   };
 
-  const startRound = (roundId: string) => {
+  const editRound = (roundId: string) => {
     navigate(`/admin/round/manage?round=${roundId}`);
+  };
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString('pt-BR');
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch(status) {
+      case 'a_iniciar': return 'A Iniciar';
+      case 'em_andamento': return 'Em Andamento';
+      case 'finalizada': return 'Finalizada';
+      default: return status;
+    }
   };
 
   const deleteRound = async (roundId: string, roundNumber: number) => {
@@ -94,47 +109,74 @@ Esta ação não pode ser desfeita.`)) {
     <div className="min-h-screen bg-background">
       <Header isAdmin={isAdmin} />
       <main className="container mx-auto px-4 py-8">
-        <Card className="card-glow bg-card border-border max-w-2xl mx-auto">
+        <Card className="card-glow bg-card border-border max-w-4xl mx-auto">
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-primary glow-text text-center">
-              INICIAR RODADA
+              GERENCIAR RODADAS
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             {loading ? (
               <div className="text-center py-8">Carregando...</div>
             ) : rounds.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-muted-foreground mb-4">
-                  Nenhuma rodada disponível para iniciar
+                  Nenhuma rodada disponível
                 </p>
                 <p className="text-sm text-muted-foreground mb-4">
                   Defina os times primeiro em "Times &gt; Definir Times"
                 </p>
               </div>
             ) : (
-              <>
-                <p className="text-muted-foreground text-center mb-4">
-                  Selecione uma rodada para iniciar
-                </p>
-                {rounds.map((round) => (
-                  <div key={round.id} className="flex gap-2">
-                    <Button
-                      onClick={() => startRound(round.id)}
-                      className="flex-1 bg-primary hover:bg-secondary text-primary-foreground font-bold text-lg py-6"
-                    >
-                      Rodada {round.round_number} - {new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
-                    </Button>
-                    <Button
-                      onClick={() => deleteRound(round.id, round.round_number)}
-                      variant="destructive"
-                      className="py-6 px-4"
-                    >
-                      Excluir
-                    </Button>
-                  </div>
-                ))}
-              </>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Rodada</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-center">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rounds.map((round) => (
+                      <TableRow key={round.id}>
+                        <TableCell>{formatDate(round.scheduled_date)}</TableCell>
+                        <TableCell>{round.round_number}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            className={`${
+                              round.status === 'a_iniciar' ? 'bg-gray-600 hover:bg-gray-600' :
+                              round.status === 'em_andamento' ? 'bg-yellow-600 hover:bg-yellow-600' :
+                              'bg-green-600 hover:bg-green-600'
+                            } text-white`}
+                          >
+                            {getStatusLabel(round.status)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2 justify-center">
+                            <Button
+                              size="sm"
+                              onClick={() => editRound(round.id)}
+                              variant="default"
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => deleteRound(round.id, round.round_number)}
+                              variant="destructive"
+                            >
+                              Excluir
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>
