@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import novoLogo from "@/assets/novo-logo.png";
 import { z } from "zod";
+import { BouncingBalls } from "@/components/ui/bouncing-balls";
 
 const loginSchema = z.object({
   email: z.string().trim().email({ message: "E-mail inválido" }).max(255, { message: "E-mail muito longo" }),
@@ -181,8 +182,20 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md card-glow bg-card border-border">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute inset-0 z-0">
+        <BouncingBalls 
+          numBalls={100}
+          backgroundColor="hsl(0, 0%, 0%)"
+          colors={["hsl(330, 100%, 60%)", "hsl(330, 100%, 70%)", "hsl(330, 100%, 50%)"]}
+          minRadius={1}
+          maxRadius={3}
+          speed={0.3}
+          interactive={true}
+          followMouse={false}
+        />
+      </div>
+      <Card className="w-full max-w-md card-glow bg-card border-border relative z-10">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center mb-6">
             <img src={novoLogo} alt="Logo" className="h-48 w-auto object-contain" />
