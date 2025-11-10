@@ -488,17 +488,20 @@ export default function ManageRounds() {
                               <Button
                                 size="sm"
                                 onClick={() => openMatchPage(match)}
+                                variant="default"
                               >
-                                {match.status === 'finished' ? 'Ver' : 'Gerenciar'}
+                                Exibir
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => setEditingMatchId(match.id)}
-                                disabled={round?.status === 'a_iniciar'}
-                              >
-                                Editar
-                              </Button>
+                              {match.status !== 'not_started' && (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => setEditingMatchId(match.id)}
+                                  disabled={round?.status === 'a_iniciar'}
+                                >
+                                  Editar
+                                </Button>
+                              )}
                             </div>
                           </td>
                         </tr>
