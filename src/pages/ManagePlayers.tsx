@@ -1,95 +1,103 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Database } from "@/integrations/supabase/types";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, UserPlus, Info, Trash2 } from "lucide-react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import Papa from "papaparse";
-import * as XLSX from "xlsx";
+import { Trash2, Search, Filter, UserCheck, UserX, AlertTriangle } from "lucide-react";
+import { AlertDialogIcon } from "@/components/ui/alert-dialog-icon";
 import { toast as sonnerToast } from "sonner";
-import PunishmentDialog from "@/components/PunishmentDialog";
 
 interface Player {
   id: string;
   name: string;
+  first_name: string | null;
+  last_name: string | null;
   nickname: string | null;
   email: string | null;
   birth_date: string | null;
   is_player: boolean;
-  player_type: string | null;
   level: string | null;
   position: string | null;
-  is_approved: boolean;
   status: string | null;
   user_id: string | null;
 }
 
-const positionMap: Record<string, string> = {
-  goleiro: "Goleiro",
-  defensor: "Defensor",
-  "meio-campista": "Meio-campista",
-  atacante: "Atacante",
+const statusLabels: Record<string, string> = {
+  pendente: "Pendente",
+  aprovado: "Aprovado",
+  congelado: "Congelado",
+  rejeitado: "Rejeitado",
 };
 
-const levelMap: Record<string, string> = {
-  A: "A",
-  B: "B",
-  C: "C",
-  D: "D",
-  E: "E",
+const statusColors: Record<string, string> = {
+  pendente: "bg-yellow-600 text-white",
+  aprovado: "bg-green-600 text-white",
+  congelado: "bg-gray-600 text-white",
+  rejeitado: "bg-red-600 text-white",
+};
+
+const positionLabels: Record<string, string> = {
+  goleiro: "Goleiro",
+  defensor: "Defensor",
+  "meio-campista": "Meio-Campista",
+  atacante: "Atacante",
 };
 
 export default function ManagePlayers() {
   const [players, setPlayers] = useState<Player[]>([]);
+  const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [openAddDialog, setOpenAddDialog] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [editingPlayer, setEditingPlayer] = useState<string | null>(null);
-  const [punishmentDialog, setPunishmentDialog] = useState<{ open: boolean; playerId: string; playerName: string }>({
-    open: false,
-    playerId: "",
-    playerName: "",
-  });
-  const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
 
-  const [newPlayer, setNewPlayer] = useState({
-    name: "",
-    nickname: "",
-    level: "",
-    position: "",
-    email: "",
-  });
+  // Filtros
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterPosition, setFilterPosition] = useState<string>("all");
 
-  // Deletion states
-  const [deletingAll, setDeletingAll] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Estados para inline editing
+  const [editingNickname, setEditingNickname] = useState<string | null>(null);
+  const [nicknameValue, setNicknameValue] = useState("");
 
   useEffect(() => {
     checkAdmin();
-    loadPlayers();
   }, []);
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadPlayers();
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [players, searchTerm, filterStatus, filterPosition]);
 
   const checkAdmin = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .single();
-      setIsAdmin(data?.role === "admin");
+    if (!user) {
+      navigate("/auth");
+      return;
     }
+
+    const { data } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (data?.role !== "admin") {
+      navigate("/");
+      sonnerToast.error("Acesso negado: apenas administradores");
+      return;
+    }
+
+    setIsAdmin(true);
   };
 
   const loadPlayers = async () => {
@@ -97,290 +105,45 @@ export default function ManagePlayers() {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .order("name");
+        .eq("is_player", true)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setPlayers(data || []);
     } catch (error: any) {
-      toast({
-        title: "Erro ao carregar jogadores",
-        description: error.message,
-        variant: "destructive",
-      });
+      sonnerToast.error("Erro ao carregar jogadores: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const updatePlayer = async (playerId: string, field: string, value: any) => {
-    try {
-      // Se for birth_date, usar RPC para validação
-      if (field === 'birth_date') {
-        const { data, error } = await supabase.rpc('set_player_birth_date', {
-          p_player_id: playerId,
-          p_birth_date: value
-        });
+  const applyFilters = () => {
+    let filtered = [...players];
 
-        if (error) throw error;
-
-        const result = data as { success: boolean; error?: string; age_years?: number };
-        if (!result.success) {
-          throw new Error(result.error || 'Erro ao atualizar data de nascimento');
-        }
-
-        // Atualizar na interface com a idade calculada
-        setPlayers(players.map(p => 
-          p.id === playerId ? { ...p, birth_date: value } : p
-        ));
-
-        sonnerToast.success(`Data de nascimento atualizada! Idade: ${result.age_years} anos`);
-        loadPlayers(); // Recarregar para pegar idade atualizada
-      } else {
-        const { error } = await supabase
-          .from("profiles")
-          .update({ [field]: value })
-          .eq("id", playerId);
-
-        if (error) throw error;
-
-        setPlayers(players.map(p => 
-          p.id === playerId ? { ...p, [field]: value } : p
-        ));
-
-        sonnerToast.success("Jogador atualizado com sucesso!");
-      }
-    } catch (error: any) {
-      toast({
-        title: "Erro ao atualizar",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const deletePlayer = async (playerId: string, playerEmail: string | null) => {
-    const normalizedEmail = (playerEmail || "").trim().toLowerCase();
-    setDeletingId(playerId);
-    try {
-      let rpcError = null as any;
-
-      if (normalizedEmail) {
-        const { error } = await supabase.rpc('delete_player_by_email', { player_email: normalizedEmail });
-        rpcError = error;
-      } else {
-        rpcError = new Error('no-email');
-      }
-
-      // Fallback: if email not found or missing, delete by profile id
-      if (rpcError && (rpcError.message?.toLowerCase().includes('jogador não encontrado') || rpcError.message === 'no-email')) {
-        const { error: byIdError } = await supabase.rpc('delete_player_by_id', { profile_id: playerId });
-        if (byIdError) throw byIdError;
-      } else if (rpcError) {
-        throw rpcError;
-      }
-
-      setPlayers(players.filter(p => p.id !== playerId));
-      sonnerToast.success("Jogador e todos os dados relacionados removidos com sucesso!");
-    } catch (error: any) {
-      toast({
-        title: "Erro ao remover",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  const deleteAllPlayers = async () => {
-    setDeletingAll(true);
-    try {
-      const { error } = await supabase.rpc('reset_all_data');
-
-      if (error) throw error;
-
-      setPlayers([]);
-      sonnerToast.success("Todos os dados do sistema foram removidos com sucesso!");
-    } catch (error: any) {
-      toast({
-        title: "Erro ao apagar tudo",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setDeletingAll(false);
-    }
-  };
-
-  const handleAddPlayer = async () => {
-    if (!newPlayer.name || !newPlayer.nickname || !newPlayer.level || !newPlayer.position || !newPlayer.email) {
-      toast({
-        title: "Campos obrigatórios",
-        description: "Preencha todos os campos obrigatórios: Nome Completo, Apelido, E-mail, Nível e Posição.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const playerData: Database['public']['Tables']['profiles']['Insert'] = {
-        id: crypto.randomUUID(),
-        name: newPlayer.name,
-        nickname: newPlayer.nickname,
-        email: newPlayer.email.toLowerCase().trim(), // Normalizar email
-        level: newPlayer.level as Database['public']['Enums']['player_level'],
-        position: newPlayer.position as Database['public']['Enums']['player_position'],
-        is_player: true,
-        player_type: "avulso",
-        status: "aprovado",
-        user_id: null,
-      };
-
-      const { error } = await supabase
-        .from("profiles")
-        .insert(playerData);
-
-      if (error) throw error;
-
-      sonnerToast.success("Jogador cadastrado com sucesso!");
-      setOpenAddDialog(false);
-      setNewPlayer({ name: "", nickname: "", level: "", position: "", email: "" });
-      loadPlayers();
-    } catch (error: any) {
-      toast({
-        title: "Erro ao cadastrar jogador",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setImporting(true);
-
-    try {
-      const fileExtension = file.name.split('.').pop()?.toLowerCase();
-
-      if (fileExtension === 'csv') {
-        Papa.parse(file, {
-          header: true,
-          complete: async (results) => {
-            await processImportedData(results.data);
-          },
-          error: (error) => {
-            throw new Error(error.message);
-          }
-        });
-      } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet);
-          await processImportedData(jsonData);
-        };
-        reader.readAsArrayBuffer(file);
-      } else {
-        throw new Error("Formato de arquivo não suportado. Use CSV ou Excel (.xlsx, .xls)");
-      }
-    } catch (error: any) {
-      toast({
-        title: "Erro ao importar arquivo",
-        description: error.message,
-        variant: "destructive",
-      });
-      setImporting(false);
-    }
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
-  const processImportedData = async (data: any[]) => {
-    try {
-      // Validar se as colunas obrigatórias existem
-      if (data.length > 0) {
-        const firstRow = data[0];
-        const requiredColumns = ["Nome Completo", "Apelido", "Email", "Nivel", "Posicao"];
-        const missingColumns = requiredColumns.filter(col => !(col in firstRow));
-        
-        if (missingColumns.length > 0) {
-          throw new Error(`Colunas obrigatórias ausentes: ${missingColumns.join(", ")}`);
-        }
-      }
-
-      const validRows = data.filter((row: any) => 
-        row["Nome Completo"] && row["Apelido"] && row["Email"] && row["Nivel"] && row["Posicao"]
+    // Filtro de busca por nome/apelido/email
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (p) =>
+          p.name?.toLowerCase().includes(term) ||
+          p.nickname?.toLowerCase().includes(term) ||
+          p.first_name?.toLowerCase().includes(term) ||
+          p.last_name?.toLowerCase().includes(term) ||
+          p.email?.toLowerCase().includes(term)
       );
-      
-      const invalidRows = data.filter((row: any) => 
-        !row["Email"] || !row["Nome Completo"] || !row["Apelido"]
-      );
-
-      const playersToUpsert: Database['public']['Tables']['profiles']['Insert'][] = validRows.map((row: any) => {
-          const levelKey = row["Nivel"]?.toString().toUpperCase() as Database['public']['Enums']['player_level'];
-          const rawPos = row["Posicao"]?.toString().toLowerCase().trim().replace(/_/g, ' ');
-          let positionKey = rawPos;
-          if (["meio campista", "meio campo", "meio-campo", "meio-campista", "meia"].includes(rawPos)) {
-            positionKey = "meio-campista";
-          } else if (["defensor", "zagueiro", "defesa"].includes(rawPos)) {
-            positionKey = "defensor";
-          } else if (["goleiro"].includes(rawPos)) {
-            positionKey = "goleiro";
-          } else if (["atacante"].includes(rawPos)) {
-            positionKey = "atacante";
-          }
-          const positionValue = positionKey as Database['public']['Enums']['player_position'];
-          
-          return {
-            id: crypto.randomUUID(),
-            name: row["Nome Completo"],
-            nickname: row["Apelido"],
-            email: row["Email"]?.toString().toLowerCase().trim(), // Normalizar email
-            level: levelKey,
-            position: positionValue,
-            is_player: true,
-            player_type: "avulso",
-            status: "aprovado",
-            user_id: null,
-          };
-        });
-
-      if (playersToUpsert.length === 0) {
-        throw new Error("Nenhum jogador válido encontrado no arquivo");
-      }
-
-      const { error } = await supabase
-        .from("profiles")
-        .upsert(playersToUpsert, { 
-          onConflict: 'email',
-          ignoreDuplicates: false 
-        });
-
-      if (error) throw error;
-
-      let message = `${playersToUpsert.length} jogador(es) processado(s) com sucesso!`;
-      if (invalidRows.length > 0) {
-        message += ` ${invalidRows.length} linha(s) ignorada(s) por falta de e-mail.`;
-      }
-      
-      sonnerToast.success(message);
-      loadPlayers();
-    } catch (error: any) {
-      toast({
-        title: "Erro ao processar dados",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setImporting(false);
     }
+
+    // Filtro por status
+    if (filterStatus !== "all") {
+      filtered = filtered.filter((p) => p.status === filterStatus);
+    }
+
+    // Filtro por posição
+    if (filterPosition !== "all") {
+      filtered = filtered.filter((p) => p.position === filterPosition);
+    }
+
+    setFilteredPlayers(filtered);
   };
 
   const calculateAge = (birthDate: string | null) => {
@@ -393,6 +156,237 @@ export default function ManagePlayers() {
       age--;
     }
     return age;
+  };
+
+  const updatePlayer = async (playerId: string, field: string, value: any) => {
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ [field]: value })
+        .eq("id", playerId);
+
+      if (error) throw error;
+
+      setPlayers(
+        players.map((p) => (p.id === playerId ? { ...p, [field]: value } : p))
+      );
+
+      sonnerToast.success("Jogador atualizado com sucesso!");
+    } catch (error: any) {
+      sonnerToast.error("Erro ao atualizar: " + error.message);
+    }
+  };
+
+  const approvePlayer = (playerId: string, playerName: string) => {
+    return new Promise<void>((resolve) => {
+      const dialog = document.createElement('div');
+      document.body.appendChild(dialog);
+      
+      const root = document.createElement('div');
+      dialog.appendChild(root);
+      
+      const cleanup = () => {
+        document.body.removeChild(dialog);
+        resolve();
+      };
+
+      import('react-dom/client').then(({ createRoot }) => {
+        const reactRoot = createRoot(root);
+        reactRoot.render(
+          <AlertDialogIcon
+            icon={UserCheck}
+            title="Aprovar Jogador"
+            description={`Deseja aprovar ${playerName}? Ele poderá ser escalado em times após a aprovação.`}
+            actionText="Aprovar"
+            cancelText="Cancelar"
+            variant="default"
+            open={true}
+            onOpenChange={(open) => {
+              if (!open) {
+                reactRoot.unmount();
+                cleanup();
+              }
+            }}
+            onAction={async () => {
+              await updatePlayer(playerId, "status", "aprovado");
+              reactRoot.unmount();
+              cleanup();
+            }}
+            onCancel={() => {
+              reactRoot.unmount();
+              cleanup();
+            }}
+          />
+        );
+      });
+    });
+  };
+
+  const rejectPlayer = (playerId: string, playerName: string) => {
+    return new Promise<void>((resolve) => {
+      const dialog = document.createElement('div');
+      document.body.appendChild(dialog);
+      
+      const root = document.createElement('div');
+      dialog.appendChild(root);
+      
+      const cleanup = () => {
+        document.body.removeChild(dialog);
+        resolve();
+      };
+
+      import('react-dom/client').then(({ createRoot }) => {
+        const reactRoot = createRoot(root);
+        reactRoot.render(
+          <AlertDialogIcon
+            icon={UserX}
+            title="Rejeitar Jogador"
+            description={`Deseja rejeitar o cadastro de ${playerName}? Esta ação pode ser revertida posteriormente.`}
+            actionText="Rejeitar"
+            cancelText="Cancelar"
+            variant="destructive"
+            open={true}
+            onOpenChange={(open) => {
+              if (!open) {
+                reactRoot.unmount();
+                cleanup();
+              }
+            }}
+            onAction={async () => {
+              await updatePlayer(playerId, "status", "rejeitado");
+              reactRoot.unmount();
+              cleanup();
+            }}
+            onCancel={() => {
+              reactRoot.unmount();
+              cleanup();
+            }}
+          />
+        );
+      });
+    });
+  };
+
+  const deletePlayer = async (playerId: string, playerName: string, playerEmail: string | null) => {
+    return new Promise<void>((resolve) => {
+      const dialog = document.createElement('div');
+      document.body.appendChild(dialog);
+      
+      const root = document.createElement('div');
+      dialog.appendChild(root);
+      
+      const cleanup = () => {
+        document.body.removeChild(dialog);
+        resolve();
+      };
+
+      import('react-dom/client').then(({ createRoot }) => {
+        const reactRoot = createRoot(root);
+        reactRoot.render(
+          <AlertDialogIcon
+            icon={AlertTriangle}
+            title="Excluir Jogador"
+            description={`Tem certeza que deseja excluir ${playerName}? TODOS os dados associados (gols, assistências, cartões, estatísticas, presenças) serão removidos permanentemente. Esta ação NÃO pode ser desfeita.`}
+            actionText="Excluir Permanentemente"
+            cancelText="Cancelar"
+            variant="destructive"
+            open={true}
+            onOpenChange={(open) => {
+              if (!open) {
+                reactRoot.unmount();
+                cleanup();
+              }
+            }}
+            onAction={async () => {
+              reactRoot.unmount();
+              cleanup();
+              
+              try {
+                const { data: result, error } = await supabase.rpc("delete_player_complete", {
+                  p_profile_id: playerId,
+                });
+
+                if (error) throw error;
+
+                const resultData = result as any;
+
+                // Se houver user_id, opcionalmente deletar do auth
+                if (resultData?.user_id) {
+                  // Segundo dialog para confirmar remoção de auth
+                  const dialog2 = document.createElement('div');
+                  document.body.appendChild(dialog2);
+                  const root2 = document.createElement('div');
+                  dialog2.appendChild(root2);
+                  
+                  const cleanup2 = () => {
+                    document.body.removeChild(dialog2);
+                  };
+
+                  const reactRoot2 = createRoot(root2);
+                  reactRoot2.render(
+                    <AlertDialogIcon
+                      icon={AlertTriangle}
+                      title="Remover Acesso ao Sistema?"
+                      description={`Deseja também remover o acesso de autenticação de ${playerName}? Isso impedirá que ele faça login no sistema.`}
+                      actionText="Remover Acesso"
+                      cancelText="Manter Acesso"
+                      variant="destructive"
+                      open={true}
+                      onOpenChange={(open) => {
+                        if (!open) {
+                          reactRoot2.unmount();
+                          cleanup2();
+                        }
+                      }}
+                      onAction={async () => {
+                        const { error: authError } = await supabase.functions.invoke("delete-auth-user", {
+                          body: { user_id: resultData.user_id },
+                        });
+
+                        if (authError) {
+                          console.error("Erro ao remover acesso:", authError);
+                          sonnerToast.error("Jogador removido mas houve erro ao remover acesso de autenticação");
+                        } else {
+                          sonnerToast.success("Jogador e acesso de autenticação removidos com sucesso!");
+                        }
+                        
+                        reactRoot2.unmount();
+                        cleanup2();
+                      }}
+                      onCancel={() => {
+                        sonnerToast.success("Jogador removido com sucesso! Acesso de autenticação mantido.");
+                        reactRoot2.unmount();
+                        cleanup2();
+                      }}
+                    />
+                  );
+                } else {
+                  sonnerToast.success("Jogador removido com sucesso!");
+                }
+
+                setPlayers(players.filter((p) => p.id !== playerId));
+              } catch (error: any) {
+                sonnerToast.error("Erro ao remover jogador: " + error.message);
+              }
+            }}
+            onCancel={() => {
+              reactRoot.unmount();
+              cleanup();
+            }}
+          />
+        );
+      });
+    });
+  };
+
+  const handleNicknameEdit = (player: Player) => {
+    setEditingNickname(player.id);
+    setNicknameValue(player.nickname || "");
+  };
+
+  const saveNickname = async (playerId: string) => {
+    await updatePlayer(playerId, "nickname", nicknameValue);
+    setEditingNickname(null);
   };
 
   if (!isAdmin) {
@@ -416,511 +410,249 @@ export default function ManagePlayers() {
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border">
           <CardHeader>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <CardTitle className="text-3xl font-bold text-primary glow-text">
-                Gerenciar Jogadores
-              </CardTitle>
-              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileImport}
-                  accept=".csv,.xlsx,.xls"
-                  className="hidden"
-                />
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <Info className="h-5 w-5" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Como importar a planilha de jogadores</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <h3 className="font-semibold text-lg mb-2">Formatos Aceitos</h3>
-                        <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                          <li>CSV (.csv)</li>
-                          <li>Excel (.xlsx, .xls)</li>
-                        </ul>
-                      </div>
-                      
-                      <div>
-                        <h3 className="font-semibold text-lg mb-2">Colunas da Planilha</h3>
-                        <div className="bg-muted p-4 rounded-md">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b">
-                                <th className="text-left py-2 px-2">Coluna</th>
-                                <th className="text-left py-2 px-2">Obrigatória</th>
-                                <th className="text-left py-2 px-2">Valores Aceitos</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr className="border-b">
-                                <td className="py-2 px-2 font-mono">Nome Completo</td>
-                                <td className="py-2 px-2">
-                                  <Badge className="bg-red-600">Sim</Badge>
-                                </td>
-                                <td className="py-2 px-2">Texto livre</td>
-                              </tr>
-                              <tr className="border-b">
-                                <td className="py-2 px-2 font-mono">Apelido</td>
-                                <td className="py-2 px-2">
-                                  <Badge className="bg-red-600">Sim</Badge>
-                                </td>
-                                <td className="py-2 px-2">Texto livre</td>
-                              </tr>
-                              <tr className="border-b">
-                                <td className="py-2 px-2 font-mono">Email</td>
-                                <td className="py-2 px-2">
-                                  <Badge className="bg-red-600">Sim</Badge>
-                                </td>
-                                <td className="py-2 px-2">E-mail válido (chave única)</td>
-                              </tr>
-                              <tr className="border-b">
-                                <td className="py-2 px-2 font-mono">Nivel</td>
-                                <td className="py-2 px-2">
-                                  <Badge className="bg-red-600">Sim</Badge>
-                                </td>
-                                <td className="py-2 px-2">
-                                  <code className="bg-background px-1 rounded">A</code>,{" "}
-                                  <code className="bg-background px-1 rounded">B</code>,{" "}
-                                  <code className="bg-background px-1 rounded">C</code>,{" "}
-                                  <code className="bg-background px-1 rounded">D</code>,{" "}
-                                  <code className="bg-background px-1 rounded">E</code>
-                                  <span className="text-xs text-muted-foreground ml-2">(letras maiúsculas)</span>
-                                </td>
-                              </tr>
-                              <tr>
-                                <td className="py-2 px-2 font-mono">Posicao</td>
-                                <td className="py-2 px-2">
-                                  <Badge className="bg-red-600">Sim</Badge>
-                                </td>
-                                <td className="py-2 px-2">
-                                  <code className="bg-background px-1 rounded">goleiro</code>,{" "}
-                                  <code className="bg-background px-1 rounded">defensor</code>,{" "}
-                                  <code className="bg-background px-1 rounded">meio-campista</code>,{" "}
-                                  <code className="bg-background px-1 rounded">atacante</code>
-                                </td>
-                              </tr>
-                              <tr>
-                                <td className="py-2 px-2 font-mono">Data de Nascimento</td>
-                                <td className="py-2 px-2">
-                                  <Badge className="bg-red-600">Sim</Badge>
-                                </td>
-                                <td className="py-2 px-2">
-                                  <code className="bg-background px-1 rounded">goleiro</code>,{" "}
-                                  <code className="bg-background px-1 rounded">defensor</code>,{" "}
-                                  <code className="bg-background px-1 rounded">meio-campista</code>,{" "}
-                                  <code className="bg-background px-1 rounded">atacante</code>
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      <div>
-                        <h3 className="font-semibold text-lg mb-2">Exemplo de Planilha</h3>
-                        <div className="bg-muted p-4 rounded-md overflow-x-auto">
-                          <table className="w-full text-sm border-collapse">
-                            <thead>
-                              <tr className="border-b">
-                                <th className="text-left py-2 px-3 bg-primary/10">Nome Completo</th>
-                                <th className="text-left py-2 px-3 bg-primary/10">Apelido</th>
-                                <th className="text-left py-2 px-3 bg-primary/10">Email</th>
-                                <th className="text-left py-2 px-3 bg-primary/10">Nivel</th>
-                                <th className="text-left py-2 px-3 bg-primary/10">Posicao</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr className="border-b">
-                                <td className="py-2 px-3">João Silva Santos</td>
-                                <td className="py-2 px-3">João</td>
-                                <td className="py-2 px-3">joao@email.com</td>
-                                <td className="py-2 px-3">A</td>
-                                <td className="py-2 px-3">atacante</td>
-                              </tr>
-                              <tr className="border-b">
-                                <td className="py-2 px-3">Pedro Costa Lima</td>
-                                <td className="py-2 px-3">Pedrinho</td>
-                                <td className="py-2 px-3">pedro@email.com</td>
-                                <td className="py-2 px-3">B</td>
-                                <td className="py-2 px-3">meio-campista</td>
-                              </tr>
-                              <tr>
-                                <td className="py-2 px-3">Carlos Eduardo</td>
-                                <td className="py-2 px-3">Carlão</td>
-                                <td className="py-2 px-3">carlos@email.com</td>
-                                <td className="py-2 px-3">C</td>
-                                <td className="py-2 px-3">goleiro</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-md border border-blue-200 dark:border-blue-900">
-                        <p className="text-sm">
-                          <strong>⚠️ Importante:</strong> Certifique-se de que os nomes das colunas estejam exatamente como especificado acima (incluindo maiúsculas e minúsculas). Linhas com campos obrigatórios vazios serão ignoradas.
-                        </p>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-                <Button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={importing}
-                  variant="outline"
-                  className="flex-1 sm:flex-none"
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  {importing ? "Importando..." : "Importar Arquivo"}
-                </Button>
-                <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
-                  <DialogTrigger asChild>
-                    <Button className="flex-1 sm:flex-none">
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Cadastrar Jogador
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Cadastrar Novo Jogador</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="name">Nome Completo *</Label>
-                        <Input
-                          id="name"
-                          value={newPlayer.name}
-                          onChange={(e) => setNewPlayer({ ...newPlayer, name: e.target.value })}
-                          placeholder="João Silva"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="nickname">Apelido *</Label>
-                        <Input
-                          id="nickname"
-                          value={newPlayer.nickname}
-                          onChange={(e) => setNewPlayer({ ...newPlayer, nickname: e.target.value })}
-                          placeholder="João"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="level">Nível *</Label>
-                        <Select
-                          value={newPlayer.level}
-                          onValueChange={(value) => setNewPlayer({ ...newPlayer, level: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o nível" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(levelMap).map(([key, label]) => (
-                              <SelectItem key={key} value={key}>
-                                {label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="position">Posição *</Label>
-                        <Select
-                          value={newPlayer.position}
-                          onValueChange={(value) => setNewPlayer({ ...newPlayer, position: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione a posição" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(positionMap).map(([key, label]) => (
-                              <SelectItem key={key} value={key}>
-                                {label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="email">E-mail *</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={newPlayer.email}
-                          onChange={(e) => setNewPlayer({ ...newPlayer, email: e.target.value })}
-                          placeholder="joao@email.com"
-                          required
-                        />
-                      </div>
-                      <Button onClick={handleAddPlayer} className="w-full">
-                        Cadastrar
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
+            <CardTitle className="text-3xl font-bold text-primary glow-text">
+              Gerenciar Jogadores
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <div className="text-center py-8">Carregando...</div>
-            ) : players.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Nenhum jogador cadastrado
+            {/* Filtros */}
+            <div className="mb-6 space-y-4">
+              <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                <Filter className="h-5 w-5" />
+                <span className="font-semibold">Filtros</span>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Busca */}
+                <div className="space-y-2">
+                  <Label htmlFor="search">Buscar por Nome/Email</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="search"
+                      placeholder="Digite para buscar..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                {/* Filtro Status */}
+                <div className="space-y-2">
+                  <Label htmlFor="filterStatus">Status</Label>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger id="filterStatus">
+                      <SelectValue placeholder="Todos os status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os status</SelectItem>
+                      <SelectItem value="pendente">Pendente</SelectItem>
+                      <SelectItem value="aprovado">Aprovado</SelectItem>
+                      <SelectItem value="congelado">Congelado</SelectItem>
+                      <SelectItem value="rejeitado">Rejeitado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Filtro Posição */}
+                <div className="space-y-2">
+                  <Label htmlFor="filterPosition">Posição</Label>
+                  <Select value={filterPosition} onValueChange={setFilterPosition}>
+                    <SelectTrigger id="filterPosition">
+                      <SelectValue placeholder="Todas as posições" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as posições</SelectItem>
+                      <SelectItem value="goleiro">Goleiro</SelectItem>
+                      <SelectItem value="defensor">Defensor</SelectItem>
+                      <SelectItem value="meio-campista">Meio-Campista</SelectItem>
+                      <SelectItem value="atacante">Atacante</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Contador de resultados */}
+              <div className="text-sm text-muted-foreground">
+                {filteredPlayers.length === players.length
+                  ? `${players.length} jogador(es) total`
+                  : `${filteredPlayers.length} de ${players.length} jogador(es)`}
+              </div>
+            </div>
+
+            {/* Tabela */}
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Apelido</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Idade</TableHead>
+                    <TableHead>Nível</TableHead>
+                    <TableHead>Posição</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-center">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
                     <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Apelido</TableHead>
-                      <TableHead>E-mail</TableHead>
-                      <TableHead>Idade</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Nível</TableHead>
-                      <TableHead>Posição</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Punição</TableHead>
-                      <TableHead>Ações</TableHead>
+                      <TableCell colSpan={8} className="text-center py-8">
+                        Carregando...
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {players.map((player) => {
-                      const isEditing = editingPlayer === player.id;
-                      return (
-                        <TableRow key={player.id}>
-                          <TableCell>
-                            {isEditing ? (
+                  ) : filteredPlayers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        Nenhum jogador encontrado
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredPlayers.map((player) => (
+                      <TableRow key={player.id}>
+                        {/* Nome */}
+                        <TableCell className="font-medium">
+                          {player.first_name && player.last_name
+                            ? `${player.first_name} ${player.last_name}`
+                            : player.name || "-"}
+                        </TableCell>
+
+                        {/* Apelido (editável) */}
+                        <TableCell>
+                          {editingNickname === player.id ? (
+                            <div className="flex gap-2 items-center">
                               <Input
-                                value={player.name}
-                                onChange={(e) => {
-                                  setPlayers(players.map(p => 
-                                    p.id === player.id ? { ...p, name: e.target.value } : p
-                                  ));
+                                value={nicknameValue}
+                                onChange={(e) => setNicknameValue(e.target.value)}
+                                className="max-w-[150px]"
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveNickname(player.id);
+                                  if (e.key === "Escape") setEditingNickname(null);
                                 }}
-                                className="min-w-[150px]"
+                                autoFocus
                               />
-                            ) : (
-                              player.name
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {isEditing ? (
-                              <Input
-                                value={player.nickname || ""}
-                                onChange={(e) => {
-                                  setPlayers(players.map(p => 
-                                    p.id === player.id ? { ...p, nickname: e.target.value } : p
-                                  ));
-                                }}
-                                className="min-w-[120px]"
-                              />
-                            ) : (
-                              player.nickname || "-"
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {isEditing ? (
-                              <Input
-                                type="email"
-                                value={player.email || ""}
-                                onChange={(e) => {
-                                  setPlayers(players.map(p => 
-                                    p.id === player.id ? { ...p, email: e.target.value } : p
-                                  ));
-                                }}
-                                className="min-w-[180px]"
-                                required
-                              />
-                            ) : (
-                              player.email || "-"
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {isEditing ? (
-                              <Input
-                                type="date"
-                                value={player.birth_date || ""}
-                                onChange={(e) => updatePlayer(player.id, "birth_date", e.target.value)}
-                                className="min-w-[130px]"
-                              />
-                            ) : (
-                              calculateAge(player.birth_date)
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={player.player_type || "avulso"}
-                              onValueChange={(value) => updatePlayer(player.id, "player_type", value)}
-                              disabled={!isEditing}
+                              <Button
+                                size="sm"
+                                onClick={() => saveNickname(player.id)}
+                              >
+                                ✓
+                              </Button>
+                            </div>
+                          ) : (
+                            <span
+                              className="cursor-pointer hover:underline"
+                              onClick={() => handleNicknameEdit(player)}
                             >
-                              <SelectTrigger className="w-32">
-                                <SelectValue placeholder="Tipo" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="mensal">Mensal</SelectItem>
-                                <SelectItem value="avulso_fixo">Avulso Fixo</SelectItem>
-                                <SelectItem value="avulso">Avulso</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={player.level || ""}
-                              onValueChange={(value) => updatePlayer(player.id, "level", value)}
-                              disabled={!isEditing}
-                            >
-                              <SelectTrigger className="w-20">
-                                <SelectValue placeholder="Nível" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {Object.entries(levelMap).map(([key, label]) => (
-                                  <SelectItem key={key} value={key}>
-                                    {label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={player.position || ""}
-                              onValueChange={(value) => updatePlayer(player.id, "position", value)}
-                              disabled={!isEditing}
-                            >
-                              <SelectTrigger className="w-32">
-                                <SelectValue placeholder="Posição" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {Object.entries(positionMap).map(([key, label]) => (
-                                  <SelectItem key={key} value={key}>
-                                    {label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            {player.status === 'aprovar' && !isEditing ? (
-                              <div className="flex gap-2">
+                              {player.nickname || "-"}
+                            </span>
+                          )}
+                        </TableCell>
+
+                        {/* Email */}
+                        <TableCell className="text-sm text-muted-foreground">
+                          {player.email || "-"}
+                        </TableCell>
+
+                        {/* Idade */}
+                        <TableCell>{calculateAge(player.birth_date)}</TableCell>
+
+                        {/* Nível (editável) */}
+                        <TableCell>
+                          <Select
+                            value={player.level || ""}
+                            onValueChange={(value) => updatePlayer(player.id, "level", value)}
+                          >
+                            <SelectTrigger className="w-[80px]">
+                              <SelectValue placeholder="-" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="A">A</SelectItem>
+                              <SelectItem value="B">B</SelectItem>
+                              <SelectItem value="C">C</SelectItem>
+                              <SelectItem value="D">D</SelectItem>
+                              <SelectItem value="E">E</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+
+                        {/* Posição (editável) */}
+                        <TableCell>
+                          <Select
+                            value={player.position || ""}
+                            onValueChange={(value) => updatePlayer(player.id, "position", value)}
+                          >
+                            <SelectTrigger className="w-[140px]">
+                              <SelectValue placeholder="-" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="goleiro">Goleiro</SelectItem>
+                              <SelectItem value="defensor">Defensor</SelectItem>
+                              <SelectItem value="meio-campista">Meio-Campista</SelectItem>
+                              <SelectItem value="atacante">Atacante</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+
+                        {/* Status */}
+                        <TableCell>
+                          <Select
+                            value={player.status || "pendente"}
+                            onValueChange={(value) => updatePlayer(player.id, "status", value)}
+                          >
+                            <SelectTrigger className="w-[130px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pendente">Pendente</SelectItem>
+                              <SelectItem value="aprovado">Aprovado</SelectItem>
+                              <SelectItem value="congelado">Congelado</SelectItem>
+                              <SelectItem value="rejeitado">Rejeitado</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+
+                        {/* Ações */}
+                        <TableCell>
+                          <div className="flex items-center justify-center gap-2">
+                            {player.status === "pendente" && (
+                              <>
                                 <Button
                                   size="sm"
-                                  onClick={() => updatePlayer(player.id, "status", "aprovado")}
+                                  variant="default"
+                                  onClick={() => approvePlayer(player.id, player.name)}
                                   className="bg-green-600 hover:bg-green-700"
                                 >
-                                  Aprovar
+                                  <UserCheck className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="destructive"
-                                  onClick={() => updatePlayer(player.id, "status", "rejeitado")}
+                                  onClick={() => rejectPlayer(player.id, player.name)}
                                 >
-                                  Rejeitar
+                                  <UserX className="h-4 w-4" />
                                 </Button>
-                              </div>
-                            ) : (
-                              <Badge className={
-                                player.status === "aprovado" ? "bg-green-600" : 
-                                player.status === "aprovar" ? "bg-yellow-600" :
-                                player.status === "rejeitado" ? "bg-red-600" :
-                                "bg-gray-600"
-                              }>
-                                {player.status === "aprovado" ? "Aprovado" :
-                                 player.status === "aprovar" ? "Aprovar" :
-                                 player.status === "rejeitado" ? "Rejeitado" :
-                                 player.status || "Aprovar"}
-                              </Badge>
+                              </>
                             )}
-                          </TableCell>
-                          <TableCell>
                             <Button
                               size="sm"
-                              variant="outline"
-                              onClick={() => setPunishmentDialog({
-                                open: true,
-                                playerId: player.id,
-                                playerName: player.nickname || player.name,
-                              })}
+                              variant="destructive"
+                              onClick={() => deletePlayer(player.id, player.name, player.email)}
                             >
-                              Gerenciar
+                              <Trash2 className="h-4 w-4" />
                             </Button>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2 flex-wrap">
-                              {isEditing ? (
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    updatePlayer(player.id, "name", player.name);
-                                    updatePlayer(player.id, "nickname", player.nickname);
-                                    setEditingPlayer(null);
-                                  }}
-                                  className="bg-green-600 hover:bg-green-700"
-                                >
-                                  Salvar
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  onClick={() => setEditingPlayer(player.id)}
-                                  variant="outline"
-                                >
-                                  Editar
-                                </Button>
-                              )}
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    size="sm"
-                                    className="bg-red-600 hover:bg-red-700"
-                                  >
-                                    Remover
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Tem certeza que deseja remover {player.nickname || player.name} e todos os seus dados relacionados (gols, assistências, cartões, estatísticas)?
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction 
-                                      onClick={() => deletePlayer(player.id, player.email)}
-                                      disabled={deletingId === player.id}
-                                      className="bg-destructive hover:bg-destructive/90"
-                                    >
-                                      {deletingId === player.id ? 'Removendo...' : 'Sim, remover'}
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </main>
-
-      <PunishmentDialog
-        playerId={punishmentDialog.playerId}
-        playerName={punishmentDialog.playerName}
-        open={punishmentDialog.open}
-        onOpenChange={(open) => setPunishmentDialog({ ...punishmentDialog, open })}
-      />
     </div>
   );
 }
