@@ -538,56 +538,70 @@ export default function ManageMatch() {
             <div className="grid grid-cols-2 gap-8 mb-6">
               {/* Time Casa */}
               <div className="text-left space-y-2">
-                {goals
-                  .filter(g => g.team_color === match.team_home)
-                  .sort((a, b) => a.minute - b.minute)
-                  .map((goal, idx) => {
-                    const scorer = goal.player;
-                    const assist = goal.assists && goal.assists.length > 0 ? goal.assists[0] : null;
-                    return (
-                      <div key={idx} className="text-sm flex items-center gap-2">
-                        <span className="text-xl">⚽</span>
-                        <div className="flex flex-col">
-                          <span className="text-foreground font-medium">
-                            {goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}
-                          </span>
-                          {assist?.player && (
-                            <span className="text-xs text-muted-foreground">
-                              Assist: {assist.player.nickname || assist.player.name}
+                <h4 className="text-xs font-semibold text-muted-foreground mb-2">
+                  {teamNames[match.team_home]}
+                </h4>
+                {goals.filter(g => g.team_color === match.team_home).length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Sem gols</p>
+                ) : (
+                  goals
+                    .filter(g => g.team_color === match.team_home)
+                    .sort((a, b) => a.minute - b.minute)
+                    .map((goal, idx) => {
+                      const scorer = goal.player;
+                      const assist = goal.assists && goal.assists.length > 0 ? goal.assists[0] : null;
+                      return (
+                        <div key={idx} className="text-sm flex items-center gap-2">
+                          <span className="text-xl">⚽</span>
+                          <div className="flex flex-col">
+                            <span className="text-foreground font-medium">
+                              {goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}
                             </span>
-                          )}
+                            {assist?.player && (
+                              <span className="text-xs text-muted-foreground">
+                                Assist: {assist.player.nickname || assist.player.name}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-muted-foreground ml-auto">{goal.minute}'</span>
                         </div>
-                        <span className="text-muted-foreground ml-auto">{goal.minute}'</span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                )}
               </div>
               
               {/* Time Visitante */}
               <div className="text-right space-y-2">
-                {goals
-                  .filter(g => g.team_color === match.team_away)
-                  .sort((a, b) => a.minute - b.minute)
-                  .map((goal, idx) => {
-                    const scorer = goal.player;
-                    const assist = goal.assists && goal.assists.length > 0 ? goal.assists[0] : null;
-                    return (
-                      <div key={idx} className="text-sm flex items-center justify-end gap-2">
-                        <span className="text-muted-foreground">{goal.minute}'</span>
-                        <div className="flex flex-col items-end">
-                          <span className="text-foreground font-medium">
-                            {goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}
-                          </span>
-                          {assist?.player && (
-                            <span className="text-xs text-muted-foreground">
-                              Assist: {assist.player.nickname || assist.player.name}
+                <h4 className="text-xs font-semibold text-muted-foreground mb-2">
+                  {teamNames[match.team_away]}
+                </h4>
+                {goals.filter(g => g.team_color === match.team_away).length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Sem gols</p>
+                ) : (
+                  goals
+                    .filter(g => g.team_color === match.team_away)
+                    .sort((a, b) => a.minute - b.minute)
+                    .map((goal, idx) => {
+                      const scorer = goal.player;
+                      const assist = goal.assists && goal.assists.length > 0 ? goal.assists[0] : null;
+                      return (
+                        <div key={idx} className="text-sm flex items-center justify-end gap-2">
+                          <span className="text-muted-foreground">{goal.minute}'</span>
+                          <div className="flex flex-col items-end">
+                            <span className="text-foreground font-medium">
+                              {goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}
                             </span>
-                          )}
+                            {assist?.player && (
+                              <span className="text-xs text-muted-foreground">
+                                Assist: {assist.player.nickname || assist.player.name}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xl">⚽</span>
                         </div>
-                        <span className="text-xl">⚽</span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                )}
               </div>
             </div>
           </CardHeader>

@@ -26,6 +26,7 @@ export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps
     
     // Verificar correspondências parciais para rotas aninhadas de admin
     if (path.startsWith('/admin/round')) return '/admin/round';
+    if (path.startsWith('/admin/match')) return '/admin/round';
     if (path.startsWith('/admin/teams')) return '/admin/teams';
     if (path.startsWith('/admin/players')) return '/admin/players';
     if (path.startsWith('/admin/ranking')) return '/admin/ranking';

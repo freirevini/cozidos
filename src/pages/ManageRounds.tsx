@@ -107,6 +107,28 @@ export default function ManageRounds() {
     }
   };
 
+  const handleEditMatch = async (matchId: string) => {
+    // Se a rodada estiver finalizada, mudar para em_andamento
+    if (round?.status === 'finalizada') {
+      try {
+        const { error } = await supabase
+          .from('rounds')
+          .update({ status: 'em_andamento' })
+          .eq('id', round.id);
+        
+        if (error) throw error;
+        
+        toast.success('Rodada reaberta para edição. Lembre-se de finalizar novamente após as alterações.');
+        await loadRoundData(); // Recarregar dados
+      } catch (error: any) {
+        toast.error('Erro ao reabrir rodada: ' + error.message);
+        return; // Não abrir o diálogo se houver erro
+      }
+    }
+    
+    setEditingMatchId(matchId);
+  };
+
   const createMatches = async () => {
     if (!roundId || !round) return;
 
@@ -320,25 +342,36 @@ export default function ManageRounds() {
       return;
     }
 
-    if (!confirm("Tem certeza que deseja finalizar esta rodada? Isso irá recalcular todas as estatísticas.")) {
+    if (!confirm("Tem certeza que deseja finalizar esta rodada?\n\nIsso irá recalcular todas as estatísticas e pontuações dos jogadores.")) {
       return;
     }
 
     setLoading(true);
 
     try {
-      // Recalcular estatísticas da rodada
-      await recalculateRoundPoints();
-
       // Atualizar status da rodada para "finalizada"
       const { error: updateError } = await supabase
         .from("rounds")
-        .update({ status: 'finalizada' })
+        .update({ 
+          status: 'finalizada',
+          completed_at: new Date().toISOString()
+        })
         .eq("id", roundId);
 
       if (updateError) throw updateError;
 
-      toast.success("Rodada finalizada e estatísticas atualizadas com sucesso!");
+      // Recalcular pontos da rodada
+      const { error: recalcError } = await supabase.rpc('recalc_round_aggregates', {
+        p_round_id: roundId
+      });
+
+      if (recalcError) {
+        console.error('Erro ao recalcular pontos:', recalcError);
+        toast.error('Rodada finalizada, mas houve erro ao recalcular pontos. Verifique a classificação.');
+      } else {
+        toast.success('Rodada finalizada com sucesso! Classificação atualizada.');
+      }
+
       navigate("/admin/round");
     } catch (error: any) {
       console.error("Erro ao finalizar rodada:", error);
@@ -496,7 +529,7 @@ export default function ManageRounds() {
                                 <Button
                                   size="sm"
                                   variant="secondary"
-                                  onClick={() => setEditingMatchId(match.id)}
+                                  onClick={() => handleEditMatch(match.id)}
                                   disabled={round?.status === 'a_iniciar'}
                                 >
                                   Editar
