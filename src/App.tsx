@@ -3,8 +3,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import PageTransition from "@/components/PageTransition";
 import Classification from "./pages/Classification";
 import Matches from "./pages/Matches";
 import Statistics from "./pages/Statistics";
@@ -57,33 +59,43 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />;
 }
 
+function AnimatedRoutes() {
+  const location = useLocation();
+  
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/" element={<ProtectedRoute><PageTransition><Classification /></PageTransition></ProtectedRoute>} />
+        <Route path="/matches" element={<ProtectedRoute><PageTransition><Matches /></PageTransition></ProtectedRoute>} />
+        <Route path="/statistics" element={<ProtectedRoute><PageTransition><Statistics /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/players" element={<ProtectedRoute><PageTransition><ManagePlayers /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/ranking" element={<ProtectedRoute><PageTransition><ManageRanking /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/teams" element={<ProtectedRoute><PageTransition><Teams /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/teams/define" element={<ProtectedRoute><PageTransition><DefineTeams /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/teams/manage" element={<ProtectedRoute><PageTransition><ManageTeams /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/round/:roundId/edit" element={<ProtectedRoute><PageTransition><EditRound /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/round/:roundId/view" element={<ProtectedRoute><PageTransition><ViewRound /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/match/:matchId/:roundId" element={<ProtectedRoute><PageTransition><ManageMatch /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/round/:roundId/attendance" element={<ProtectedRoute><PageTransition><AttendanceRecord /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/round" element={<ProtectedRoute><PageTransition><StartRound /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/round/manage" element={<ProtectedRoute><PageTransition><ManageRounds /></PageTransition></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><PageTransition><Profile /></PageTransition></ProtectedRoute>} />
+        <Route path="/times" element={<ProtectedRoute><PageTransition><ViewTeams /></PageTransition></ProtectedRoute>} />
+        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AnimatePresence>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/" element={<ProtectedRoute><Classification /></ProtectedRoute>} />
-          <Route path="/matches" element={<ProtectedRoute><Matches /></ProtectedRoute>} />
-          <Route path="/statistics" element={<ProtectedRoute><Statistics /></ProtectedRoute>} />
-          <Route path="/admin/players" element={<ProtectedRoute><ManagePlayers /></ProtectedRoute>} />
-          <Route path="/admin/ranking" element={<ProtectedRoute><ManageRanking /></ProtectedRoute>} />
-          <Route path="/admin/teams" element={<ProtectedRoute><Teams /></ProtectedRoute>} />
-          <Route path="/admin/teams/define" element={<ProtectedRoute><DefineTeams /></ProtectedRoute>} />
-          <Route path="/admin/teams/manage" element={<ProtectedRoute><ManageTeams /></ProtectedRoute>} />
-          <Route path="/admin/round/:roundId/edit" element={<ProtectedRoute><EditRound /></ProtectedRoute>} />
-          <Route path="/admin/round/:roundId/view" element={<ProtectedRoute><ViewRound /></ProtectedRoute>} />
-          <Route path="/admin/match/:matchId/:roundId" element={<ProtectedRoute><ManageMatch /></ProtectedRoute>} />
-          <Route path="/admin/round/:roundId/attendance" element={<ProtectedRoute><AttendanceRecord /></ProtectedRoute>} />
-          <Route path="/admin/round" element={<ProtectedRoute><StartRound /></ProtectedRoute>} />
-          <Route path="/admin/round/manage" element={<ProtectedRoute><ManageRounds /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/times" element={<ProtectedRoute><ViewTeams /></ProtectedRoute>} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AnimatedRoutes />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

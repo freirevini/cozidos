@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 interface Tab {
   title: string;
@@ -108,11 +109,10 @@ const Tab = React.forwardRef<
     >
       <Link
         to={url}
-        className={`block px-2 py-1.5 md:px-5 md:py-2.5 text-xs md:text-sm font-medium rounded-full transition-colors whitespace-nowrap ${
-          isSelected 
-            ? "text-background" 
-            : "text-foreground/70 hover:text-foreground"
-        }`}
+        className={cn(
+          "block px-2 py-1.5 md:px-5 md:py-2.5 text-xs md:text-sm font-medium rounded-full transition-all duration-200 whitespace-nowrap relative z-10 menu-glow",
+          isSelected ? "text-background" : "text-foreground/70 hover:text-foreground"
+        )}
       >
         {children}
       </Link>

@@ -60,6 +60,15 @@ All colors MUST be HSL.
     text-shadow: 0 0 10px hsl(330 100% 60% / 0.5);
   }
 
+  .menu-glow {
+    transition: all 0.3s ease;
+  }
+
+  .menu-glow:hover {
+    text-shadow: 0 0 15px hsl(330 100% 60% / 0.8);
+    filter: drop-shadow(0 0 10px hsl(330 100% 60% / 0.6));
+  }
+
   .card-glow {
     box-shadow: var(--shadow-card), var(--shadow-glow);
   }

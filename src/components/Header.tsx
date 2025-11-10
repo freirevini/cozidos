@@ -121,7 +121,7 @@ export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps
               <Link
                 key={link.href}
                 to={link.href}
-                className={`block px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                className={`block px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 menu-glow ${
                   isActive(link.href)
                     ? "bg-primary text-primary-foreground"
                     : "text-foreground hover:bg-muted"
