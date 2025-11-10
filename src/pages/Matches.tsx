@@ -65,12 +65,20 @@ export default function Matches() {
 
   const loadRounds = async () => {
     try {
+      // Não mostrar loading em atualizações de realtime
+      if (rounds.length === 0) {
+        setLoading(true);
+      }
+      
       const { data: roundsData } = await supabase
         .from("rounds")
         .select("*")
         .order("round_number", { ascending: false });
 
-      if (!roundsData) return;
+      if (!roundsData) {
+        setLoading(false);
+        return;
+      }
 
       const roundsWithMatches = await Promise.all(
         roundsData.map(async (round) => {
@@ -144,6 +152,63 @@ export default function Matches() {
   };
 
   const currentRound = rounds[currentRoundIndex];
+  
+  // Realtime: Sincronizar atualizações de partidas, gols e assistências
+  useEffect(() => {
+    if (!currentRound) return;
+
+    const matchesChannel = supabase
+      .channel('matches-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'matches',
+          filter: `round_id=eq.${currentRound.id}`
+        },
+        () => {
+          loadRounds();
+        }
+      )
+      .subscribe();
+
+    const goalsChannel = supabase
+      .channel('goals-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'goals'
+        },
+        () => {
+          loadRounds();
+        }
+      )
+      .subscribe();
+
+    const assistsChannel = supabase
+      .channel('assists-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'assists'
+        },
+        () => {
+          loadRounds();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(matchesChannel);
+      supabase.removeChannel(goalsChannel);
+      supabase.removeChannel(assistsChannel);
+    };
+  }, [currentRound]);
   
   // Filtrar apenas rodadas não "a_iniciar" para navegação
   const visibleRounds = rounds.filter(r => r.status !== 'a_iniciar');
