@@ -100,8 +100,6 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     player_id: "",
     card_type: "",
   });
-  const [goalMinute, setGoalMinute] = useState<number>(0);
-  const [cardMinute, setCardMinute] = useState<number>(0);
 
   useEffect(() => {
     if (open) {
@@ -329,8 +327,11 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     }
 
     try {
+      // Calcular minuto automaticamente
+      const currentMinute = Math.floor((Date.now() - new Date().setHours(0, 0, 0, 0)) / 60000);
+
       // Validar minuto (0-120)
-      if (goalMinute < 0 || goalMinute > 120) {
+      if (currentMinute < 0 || currentMinute > 120) {
         toast.error("Minuto inválido. Deve estar entre 0 e 120.");
         return;
       }
@@ -341,7 +342,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
           match_id: matchId,
           player_id: goalData.is_own_goal ? null : goalData.player_id,
           team_color: goalData.team as "azul" | "branco" | "laranja" | "vermelho",
-          minute: goalMinute,
+          minute: currentMinute,
           is_own_goal: goalData.is_own_goal,
         }])
         .select()
@@ -374,7 +375,6 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
       toast.success("Gol adicionado com sucesso!");
       setAddingGoal(false);
       setGoalData({ team: "", player_id: "", has_assist: false, assist_player_id: "", is_own_goal: false });
-      setGoalMinute(0);
       await loadMatchData();
     } catch (error: any) {
       console.error("Erro ao adicionar gol:", error);
@@ -421,8 +421,11 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     }
 
     try {
+      // Calcular minuto automaticamente
+      const currentMinute = Math.floor((Date.now() - new Date().setHours(0, 0, 0, 0)) / 60000);
+
       // Validar minuto (0-120)
-      if (cardMinute < 0 || cardMinute > 120) {
+      if (currentMinute < 0 || currentMinute > 120) {
         toast.error("Minuto inválido. Deve estar entre 0 e 120.");
         return;
       }
@@ -431,7 +434,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
         match_id: matchId,
         player_id: cardData.player_id,
         card_type: cardData.card_type as "amarelo" | "azul",
-        minute: cardMinute,
+        minute: currentMinute,
       }]);
 
       if (error) throw error;
@@ -439,7 +442,6 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
       toast.success("Cartão adicionado com sucesso!");
       setAddingCard(false);
       setCardData({ team: "", player_id: "", card_type: "" });
-      setCardMinute(0);
       await loadCards();
     } catch (error: any) {
       console.error("Erro ao adicionar cartão:", error);
@@ -616,24 +618,6 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
                   </>
                 )}
 
-                {/* Campo de Minuto */}
-                <div className="space-y-1">
-                  <label htmlFor="goal-minute" className="text-sm font-medium">
-                    Minuto do Gol
-                  </label>
-                  <input
-                    id="goal-minute"
-                    type="number"
-                    min="0"
-                    max="120"
-                    value={goalMinute}
-                    onChange={(e) => setGoalMinute(Math.max(0, Math.min(120, parseInt(e.target.value) || 0)))}
-                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
-                    placeholder="0-120"
-                  />
-                  <p className="text-xs text-muted-foreground">Digite o minuto entre 0 e 120</p>
-                </div>
-
                 <Button onClick={handleAddGoal} className="w-full bg-primary hover:bg-secondary">
                   Confirmar Gol
                 </Button>
@@ -734,24 +718,6 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
                     <SelectItem value="azul">🟦 Azul</SelectItem>
                   </SelectContent>
                 </Select>
-
-                {/* Campo de Minuto */}
-                <div className="space-y-1">
-                  <label htmlFor="card-minute" className="text-sm font-medium">
-                    Minuto do Cartão
-                  </label>
-                  <input
-                    id="card-minute"
-                    type="number"
-                    min="0"
-                    max="120"
-                    value={cardMinute}
-                    onChange={(e) => setCardMinute(Math.max(0, Math.min(120, parseInt(e.target.value) || 0)))}
-                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
-                    placeholder="0-120"
-                  />
-                  <p className="text-xs text-muted-foreground">Digite o minuto entre 0 e 120</p>
-                </div>
 
                 <Button onClick={handleAddCard} className="w-full bg-primary hover:bg-secondary">
                   Confirmar Cartão

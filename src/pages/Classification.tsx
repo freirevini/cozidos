@@ -190,11 +190,12 @@ export default function Classification() {
                       <TableHead className="text-primary font-bold text-center">Derrota</TableHead>
                       <TableHead className="text-primary font-bold text-center">Gols</TableHead>
                       <TableHead className="text-primary font-bold text-center">Assistências</TableHead>
-                      <TableHead className="text-primary font-bold text-center">Atraso</TableHead>
-                      <TableHead className="text-primary font-bold text-center">Falta</TableHead>
-                      <TableHead className="text-primary font-bold text-center">Punição</TableHead>
-                      <TableHead className="text-primary font-bold text-center">Cartões</TableHead>
-                      <TableHead className="text-primary font-bold text-center">Total de Pontos</TableHead>
+            <TableHead className="text-primary font-bold text-center">Atraso</TableHead>
+            <TableHead className="text-primary font-bold text-center">Falta</TableHead>
+            <TableHead className="text-primary font-bold text-center">Punição</TableHead>
+            <TableHead className="text-primary font-bold text-center">🟨</TableHead>
+            <TableHead className="text-primary font-bold text-center">🟦</TableHead>
+            <TableHead className="text-primary font-bold text-center">Total de Pontos</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -211,10 +212,8 @@ export default function Classification() {
                         <TableCell className="text-center">{stat.atrasos}</TableCell>
                         <TableCell className="text-center">{stat.faltas}</TableCell>
                         <TableCell className="text-center">{stat.punicoes}</TableCell>
-                        <TableCell className="text-center">
-                          {stat.cartoes_amarelos > 0 && `🟨 ${stat.cartoes_amarelos} `}
-                          {stat.cartoes_azuis > 0 && `🟦 ${stat.cartoes_azuis}`}
-                        </TableCell>
+                        <TableCell className="text-center">{stat.cartoes_amarelos}</TableCell>
+                        <TableCell className="text-center">{stat.cartoes_azuis}</TableCell>
                         <TableCell className="text-center font-bold text-primary">
                           {stat.pontos_totais}
                         </TableCell>
