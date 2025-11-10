@@ -442,12 +442,15 @@ export type Database = {
           birth_date: string | null
           created_at: string
           email: string | null
+          first_name: string | null
           id: string
           is_approved: boolean | null
           is_player: boolean | null
+          last_name: string | null
           level: Database["public"]["Enums"]["player_level"] | null
           name: string
           nickname: string | null
+          player_id: string | null
           player_type: string | null
           player_type_detail:
             | Database["public"]["Enums"]["player_type_enum"]
@@ -460,12 +463,15 @@ export type Database = {
           birth_date?: string | null
           created_at?: string
           email?: string | null
+          first_name?: string | null
           id?: string
           is_approved?: boolean | null
           is_player?: boolean | null
+          last_name?: string | null
           level?: Database["public"]["Enums"]["player_level"] | null
           name: string
           nickname?: string | null
+          player_id?: string | null
           player_type?: string | null
           player_type_detail?:
             | Database["public"]["Enums"]["player_type_enum"]
@@ -478,12 +484,15 @@ export type Database = {
           birth_date?: string | null
           created_at?: string
           email?: string | null
+          first_name?: string | null
           id?: string
           is_approved?: boolean | null
           is_player?: boolean | null
+          last_name?: string | null
           level?: Database["public"]["Enums"]["player_level"] | null
           name?: string
           nickname?: string | null
+          player_id?: string | null
           player_type?: string | null
           player_type_detail?:
             | Database["public"]["Enums"]["player_type_enum"]
@@ -665,6 +674,11 @@ export type Database = {
         Returns: undefined
       }
       delete_player_by_id: { Args: { profile_id: string }; Returns: undefined }
+      delete_player_complete: { Args: { p_profile_id: string }; Returns: Json }
+      generate_player_id: {
+        Args: { p_birth_date: string; p_email: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["user_role"]

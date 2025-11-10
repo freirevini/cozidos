@@ -20,9 +20,9 @@ const loginSchema = z.object({
 const signUpSchema = z.object({
   email: z.string().trim().email({ message: "E-mail inválido" }).max(255, { message: "E-mail muito longo" }),
   password: z.string().min(6, { message: "Senha deve ter no mínimo 6 caracteres" }),
-  name: z.string().trim().min(1, { message: "Nome é obrigatório" }).max(100, { message: "Nome muito longo" }),
-  nickname: z.string().trim().min(1, { message: "Apelido é obrigatório" }).max(50, { message: "Apelido muito longo" }),
-  birthDate: z.string().min(1, { message: "Data de nascimento é obrigatória" }),
+  first_name: z.string().trim().min(1, { message: "Primeiro nome é obrigatório" }).max(100, { message: "Nome muito longo" }),
+  last_name: z.string().trim().min(1, { message: "Sobrenome é obrigatório" }).max(100, { message: "Sobrenome muito longo" }),
+  birthDate: z.string().optional(),
 });
 
 interface NewPlayer {
@@ -36,11 +36,10 @@ export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [nickname, setNickname] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [isPlayer, setIsPlayer] = useState("nao");
-  const [playerType, setPlayerType] = useState("");
   const [newPlayer, setNewPlayer] = useState<NewPlayer>({
     level: "",
     position: "",
@@ -91,43 +90,56 @@ export default function Auth() {
     e.preventDefault();
     
     // Validação básica de entrada
-    const validation = signUpSchema.safeParse({ email, password, name, nickname, birthDate });
+    const validation = signUpSchema.safeParse({ 
+      email, 
+      password, 
+      first_name: firstName, 
+      last_name: lastName,
+      birthDate: isPlayer === "sim" ? birthDate : undefined
+    });
+    
     if (!validation.success) {
       toast.error(validation.error.errors[0].message);
       return;
     }
 
-    if (isPlayer === "sim" && (!playerType || !newPlayer.level || !newPlayer.position)) {
-      toast.error("Por favor, preencha todos os campos de jogador (tipo, nível e posição).");
-      return;
-    }
+    // Validação específica para jogadores
+    if (isPlayer === "sim") {
+      if (!birthDate) {
+        toast.error("Data de nascimento é obrigatória para jogadores");
+        return;
+      }
+      
+      if (!newPlayer.position) {
+        toast.error("Posição é obrigatória para jogadores");
+        return;
+      }
 
-    // Validação de data de nascimento
-    const birthDateObj = new Date(birthDate);
-    const today = new Date();
-    if (birthDateObj > today) {
-      toast.error("Data de nascimento não pode ser no futuro");
-      return;
-    }
-    if (birthDateObj < new Date('1900-01-01')) {
-      toast.error("Data de nascimento inválida");
-      return;
+      // Validação de data de nascimento
+      const birthDateObj = new Date(birthDate);
+      const today = new Date();
+      if (birthDateObj > today) {
+        toast.error("Data de nascimento não pode ser no futuro");
+        return;
+      }
+      if (birthDateObj < new Date('1900-01-01')) {
+        toast.error("Data de nascimento inválida");
+        return;
+      }
     }
 
     try {
       setLoading(true);
+      
+      // Criar conta de autenticação
       const { data, error } = await supabase.auth.signUp({
         email: validation.data.email,
         password: validation.data.password,
         options: {
           data: {
-            name: validation.data.name,
-            nickname: validation.data.nickname,
-            birth_date: validation.data.birthDate,
+            first_name: validation.data.first_name,
+            last_name: validation.data.last_name,
             is_player: isPlayer === "sim",
-            player_type: isPlayer === "sim" ? playerType : null,
-            level: isPlayer === "sim" ? newPlayer.level : null,
-            position: isPlayer === "sim" ? newPlayer.position : null,
           },
           emailRedirectTo: `${window.location.origin}/`,
         },
@@ -135,47 +147,35 @@ export default function Auth() {
 
       if (error) throw error;
       
-      // Update profile with additional data
       if (data.user) {
-        const { error: profileError } = await supabase.from("profiles").update({
-          nickname: validation.data.nickname,
-          birth_date: validation.data.birthDate,
-          is_player: isPlayer === "sim",
-          player_type_detail: isPlayer === "sim" ? (playerType as "mensal" | "avulso") : null,
-          status: isPlayer === "sim" ? "aprovar" : "aprovado",
-        }).eq("user_id", data.user.id);
-
-        if (profileError) {
-          console.error("Erro ao atualizar perfil:", profileError);
-          toast.error("Erro ao atualizar perfil: " + profileError.message);
-          return;
-        }
-
-        // Se for jogador, criar entrada na tabela players
+        // Se for jogador, chamar Edge Function para vincular/criar player_id
         if (isPlayer === "sim") {
-          const { error: playerError } = await supabase.from("players").insert({
-            user_id: data.user.id,
-            name: validation.data.name,
-            birth_date: validation.data.birthDate,
-            level: newPlayer.level as any,
-            position: newPlayer.position as any,
+          const { data: linkResult, error: linkError } = await supabase.functions.invoke('link-player', {
+            body: {
+              auth_user_id: data.user.id,
+              email: validation.data.email,
+              birth_date: birthDate,
+              first_name: validation.data.first_name,
+              last_name: validation.data.last_name,
+              position: newPlayer.position,
+            }
           });
 
-          if (playerError) {
-            console.error("Erro ao criar jogador:", playerError);
-            toast.error("Erro ao criar jogador: " + playerError.message);
+          if (linkError) {
+            console.error("Erro ao vincular jogador:", linkError);
+            toast.error("Erro ao vincular jogador: " + linkError.message);
             return;
           }
-        }
 
-        const message = isPlayer === "sim" 
-          ? "Conta criada com sucesso! Aguarde aprovação do administrador para participar das rodadas."
-          : "Conta criada com sucesso! Você pode acessar as informações do sistema.";
+          toast.success(linkResult.message);
+        } else {
+          toast.success("Conta criada com sucesso! Você pode acessar as informações do sistema.");
+        }
         
-        toast.success(message);
         navigate("/");
       }
     } catch (error: any) {
+      console.error("Erro ao criar conta:", error);
       toast.error(error.message || "Erro ao criar conta");
     } finally {
       setLoading(false);
@@ -207,34 +207,24 @@ export default function Auth() {
             {isSignUp && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="name">Nome completo</Label>
+                  <Label htmlFor="firstName">Primeiro Nome</Label>
                   <Input
-                    id="name"
+                    id="firstName"
                     type="text"
-                    placeholder="Seu nome"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Seu primeiro nome"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="nickname">Apelido</Label>
+                  <Label htmlFor="lastName">Sobrenome</Label>
                   <Input
-                    id="nickname"
+                    id="lastName"
                     type="text"
-                    placeholder="Seu apelido"
-                    value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="birthDate">Data de Nascimento</Label>
-                  <Input
-                    id="birthDate"
-                    type="date"
-                    value={birthDate}
-                    onChange={(e) => setBirthDate(e.target.value)}
+                    placeholder="Seu sobrenome"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
                     required
                   />
                 </div>
@@ -253,31 +243,14 @@ export default function Auth() {
                 {isPlayer === "sim" && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="playerType">Tipo de Jogador</Label>
-                      <Select value={playerType} onValueChange={setPlayerType}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o tipo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="mensal">Mensal</SelectItem>
-                          <SelectItem value="avulso">Avulso</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="level">Nível</Label>
-                      <Select value={newPlayer.level} onValueChange={(value) => setNewPlayer({...newPlayer, level: value})}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o nível" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="A">A</SelectItem>
-                          <SelectItem value="B">B</SelectItem>
-                          <SelectItem value="C">C</SelectItem>
-                          <SelectItem value="D">D</SelectItem>
-                          <SelectItem value="E">E</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="birthDate">Data de Nascimento</Label>
+                      <Input
+                        id="birthDate"
+                        type="date"
+                        value={birthDate}
+                        onChange={(e) => setBirthDate(e.target.value)}
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="position">Posição</Label>
