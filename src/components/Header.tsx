@@ -4,6 +4,7 @@ import { Menu, X, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/novo-logo.png";
+import { SlideTabs } from "@/components/ui/slide-tabs";
 
 interface HeaderProps {
   isAdmin?: boolean;
@@ -74,20 +75,11 @@ export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-1">
-            {allLinks.map((link) => (
-              <Link
-                key={link.href}
-                to={link.href}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  isActive(link.href)
-                    ? "bg-primary text-primary-foreground"
-                    : "text-foreground hover:bg-muted"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
+          <nav className="hidden md:flex items-center space-x-4">
+            <SlideTabs 
+              tabs={allLinks.map(link => ({ title: link.label, url: link.href }))} 
+              currentPath={location.pathname}
+            />
             <button
               onClick={handleLogout}
               className="px-4 py-2 rounded-md text-sm font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-2"
