@@ -59,6 +59,7 @@ interface Event {
   id: string;
   type: 'match_start' | 'match_end' | 'goal' | 'amarelo' | 'azul';
   minute: number;
+  team_color?: string;
   player?: {
     name: string;
     nickname: string | null;
@@ -110,9 +111,8 @@ const MatchDetails = () => {
   };
 
   const loadEvents = async () => {
-    if (!matchId) return;
+    if (!matchId || !match) return;
 
-    // Carregar gols com assistências
     const { data: goalsData } = await supabase
       .from("goals")
       .select(`
@@ -124,18 +124,15 @@ const MatchDetails = () => {
       `)
       .eq("match_id", matchId);
 
-    // Carregar cartões
     const { data: cardsData } = await supabase
       .from("cards")
       .select(`
         *,
-        player:profiles!cards_player_id_fkey(name, nickname)
+        player:profiles!cards_player_id_fkey(name, nickname, id)
       `)
       .eq("match_id", matchId);
 
-    const allEvents: Event[] = [
-      { id: 'start', type: 'match_start', minute: 0 },
-    ];
+    const allEvents: Event[] = [];
 
     if (goalsData) {
       goalsData.forEach((goal: any) => {
@@ -143,6 +140,7 @@ const MatchDetails = () => {
           id: goal.id,
           type: 'goal',
           minute: goal.minute,
+          team_color: goal.team_color,
           player: goal.player,
           assist: goal.assists?.player,
         });
@@ -150,27 +148,24 @@ const MatchDetails = () => {
     }
 
     if (cardsData) {
-      cardsData.forEach((card: Card) => {
+      for (const card of cardsData) {
+        const { data: teamData } = await supabase
+          .from("round_team_players")
+          .select("team_color")
+          .eq("player_id", card.player_id)
+          .eq("round_id", match.round_id)
+          .maybeSingle();
+        
         allEvents.push({
           id: card.id,
           type: card.card_type as 'amarelo' | 'azul',
           minute: card.minute,
+          team_color: teamData?.team_color,
           player: card.player,
         });
-      });
+      }
     }
 
-    // Adicionar evento de fim se a partida estiver finalizada
-    if (match?.status === 'finished' && match.finished_at) {
-      const finalMinute = getCurrentMatchMinute() || 90;
-      allEvents.push({
-        id: 'end',
-        type: 'match_end',
-        minute: finalMinute,
-      });
-    }
-
-    // Ordenar por minuto
     allEvents.sort((a, b) => a.minute - b.minute);
     setEvents(allEvents);
   };
@@ -181,7 +176,7 @@ const MatchDetails = () => {
         const startTime = new Date(match.started_at).getTime();
         const endTime = new Date(match.finished_at).getTime();
         const elapsedSeconds = Math.floor((endTime - startTime) / 1000) - (match.match_timer_total_paused_seconds || 0);
-        return Math.floor(elapsedSeconds / 60);
+        return Math.max(0, Math.floor(elapsedSeconds / 60));
       }
       return null;
     }
@@ -195,10 +190,10 @@ const MatchDetails = () => {
       pausedSeconds += Math.floor((now - pausedAt) / 1000);
     }
 
-    const elapsedSeconds = Math.floor((now - startTime) / 1000) - pausedSeconds;
+    const elapsedSeconds = Math.max(0, Math.floor((now - startTime) / 1000) - pausedSeconds);
     const elapsedMinutes = Math.floor(elapsedSeconds / 60);
 
-    return elapsedMinutes;
+    return Math.max(0, elapsedMinutes);
   };
 
   // Atualizar cronômetro em tempo real
@@ -319,7 +314,7 @@ const MatchDetails = () => {
     );
   }
 
-  const maxMinute = Math.max(90, currentMinute || 90, ...events.map(e => e.minute));
+  const maxMinute = 120;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -374,85 +369,99 @@ const MatchDetails = () => {
             {/* Linha do Tempo */}
             {match.status !== 'not_started' && (
               <div className="relative pt-12 pb-8">
-                <div className="relative h-1 bg-primary rounded-full">
-                  <div 
-                    className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all duration-1000"
-                    style={{ width: `${Math.min(100, ((currentMinute || 0) / maxMinute) * 100)}%` }}
-                  ></div>
+                <div className="relative h-1 bg-muted/30 rounded-full">
+                  {currentMinute && (
+                    <div 
+                      className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all duration-1000"
+                      style={{ width: `${Math.min(100, (currentMinute / 120) * 100)}%` }}
+                    ></div>
+                  )}
                   
                   {/* Marcadores de tempo */}
-                  <div className="absolute -bottom-6 left-0 text-xs text-muted-foreground font-medium">0'</div>
-                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-primary font-medium">45'</div>
-                  <div className="absolute -bottom-6 right-0 text-xs text-primary font-medium">90'</div>
-                  
-                  {/* Tempo atual com acréscimo */}
-                  {match.status === 'in_progress' && currentMinute !== null && (
-                    <div 
-                      className="absolute -top-8 transform -translate-x-1/2 text-sm text-primary font-bold"
-                      style={{ left: `${Math.min(100, ((currentMinute || 0) / maxMinute) * 100)}%` }}
-                    >
-                      {currentMinute > 90 ? `90' +${currentMinute - 90}` : `${currentMinute}'`}
-                    </div>
-                  )}
+                  <div className="absolute -bottom-6 left-0 text-xs text-muted-foreground">0'</div>
+                  <div className="absolute -bottom-6 left-[37.5%] text-xs text-primary">45'</div>
+                  <div className="absolute -bottom-6 left-[75%] text-xs text-primary">90'</div>
+                  <div className="absolute -bottom-6 right-0 text-xs text-muted-foreground">120'</div>
                   
                   {/* Eventos na timeline */}
                   {events.map((event) => (
                     <div
                       key={event.id}
-                      className="absolute -top-7 transform -translate-x-1/2 hover:scale-110 transition-transform cursor-pointer"
-                      style={{ left: `${Math.min(100, (event.minute / maxMinute) * 100)}%` }}
-                      title={`${event.minute}' - ${getEventText(event)}`}
+                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2"
+                      style={{ left: `${(event.minute / 120) * 100}%` }}
                     >
-                      {getEventIcon(event)}
+                      <span className="text-lg">{getEventIcon(event)}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Lista de Eventos */}
-            {match.status !== 'not_started' && events.length > 0 && (
-              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-primary scrollbar-track-background">
-                {events.map((event) => (
-                  <div
-                    key={event.id}
-                    className="flex items-center gap-4 py-3 border-b border-border/30 last:border-0"
-                  >
-                    <div className="flex-shrink-0 w-8 flex items-center justify-center">
-                      {getEventIcon(event)}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      {event.type === 'goal' ? (
-                        <>
-                          <div className="text-base font-bold text-foreground">
-                            {event.player?.nickname || event.player?.name || 'Jogador'}
-                          </div>
-                          {event.assist && (
-                            <div className="text-sm text-muted-foreground mt-0.5">
-                              {event.assist.nickname || event.assist.name}
-                            </div>
-                          )}
-                        </>
-                      ) : event.type === 'match_start' ? (
-                        <div className="text-base text-muted-foreground">Match start</div>
-                      ) : event.type === 'match_end' ? (
-                        <div className="text-base text-muted-foreground">Match end</div>
-                      ) : (
-                        <div className="text-base font-medium text-foreground">
-                          {event.player?.nickname || event.player?.name || 'Jogador'}
+            {/* Eventos por Time - Grid 2 Colunas */}
+            {match.status !== 'not_started' && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 border-t pt-6">
+                  {/* Coluna Esquerda - Time Casa */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-bold text-muted-foreground text-center border-b pb-2">
+                      {teamNames[match.team_home]}
+                    </h3>
+                    {events
+                      .filter(event => event.team_color === match.team_home)
+                      .map((event) => (
+                        <div key={event.id} className="flex items-center gap-2 text-sm">
+                          <span className="text-xl">{getEventIcon(event)}</span>
+                          <span className="flex-1 truncate">
+                            {event.player?.nickname || event.player?.name}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {event.minute > 90 ? `90'+${event.minute - 90}` : `${event.minute}'`}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex-shrink-0 text-right">
-                      <span className="text-base text-muted-foreground font-medium">
-                        {event.minute > 90 ? `90' +${event.minute - 90}` : `${event.minute}'`}
-                      </span>
-                    </div>
+                      ))}
                   </div>
-                ))}
-              </div>
+
+                  {/* Coluna Direita - Time Visitante */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-bold text-muted-foreground text-center border-b pb-2">
+                      {teamNames[match.team_away]}
+                    </h3>
+                    {events
+                      .filter(event => event.team_color === match.team_away)
+                      .map((event) => (
+                        <div key={event.id} className="flex items-center gap-2 text-sm">
+                          <span className="text-xl">{getEventIcon(event)}</span>
+                          <span className="flex-1 truncate">
+                            {event.player?.nickname || event.player?.name}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {event.minute > 90 ? `90'+${event.minute - 90}` : `${event.minute}'`}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {/* Eventos Globais (Início/Fim) */}
+                <div className="border-t pt-4 mt-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <span className="text-xl">🔵</span>
+                      <span>Início da partida</span>
+                      <span className="ml-auto">0'</span>
+                    </div>
+                    {match.status === 'finished' && (
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <span className="text-xl">🔵</span>
+                        <span>Final da partida</span>
+                        <span className="ml-auto">
+                          {currentMinute && currentMinute > 90 ? `90'+${currentMinute - 90}` : `${currentMinute || 90}'`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
             )}
 
             {match.status === 'not_started' && (
