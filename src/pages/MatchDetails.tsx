@@ -373,22 +373,23 @@ const MatchDetails = () => {
                   {currentMinute && (
                     <div 
                       className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all duration-1000"
-                      style={{ width: `${Math.min(100, (currentMinute / 120) * 100)}%` }}
+                      style={{ width: `${Math.min(100, (currentMinute / 12) * 100)}%` }}
                     ></div>
                   )}
                   
                   {/* Marcadores de tempo */}
-                  <div className="absolute -bottom-6 left-0 text-xs text-muted-foreground">0'</div>
-                  <div className="absolute -bottom-6 left-[37.5%] text-xs text-primary">45'</div>
-                  <div className="absolute -bottom-6 left-[75%] text-xs text-primary">90'</div>
-                  <div className="absolute -bottom-6 right-0 text-xs text-muted-foreground">120'</div>
+              <div className="absolute -bottom-6 left-0 text-xs text-muted-foreground">0'</div>
+              <div className="absolute -bottom-6 left-[25%] text-xs text-primary">3'</div>
+              <div className="absolute -bottom-6 left-[50%] text-xs text-primary">6'</div>
+              <div className="absolute -bottom-6 left-[75%] text-xs text-primary">9'</div>
+              <div className="absolute -bottom-6 right-0 text-xs text-muted-foreground">12'</div>
                   
                   {/* Eventos na timeline */}
                   {events.map((event) => (
                     <div
                       key={event.id}
                       className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2"
-                      style={{ left: `${(event.minute / 120) * 100}%` }}
+                      style={{ left: `${(event.minute / 12) * 100}%` }}
                     >
                       <span className="text-lg">{getEventIcon(event)}</span>
                     </div>
@@ -414,9 +415,9 @@ const MatchDetails = () => {
                           <span className="flex-1 truncate">
                             {event.player?.nickname || event.player?.name}
                           </span>
-                          <span className="text-xs text-muted-foreground">
-                            {event.minute > 90 ? `90'+${event.minute - 90}` : `${event.minute}'`}
-                          </span>
+                    <span className="text-xs text-muted-foreground">
+                      {event.minute > 12 ? `12'+${event.minute - 12}` : `${event.minute}'`}
+                    </span>
                         </div>
                       ))}
                   </div>
@@ -434,9 +435,9 @@ const MatchDetails = () => {
                           <span className="flex-1 truncate">
                             {event.player?.nickname || event.player?.name}
                           </span>
-                          <span className="text-xs text-muted-foreground">
-                            {event.minute > 90 ? `90'+${event.minute - 90}` : `${event.minute}'`}
-                          </span>
+                    <span className="text-xs text-muted-foreground">
+                      {event.minute > 12 ? `12'+${event.minute - 12}` : `${event.minute}'`}
+                    </span>
                         </div>
                       ))}
                   </div>

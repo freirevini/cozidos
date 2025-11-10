@@ -424,24 +424,26 @@ export default function DefineTeams() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center mb-4">
-                  <div className="text-sm text-muted-foreground">
-                    Cada time precisa ter 5 jogadores de linha (um de cada nível A, B, C, D, E) e pode ter 1 goleiro (opcional).
-                  </div>
-                  <Button
-                    onClick={balanceTeams}
-                    disabled={loading}
-                    variant="secondary"
-                    className="flex items-center gap-2"
-                  >
-                    <Shuffle size={16} />
-                    Gerar Times Automaticamente
-                  </Button>
+              <div className="space-y-4">
+                <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                  <p className="text-sm text-foreground leading-relaxed">
+                    Cada time precisa ter <strong>5 jogadores de linha</strong> (um de cada nível A, B, C, D, E) 
+                    e pode ter <strong>1 goleiro</strong> (opcional).
+                  </p>
                 </div>
+                
+                <Button
+                  onClick={balanceTeams}
+                  disabled={loading}
+                  variant="secondary"
+                  className="w-full py-6 text-base flex items-center justify-center gap-2"
+                >
+                  <Shuffle size={18} />
+                  Gerar Times Automaticamente
+                </Button>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
+                <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+                  <table className="w-full min-w-[600px] border-collapse">
                     <thead>
                       <tr className="bg-muted/50">
                         <th className="p-3 border border-border text-left font-semibold">Níveis</th>

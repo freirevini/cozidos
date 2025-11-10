@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -48,6 +49,7 @@ export default function ManageTeams() {
         .from("rounds")
         .select("*")
         .eq("status", "a_iniciar")
+        .order("scheduled_date", { ascending: false })
         .order("round_number", { ascending: false });
 
       if (error) throw error;
@@ -60,8 +62,31 @@ export default function ManageTeams() {
     }
   };
 
-  const deleteRound = async (roundId: string) => {
+  const deleteRound = async (roundId: string, roundNumber: number) => {
     try {
+      // Verificar quantos registros serão afetados
+      const { count: teamPlayersCount } = await supabase
+        .from("round_team_players")
+        .select("*", { count: 'exact', head: true })
+        .eq("round_id", roundId);
+
+      const { count: matchesCount } = await supabase
+        .from("matches")
+        .select("*", { count: 'exact', head: true })
+        .eq("round_id", roundId);
+
+      const confirmed = window.confirm(
+        `⚠️ ATENÇÃO: Esta ação irá excluir permanentemente:\n\n` +
+        `• Rodada ${roundNumber}\n` +
+        `• ${teamPlayersCount || 0} registros de jogadores nos times\n` +
+        `• ${matchesCount || 0} partidas associadas\n` +
+        `• Dados de presença dos jogadores\n\n` +
+        `Os perfis dos jogadores não serão afetados.\n\n` +
+        `Deseja continuar?`
+      );
+
+      if (!confirmed) return;
+
       const { error } = await supabase
         .from("rounds")
         .delete()
@@ -69,7 +94,7 @@ export default function ManageTeams() {
 
       if (error) throw error;
       
-      toast.success("Rodada excluída com sucesso!");
+      toast.success("Rodada e dados associados excluídos com sucesso!");
       loadPendingRounds();
     } catch (error: any) {
       console.error("Erro ao excluir rodada:", error);
@@ -95,58 +120,71 @@ export default function ManageTeams() {
                 <p className="text-muted-foreground mb-4">
                   Nenhuma rodada pendente encontrada
                 </p>
-                <Button onClick={() => navigate("/admin/teams")}> 
+                <Button onClick={() => navigate("/admin/teams")} variant="outline"> 
                   Voltar para Times
                 </Button>
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-muted-foreground text-center mb-4">
-                  Selecione uma rodada para gerenciar os times
-                </p>
-                {rounds.map((round) => (
-                  <Card key={round.id} className="bg-muted/20 border-border">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-xl font-bold text-primary">
-                            Rodada {round.round_number}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant="destructive"
-                            onClick={() => {
-                              if (confirm("Tem certeza que deseja excluir esta rodada?")) {
-                                deleteRound(round.id);
-                              }
-                            }}
-                            className="flex-1 sm:flex-none"
+                <div className="overflow-x-auto scrollbar-hide">
+                  <div className="min-w-[700px]">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-muted/50 border-b border-border">
+                          <th className="p-4 text-left font-semibold text-foreground">Data</th>
+                          <th className="p-4 text-left font-semibold text-foreground">Rodada</th>
+                          <th className="p-4 text-center font-semibold text-foreground">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rounds.map((round, index) => (
+                          <tr 
+                            key={round.id}
+                            className={`border-b border-border transition-colors hover:bg-muted/30 ${
+                              index % 2 === 0 ? 'bg-muted/10' : ''
+                            }`}
                           >
-                            Excluir
-                          </Button>
-                          <Button 
-                            variant="outline"
-                            onClick={() => navigate(`/admin/round/${round.id}/edit`)}
-                            className="flex-1 sm:flex-none"
-                          >
-                            Editar Times
-                          </Button>
-                          <Button 
-                            onClick={() => navigate(`/admin/round/${round.id}/view`)}
-                            className="flex-1 sm:flex-none"
-                          >
-                            Ver Times
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                <Button onClick={() => navigate("/admin/teams")} variant="outline" className="w-full">
+                            <td className="p-4 text-foreground">
+                              {new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
+                            </td>
+                            <td className="p-4 font-bold text-primary">
+                              Rodada {round.round_number}
+                            </td>
+                            <td className="p-4">
+                              <div className="flex flex-wrap gap-2 justify-center">
+                                <Button 
+                                  onClick={() => navigate(`/admin/round/${round.id}/view`)}
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1 sm:flex-none min-w-[100px]"
+                                >
+                                  Ver Times
+                                </Button>
+                                <Button 
+                                  onClick={() => navigate(`/admin/round/${round.id}/edit`)}
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1 sm:flex-none min-w-[100px]"
+                                >
+                                  Editar Times
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => deleteRound(round.id, round.round_number)}
+                                  className="flex-1 sm:flex-none min-w-[100px]"
+                                >
+                                  Excluir
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <Button onClick={() => navigate("/admin/teams")} variant="outline" className="w-full mt-4">
                   Voltar para Times
                 </Button>
               </div>
