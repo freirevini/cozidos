@@ -57,7 +57,7 @@ export const SlideTabs = ({ tabs, currentPath }: SlideTabsProps) => {
           });
         }
       }}
-      className="relative mx-auto flex w-fit rounded-full border-2 border-primary bg-background p-1"
+      className="relative flex w-fit rounded-full border-2 border-primary bg-background p-1.5"
     >
       {tabs.map((tab, i) => (
         <Tab
@@ -66,6 +66,7 @@ export const SlideTabs = ({ tabs, currentPath }: SlideTabsProps) => {
           setPosition={setPosition}
           onClick={() => setSelected(i)}
           url={tab.url}
+          isSelected={i === selected}
         >
           {tab.title}
         </Tab>
@@ -83,8 +84,9 @@ const Tab = React.forwardRef<
     setPosition: (position: { left: number; width: number; opacity: number }) => void;
     onClick: () => void;
     url: string;
+    isSelected: boolean;
   }
->(({ children, setPosition, onClick, url }, ref) => {
+>(({ children, setPosition, onClick, url, isSelected }, ref) => {
   return (
     <li
       ref={ref}
@@ -106,7 +108,11 @@ const Tab = React.forwardRef<
     >
       <Link
         to={url}
-        className="block px-3 py-1.5 text-xs uppercase text-foreground mix-blend-difference md:px-5 md:py-3 md:text-base font-medium"
+        className={`block px-5 py-2.5 text-sm font-medium rounded-full transition-colors ${
+          isSelected 
+            ? "text-background" 
+            : "text-foreground/70 hover:text-foreground"
+        }`}
       >
         {children}
       </Link>
@@ -122,7 +128,12 @@ const Cursor = ({ position }: { position: { left: number; width: number; opacity
       animate={{
         ...position,
       }}
-      className="absolute z-0 h-7 rounded-full bg-primary md:h-12"
+      transition={{
+        type: "spring",
+        stiffness: 350,
+        damping: 30,
+      }}
+      className="absolute z-0 h-[calc(100%-8px)] top-1 rounded-full bg-primary"
     />
   );
 };
