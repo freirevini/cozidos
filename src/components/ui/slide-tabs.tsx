@@ -58,7 +58,7 @@ export const SlideTabs = ({ tabs, currentPath }: SlideTabsProps) => {
           });
         }
       }}
-      className="relative flex w-fit rounded-full border-2 border-primary bg-background p-1 md:p-1.5"
+      className="relative flex w-fit rounded-full border-2 border-primary bg-background p-0.5 md:p-1"
     >
       {tabs.map((tab, i) => (
         <Tab
@@ -110,7 +110,7 @@ const Tab = React.forwardRef<
       <Link
         to={url}
         className={cn(
-          "block px-2 py-1.5 md:px-5 md:py-2.5 text-xs md:text-sm font-medium rounded-full transition-all duration-200 whitespace-nowrap relative z-10 menu-glow",
+          "block px-2 py-1 md:px-4 md:py-2 text-[10px] md:text-sm font-medium rounded-full transition-all duration-200 whitespace-nowrap relative z-10 menu-glow",
           isSelected ? "text-background" : "text-foreground/70 hover:text-foreground"
         )}
       >
@@ -133,7 +133,7 @@ const Cursor = ({ position }: { position: { left: number; width: number; opacity
         stiffness: 350,
         damping: 30,
       }}
-      className="absolute z-0 h-[calc(100%-4px)] md:h-[calc(100%-8px)] top-0.5 md:top-1 rounded-full bg-primary"
+      className="absolute z-0 h-[calc(100%-4px)] top-0.5 rounded-full bg-primary"
     />
   );
 };

@@ -91,16 +91,18 @@ export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps
           </nav>
 
           {/* Tablet Navigation - Compact version */}
-          <nav className="hidden md:flex lg:hidden items-center space-x-2">
-            <div className="max-w-[500px] overflow-x-auto scrollbar-hide">
-              <SlideTabs 
-                tabs={allLinks.map(link => ({ title: link.label, url: link.href }))} 
-                currentPath={location.pathname}
-              />
+          <nav className="hidden md:flex lg:hidden items-center gap-2">
+            <div className="flex-1 overflow-x-auto scrollbar-hide">
+              <div className="inline-block min-w-max">
+                <SlideTabs 
+                  tabs={allLinks.map(link => ({ title: link.label, url: link.href }))} 
+                  currentPath={location.pathname}
+                />
+              </div>
             </div>
             <button
               onClick={handleLogout}
-              className="px-3 py-2 rounded-md text-sm font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-2"
+              className="px-3 py-2 rounded-md text-sm font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-2 flex-shrink-0"
             >
               <LogOut size={16} />
             </button>
