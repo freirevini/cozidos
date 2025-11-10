@@ -75,7 +75,7 @@ export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-4">
+          <nav className="hidden lg:flex items-center space-x-4">
             <SlideTabs 
               tabs={allLinks.map(link => ({ title: link.label, url: link.href }))} 
               currentPath={location.pathname}
@@ -89,9 +89,25 @@ export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps
             </button>
           </nav>
 
+          {/* Tablet Navigation - Compact version */}
+          <nav className="hidden md:flex lg:hidden items-center space-x-2">
+            <div className="max-w-[500px] overflow-x-auto scrollbar-hide">
+              <SlideTabs 
+                tabs={allLinks.map(link => ({ title: link.label, url: link.href }))} 
+                currentPath={location.pathname}
+              />
+            </div>
+            <button
+              onClick={handleLogout}
+              className="px-3 py-2 rounded-md text-sm font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-2"
+            >
+              <LogOut size={16} />
+            </button>
+          </nav>
+
           {/* Mobile Menu Button */}
           <button
-            className="md:hidden p-2 text-foreground hover:bg-muted rounded-md"
+            className="md:hidden p-2 text-foreground hover:bg-muted rounded-md transition-colors"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}

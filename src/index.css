@@ -69,4 +69,14 @@ All colors MUST be HSL.
   a[href*="lovable.dev/projects"] {
     display: none !important;
   }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
