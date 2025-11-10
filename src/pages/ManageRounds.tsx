@@ -286,6 +286,30 @@ export default function ManageRounds() {
     }
   };
 
+  const recalculateRoundPoints = async () => {
+    if (!roundId) return;
+
+    toast.info("Recalculando pontos da rodada...");
+
+    try {
+      const { data, error } = await supabase.rpc('recalc_round_aggregates', {
+        p_round_id: roundId
+      });
+
+      if (error) throw error;
+
+      const result = data as { success: boolean; error?: string; message?: string };
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao recalcular pontos');
+      }
+
+      toast.success("✅ Pontos da rodada recalculados com sucesso!");
+    } catch (error: any) {
+      console.error("Erro ao recalcular pontos:", error);
+      toast.error("❌ Erro ao recalcular pontos: " + error.message);
+    }
+  };
+
   const finalizeRound = async () => {
     if (!roundId || !round) return;
 
@@ -304,16 +328,7 @@ export default function ManageRounds() {
 
     try {
       // Recalcular estatísticas da rodada
-      const { data: recalcData, error: recalcError } = await supabase.rpc('recalc_round_aggregates', {
-        p_round_id: roundId
-      });
-
-      if (recalcError) throw recalcError;
-
-      const recalcResult = recalcData as { success: boolean; error?: string; message?: string };
-      if (!recalcResult.success) {
-        throw new Error(recalcResult.error || 'Erro ao recalcular estatísticas');
-      }
+      await recalculateRoundPoints();
 
       // Atualizar status da rodada para "finalizada"
       const { error: updateError } = await supabase
@@ -374,8 +389,20 @@ export default function ManageRounds() {
                 <ArrowLeft size={24} />
               </Button>
             </div>
-            <CardTitle className="text-2xl sm:text-3xl font-bold text-primary glow-text text-center mb-6">
-              Rodada - {round && new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
+            <CardTitle className="text-2xl sm:text-3xl font-bold text-primary glow-text text-center mb-6 flex items-center justify-center gap-4">
+              <span>Rodada - {round && new Date(round.scheduled_date).toLocaleDateString('pt-BR')}</span>
+              {round && (
+                <Badge 
+                  className={`text-base py-1 px-3 ${
+                    round.status === 'a_iniciar' ? 'bg-gray-600 hover:bg-gray-600' :
+                    round.status === 'em_andamento' ? 'bg-yellow-600 hover:bg-yellow-600' :
+                    'bg-green-600 hover:bg-green-600'
+                  } text-white`}
+                >
+                  {round.status === 'a_iniciar' ? 'A Iniciar' : 
+                   round.status === 'em_andamento' ? 'Em Andamento' : 'Finalizada'}
+                </Badge>
+              )}
             </CardTitle>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-4">
               <Button
@@ -468,6 +495,7 @@ export default function ManageRounds() {
                                 size="sm"
                                 variant="secondary"
                                 onClick={() => setEditingMatchId(match.id)}
+                                disabled={round?.status === 'a_iniciar'}
                               >
                                 Editar
                               </Button>
@@ -490,7 +518,14 @@ export default function ManageRounds() {
           roundId={roundId}
           open={!!editingMatchId}
           onOpenChange={(open) => !open && setEditingMatchId(null)}
-          onSaved={loadRoundData}
+          onSaved={async () => {
+            await loadRoundData();
+            
+            // Recalcular pontos se rodada estiver finalizada ou em andamento
+            if (round && (round.status === 'finalizada' || round.status === 'em_andamento')) {
+              await recalculateRoundPoints();
+            }
+          }}
         />
       )}
     </div>

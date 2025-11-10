@@ -57,6 +57,20 @@ const teamNames: Record<string, string> = {
   laranja: "Laranja",
 };
 
+interface Attendance {
+  id: string;
+  player_id: string;
+  team_color: string;
+  status: 'presente' | 'atrasado' | 'falta';
+}
+
+interface RoundPlayer {
+  id: string;
+  name: string;
+  nickname: string | null;
+  team_color: string;
+}
+
 interface ManageMatchDialogProps {
   matchId: string;
   roundId: string;
@@ -70,6 +84,8 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
   const [players, setPlayers] = useState<Record<string, Player[]>>({});
   const [goals, setGoals] = useState<Goal[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
+  const [roundPlayers, setRoundPlayers] = useState<RoundPlayer[]>([]);
+  const [attendanceData, setAttendanceData] = useState<Record<string, string>>({});
   const [addingGoal, setAddingGoal] = useState(false);
   const [addingCard, setAddingCard] = useState(false);
   const [goalData, setGoalData] = useState({
@@ -88,8 +104,10 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
   useEffect(() => {
     if (open) {
       loadMatchData();
+      loadRoundPlayers();
+      loadAttendance();
     }
-  }, [open, matchId]);
+  }, [open, matchId, roundId]);
 
   useEffect(() => {
     if (match) {
@@ -224,6 +242,82 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     } catch (error) {
       console.error("Erro ao carregar cartões:", error);
     }
+  };
+
+  const loadRoundPlayers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('round_team_players')
+        .select(`
+          player_id,
+          team_color,
+          profiles:player_id (id, name, nickname)
+        `)
+        .eq('round_id', roundId);
+        
+      if (!error && data) {
+        const playersData = data.map((d: any) => ({ 
+          id: d.profiles.id,
+          name: d.profiles.name,
+          nickname: d.profiles.nickname,
+          team_color: d.team_color 
+        }));
+        setRoundPlayers(playersData);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar jogadores da rodada:", error);
+    }
+  };
+
+  const loadAttendance = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('player_attendance')
+        .select('*')
+        .eq('round_id', roundId);
+        
+      if (!error && data) {
+        const statusMap: Record<string, string> = {};
+        data.forEach((att: Attendance) => {
+          statusMap[att.player_id] = att.status;
+        });
+        setAttendanceData(statusMap);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar presença:", error);
+    }
+  };
+
+  const updateAttendance = async (playerId: string, status: string) => {
+    const player = roundPlayers.find(p => p.id === playerId);
+    if (!player) return;
+    
+    try {
+      const { error } = await supabase
+        .from('player_attendance')
+        .upsert({
+          round_id: roundId,
+          player_id: playerId,
+          team_color: player.team_color as "azul" | "branco" | "laranja" | "vermelho",
+          status: status as 'presente' | 'atrasado' | 'falta'
+        }, {
+          onConflict: 'round_id,player_id'
+        });
+        
+      if (!error) {
+        setAttendanceData({ ...attendanceData, [playerId]: status });
+        toast.success(`Status atualizado: ${player.nickname || player.name}`);
+      } else {
+        toast.error("Erro ao atualizar presença");
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar presença:", error);
+      toast.error("Erro ao atualizar presença");
+    }
+  };
+
+  const getAttendanceStatus = (playerId: string) => {
+    return attendanceData[playerId] || 'presente';
   };
 
   const handleAddGoal = async () => {
@@ -639,6 +733,37 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-semibold">Presença e Atrasos</h3>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {roundPlayers.map((player) => (
+              <div key={player.id} className="flex items-center justify-between border-b border-border pb-2">
+                <div className="flex items-center gap-2">
+                  <Badge className={teamColors[player.team_color]}>
+                    {teamNames[player.team_color]}
+                  </Badge>
+                  <span>{player.nickname || player.name}</span>
+                </div>
+                <Select
+                  value={getAttendanceStatus(player.id)}
+                  onValueChange={(status) => updateAttendance(player.id, status)}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="presente">✅ Presente</SelectItem>
+                    <SelectItem value="atrasado">⏰ Atrasado</SelectItem>
+                    <SelectItem value="falta">❌ Falta</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
           </CardContent>
         </Card>
 
