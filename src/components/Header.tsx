@@ -110,19 +110,20 @@ export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center space-x-4">
+          <nav className="hidden lg:flex items-center justify-center flex-1">
             <SlideTabs 
               tabs={allLinks.map(link => ({ title: link.label, url: link.href }))} 
               currentPath={location.pathname}
             />
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 rounded-md text-sm font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-2"
-            >
-              <LogOut size={16} />
-              Sair
-            </button>
           </nav>
+          
+          <button
+            onClick={handleLogout}
+            className="hidden lg:flex px-4 py-2 rounded-md text-sm font-medium text-foreground hover:bg-muted transition-colors items-center gap-2"
+          >
+            <LogOut size={16} />
+            Sair
+          </button>
 
           {/* Tablet Navigation - Compact version with scroll indicators */}
           <nav className="hidden md:flex lg:hidden items-center gap-2 flex-1 max-w-[calc(100%-120px)]">

@@ -110,7 +110,7 @@ const Tab = React.forwardRef<
       <Link
         to={url}
         className={cn(
-          "block px-2 py-1 md:px-4 md:py-2 text-[10px] md:text-sm font-medium rounded-full transition-all duration-200 whitespace-nowrap relative z-10 menu-glow",
+          "block px-2 py-1 md:px-4 md:py-2 text-[10px] md:text-sm font-bold rounded-full transition-all duration-200 whitespace-nowrap relative z-10 menu-glow",
           isSelected ? "text-background" : "text-foreground/70 hover:text-foreground"
         )}
       >
