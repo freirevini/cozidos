@@ -44,7 +44,7 @@ interface PlayerRanking {
   atrasos: number;
   punicoes: number;
   cartoes_amarelos: number;
-  cartoes_vermelhos: number;
+  cartoes_azuis: number;
   pontos_totais: number;
 }
 
@@ -367,7 +367,7 @@ const ManageRanking = () => {
         atrasos: parseInt(row["Atrasos"] || row["atrasos"]) || 0,
         punicoes: parseInt(row["Punições"] || row["punicoes"]) || 0,
         cartoes_amarelos: parseInt(row["Cartões Amarelos"] || row["cartoes_amarelos"]) || 0,
-        cartoes_vermelhos: parseInt(row["Cartões Vermelhos"] || row["cartoes_vermelhos"]) || 0,
+        cartoes_azuis: parseInt(row["Cartões Azuis"] || row["cartoes_azuis"]) || 0,
         pontos_totais: parseInt(row["Pontos Totais"] || row["pontos_totais"]) || 0,
       };
 
@@ -553,7 +553,7 @@ const ManageRanking = () => {
                         1. O arquivo deve conter as colunas abaixo (com os nomes exatamente iguais):
                       </p>
                       <p className="ml-4 font-mono text-xs">
-                        Email | Apelido | Gols | Assistências | Vitórias | Empates | Derrotas | Presenças | Faltas | Atrasos | Punições | Cartões Amarelos | Cartões Vermelhos | Pontos Totais
+                        Email | Apelido | Gols | Assistências | Vitórias | Empates | Derrotas | Presenças | Faltas | Atrasos | Punições | Cartões Amarelos | Cartões Azuis | Pontos Totais
                       </p>
                       <p>2. <strong>Email é obrigatório</strong> e é a chave de atualização/criação.</p>
                       <p>3. Todas as demais colunas devem conter apenas números, exceto Email e Apelido.</p>
@@ -609,7 +609,7 @@ const ManageRanking = () => {
                       <TableHead className="text-primary text-center">Atrasos</TableHead>
                       <TableHead className="text-primary text-center">Pun.</TableHead>
                       <TableHead className="text-primary text-center">CA</TableHead>
-                      <TableHead className="text-primary text-center">CV</TableHead>
+                      <TableHead className="text-primary text-center">CAz</TableHead>
                       <TableHead className="text-primary text-center font-bold">Pontos</TableHead>
                       <TableHead className="text-primary text-center">Ações</TableHead>
                     </TableRow>
@@ -723,9 +723,9 @@ const ManageRanking = () => {
                         <TableCell className="text-center">
                           <Input
                             type="number"
-                            value={ranking.cartoes_vermelhos}
+                            value={ranking.cartoes_azuis}
                             onChange={(e) =>
-                              updateRankingField(ranking.id, "cartoes_vermelhos", parseInt(e.target.value) || 0)
+                              updateRankingField(ranking.id, "cartoes_azuis", parseInt(e.target.value) || 0)
                             }
                             className="w-16 text-center bg-background/50 border-primary/20"
                           />

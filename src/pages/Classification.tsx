@@ -36,7 +36,7 @@ interface PlayerStats {
   faltas: number;
   punicoes: number;
   cartoes_amarelos: number;
-  cartoes_vermelhos: number;
+  cartoes_azuis: number;
   gols: number;
   assistencias: number;
   pontos_totais: number;
@@ -104,7 +104,7 @@ export default function Classification() {
         faltas: rank.faltas,
         punicoes: rank.punicoes,
         cartoes_amarelos: rank.cartoes_amarelos,
-        cartoes_vermelhos: rank.cartoes_vermelhos,
+        cartoes_azuis: rank.cartoes_azuis,
         gols: rank.gols,
         assistencias: rank.assistencias,
         pontos_totais: rank.pontos_totais,
@@ -143,33 +143,23 @@ export default function Classification() {
                     <AlertDialogDescription asChild>
                       <div className="text-foreground space-y-4 mt-4">
                         <div className="space-y-2">
-                          <h3 className="font-bold text-lg text-primary">Pontos Positivos:</h3>
+                          <h3 className="font-bold text-lg text-primary">Pontos Individuais:</h3>
                           <ul className="space-y-1 ml-4">
-                            <li>✅ <strong>Presença:</strong> +10 pontos (status: presente ou atrasado)</li>
-                            <li>🏆 <strong>Vitória:</strong> +10 pontos</li>
-                            <li>🤝 <strong>Empate:</strong> +5 pontos</li>
-                            <li>⚽ <strong>Gol:</strong> +1 ponto</li>
-                            <li>🎯 <strong>Assistência:</strong> +2 pontos</li>
+                            <li>✅ <strong>Presença:</strong> +10 pontos</li>
+                            <li>⏰ <strong>Atraso:</strong> -5 pontos</li>
+                            <li>❌ <strong>Confirmou Presença e Faltou:</strong> -10 pontos</li>
+                            <li>🟨 <strong>Cartão Amarelo:</strong> -1 ponto</li>
+                            <li>🟦 <strong>Cartão Azul:</strong> -2 pontos</li>
                           </ul>
                         </div>
                         
                         <div className="space-y-2">
-                          <h3 className="font-bold text-lg text-destructive">Pontos Negativos:</h3>
+                          <h3 className="font-bold text-lg text-primary">Pontos Coletivos (por time):</h3>
                           <ul className="space-y-1 ml-4">
-                            <li>⏰ <strong>Atraso:</strong> -5 pontos</li>
-                            <li>❌ <strong>Falta:</strong> -10 pontos</li>
-                            <li>🟨 <strong>Cartão Amarelo:</strong> -1 ponto</li>
-                            <li>🟥 <strong>Cartão Vermelho:</strong> -1 ponto</li>
-                            <li>⚠️ <strong>Punições:</strong> pontos negativos variáveis</li>
-                          </ul>
-                        </div>
-
-                        <div className="space-y-2">
-                          <h3 className="font-bold text-lg text-muted-foreground">Observações:</h3>
-                          <ul className="space-y-1 ml-4 text-sm">
-                            <li>• Derrota não pontua (0 pontos)</li>
-                            <li>• O total de pontos é a soma de todos os componentes</li>
-                            <li>• Apenas jogadores aprovados são contabilizados</li>
+                            <li>🏆 <strong>Vitória:</strong> +3 pontos</li>
+                            <li>🤝 <strong>Empate:</strong> +1 ponto</li>
+                            <li>⚽ <strong>Gol:</strong> +1 ponto</li>
+                            <li>🎯 <strong>Assistência:</strong> +2 pontos</li>
                           </ul>
                         </div>
                       </div>
@@ -223,7 +213,7 @@ export default function Classification() {
                         <TableCell className="text-center">{stat.punicoes}</TableCell>
                         <TableCell className="text-center">
                           {stat.cartoes_amarelos > 0 && `🟨 ${stat.cartoes_amarelos} `}
-                          {stat.cartoes_vermelhos > 0 && `🟥 ${stat.cartoes_vermelhos}`}
+                          {stat.cartoes_azuis > 0 && `🟦 ${stat.cartoes_azuis}`}
                         </TableCell>
                         <TableCell className="text-center font-bold text-primary">
                           {stat.pontos_totais}

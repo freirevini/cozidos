@@ -452,7 +452,7 @@ export default function Matches() {
                             .map((card, idx) => (
                               <div key={`card-${idx}`} className="text-xs sm:text-sm text-center">
                                 <span className="text-foreground font-medium">
-                                  {card.card_type === "amarelo" ? "🟨" : "🟥"} {card.player?.nickname || card.player?.name}
+                                  {card.card_type === "amarelo" ? "🟨" : "🟦"} {card.player?.nickname || card.player?.name}
                                 </span>
                                 <span className="text-muted-foreground ml-2">
                                   {card.minute}'

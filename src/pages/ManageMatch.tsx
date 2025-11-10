@@ -395,7 +395,7 @@ export default function ManageMatch() {
         .insert([{
           match_id: match.id,
           player_id: cardData.player_id,
-          card_type: cardData.card_type as "amarelo" | "vermelho",
+          card_type: cardData.card_type as "amarelo" | "azul",
           minute: currentMinute,
         }]);
 
@@ -720,8 +720,8 @@ export default function ManageMatch() {
                             <SelectValue placeholder="Tipo de cartão" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="amarelo">Amarelo</SelectItem>
-                            <SelectItem value="vermelho">Vermelho</SelectItem>
+                            <SelectItem value="amarelo">🟨 Amarelo</SelectItem>
+                            <SelectItem value="azul">🟦 Azul</SelectItem>
                           </SelectContent>
                         </Select>
                       )}
@@ -740,7 +740,7 @@ export default function ManageMatch() {
                       <div className="space-y-2">
                         {cards.map((card) => (
                           <div key={card.id} className="text-sm flex items-center gap-2">
-                            {card.card_type === "amarelo" ? "🟨" : "🟥"} {card.player?.nickname || card.player?.name || "Desconhecido"}
+                            {card.card_type === "amarelo" ? "🟨" : "🟦"} {card.player?.nickname || card.player?.name || "Desconhecido"}
                             <span className="text-muted-foreground ml-auto">{card.minute}'</span>
                           </div>
                         ))}
@@ -764,7 +764,7 @@ export default function ManageMatch() {
                       <div className="space-y-2">
                         {cards.map((card) => (
                           <div key={card.id} className="text-sm flex items-center gap-2">
-                            {card.card_type === "amarelo" ? "🟨" : "🟥"} {card.player?.nickname || card.player?.name || "Desconhecido"}
+                            {card.card_type === "amarelo" ? "🟨" : "🟦"} {card.player?.nickname || card.player?.name || "Desconhecido"}
                             <span className="text-muted-foreground ml-auto">{card.minute}'</span>
                           </div>
                         ))}

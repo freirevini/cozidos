@@ -237,7 +237,7 @@ export type Database = {
           assistencias: number
           atrasos: number
           cartoes_amarelos: number
-          cartoes_vermelhos: number
+          cartoes_azuis: number
           created_at: string
           derrotas: number
           email: string | null
@@ -257,7 +257,7 @@ export type Database = {
           assistencias?: number
           atrasos?: number
           cartoes_amarelos?: number
-          cartoes_vermelhos?: number
+          cartoes_azuis?: number
           created_at?: string
           derrotas?: number
           email?: string | null
@@ -277,7 +277,7 @@ export type Database = {
           assistencias?: number
           atrasos?: number
           cartoes_amarelos?: number
-          cartoes_vermelhos?: number
+          cartoes_azuis?: number
           created_at?: string
           derrotas?: number
           email?: string | null
@@ -307,6 +307,7 @@ export type Database = {
         Row: {
           absence_points: number | null
           absences: number | null
+          blue_cards: number | null
           card_points: number | null
           created_at: string | null
           defeat_points: number | null
@@ -321,7 +322,6 @@ export type Database = {
           presence_points: number | null
           punishment_points: number | null
           punishments: number | null
-          red_cards: number | null
           round_id: string
           total_points: number | null
           victories: number | null
@@ -331,6 +331,7 @@ export type Database = {
         Insert: {
           absence_points?: number | null
           absences?: number | null
+          blue_cards?: number | null
           card_points?: number | null
           created_at?: string | null
           defeat_points?: number | null
@@ -345,7 +346,6 @@ export type Database = {
           presence_points?: number | null
           punishment_points?: number | null
           punishments?: number | null
-          red_cards?: number | null
           round_id: string
           total_points?: number | null
           victories?: number | null
@@ -355,6 +355,7 @@ export type Database = {
         Update: {
           absence_points?: number | null
           absences?: number | null
+          blue_cards?: number | null
           card_points?: number | null
           created_at?: string | null
           defeat_points?: number | null
@@ -369,7 +370,6 @@ export type Database = {
           presence_points?: number | null
           punishment_points?: number | null
           punishments?: number | null
-          red_cards?: number | null
           round_id?: string
           total_points?: number | null
           victories?: number | null
@@ -684,7 +684,7 @@ export type Database = {
     }
     Enums: {
       attendance_status: "presente" | "atrasado" | "falta"
-      card_type: "amarelo" | "vermelho"
+      card_type: "amarelo" | "azul"
       player_level: "A" | "B" | "C" | "D" | "E"
       player_position: "goleiro" | "defensor" | "meio-campista" | "atacante"
       player_status: "aprovado" | "aprovar" | "congelado"
@@ -820,7 +820,7 @@ export const Constants = {
   public: {
     Enums: {
       attendance_status: ["presente", "atrasado", "falta"],
-      card_type: ["amarelo", "vermelho"],
+      card_type: ["amarelo", "azul"],
       player_level: ["A", "B", "C", "D", "E"],
       player_position: ["goleiro", "defensor", "meio-campista", "atacante"],
       player_status: ["aprovado", "aprovar", "congelado"],

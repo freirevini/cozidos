@@ -337,7 +337,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
       const { error } = await supabase.from("cards").insert([{
         match_id: matchId,
         player_id: cardData.player_id,
-        card_type: cardData.card_type as "amarelo" | "vermelho",
+        card_type: cardData.card_type as "amarelo" | "azul",
         minute: currentMinute,
       }]);
 
@@ -619,7 +619,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="amarelo">🟨 Amarelo</SelectItem>
-                    <SelectItem value="vermelho">🟥 Vermelho</SelectItem>
+                    <SelectItem value="azul">🟦 Azul</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -633,7 +633,7 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
               {cards.map((card) => (
                 <div key={card.id} className="flex items-center justify-between p-3 bg-muted/10 rounded-lg">
                   <span>
-                    {card.card_type === "amarelo" ? "🟨" : "🟥"} {card.player?.nickname || card.player?.name}
+                    {card.card_type === "amarelo" ? "🟨" : "🟦"} {card.player?.nickname || card.player?.name}
                   </span>
                   <span className="text-sm text-muted-foreground">{card.minute}'</span>
                 </div>
