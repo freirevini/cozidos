@@ -116,17 +116,20 @@ export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <nav className="md:hidden py-4 space-y-2">
-            {allLinks.map((link) => (
+          <nav className="md:hidden py-4 space-y-2 animate-fade-in">
+            {allLinks.map((link, index) => (
               <Link
                 key={link.href}
                 to={link.href}
-                className={`block px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`block px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                   isActive(link.href)
                     ? "bg-primary text-primary-foreground"
                     : "text-foreground hover:bg-muted"
                 }`}
                 onClick={() => setMobileMenuOpen(false)}
+                style={{
+                  animation: `fade-in 0.3s ease-out ${index * 0.05}s both`
+                }}
               >
                 {link.label}
               </Link>
@@ -137,6 +140,9 @@ export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps
                 setMobileMenuOpen(false);
               }}
               className="w-full text-left px-4 py-2 rounded-md text-sm font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-2"
+              style={{
+                animation: `fade-in 0.3s ease-out ${allLinks.length * 0.05}s both`
+              }}
             >
               <LogOut size={16} />
               Sair
