@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -41,6 +42,7 @@ const teamNames: Record<string, string> = {
 };
 
 export default function Matches() {
+  const navigate = useNavigate();
   const [rounds, setRounds] = useState<Round[]>([]);
   const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -298,7 +300,8 @@ export default function Matches() {
               return (
                 <Card 
                   key={match.id} 
-                  className="overflow-hidden hover:shadow-lg hover:shadow-primary/10 transition-all border-border"
+                  className="overflow-hidden hover:shadow-lg hover:shadow-primary/20 transition-all border-border cursor-pointer active:scale-[0.98]"
+                  onClick={() => navigate(`/match/${match.id}`)}
                 >
                   <CardContent className="p-4">
                     {/* Horário */}

@@ -10,6 +10,7 @@ import PageTransition from "@/components/PageTransition";
 import LoadingLogo from "@/components/LoadingLogo";
 import Classification from "./pages/Classification";
 import Matches from "./pages/Matches";
+import MatchDetails from "./pages/MatchDetails";
 import Statistics from "./pages/Statistics";
 import ManagePlayers from "./pages/ManagePlayers";
 import Profile from "./pages/Profile";
@@ -67,6 +68,7 @@ function AnimatedRoutes() {
         <Route path="/auth" element={<Auth />} />
         <Route path="/" element={<ProtectedRoute><PageTransition><Classification /></PageTransition></ProtectedRoute>} />
         <Route path="/matches" element={<ProtectedRoute><PageTransition><Matches /></PageTransition></ProtectedRoute>} />
+        <Route path="/match/:matchId" element={<ProtectedRoute><PageTransition><MatchDetails /></PageTransition></ProtectedRoute>} />
         <Route path="/statistics" element={<ProtectedRoute><PageTransition><Statistics /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/players" element={<ProtectedRoute><PageTransition><ManagePlayers /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/ranking" element={<ProtectedRoute><PageTransition><ManageRanking /></PageTransition></ProtectedRoute>} />
