@@ -281,17 +281,17 @@ const MatchDetails = () => {
   const getEventIcon = (event: Event) => {
     switch (event.type) {
       case 'match_start':
-        return '🔵';
+        return <span className="text-2xl">🔵</span>;
       case 'match_end':
-        return '🔵';
+        return <span className="text-2xl">🔵</span>;
       case 'goal':
-        return '⚽';
+        return <span className="text-2xl">⚽</span>;
       case 'amarelo':
-        return '🟨';
+        return <span className="text-2xl">🟨</span>;
       case 'azul':
-        return '🟦';
+        return <span className="text-2xl">🟦</span>;
       default:
-        return '';
+        return null;
     }
   };
 
@@ -373,23 +373,33 @@ const MatchDetails = () => {
 
             {/* Linha do Tempo */}
             {match.status !== 'not_started' && (
-              <div className="relative pt-8 pb-6">
-                <div className="relative h-2 bg-primary/20 rounded-full">
+              <div className="relative pt-12 pb-8">
+                <div className="relative h-1 bg-primary rounded-full">
                   <div 
                     className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all duration-1000"
                     style={{ width: `${Math.min(100, ((currentMinute || 0) / maxMinute) * 100)}%` }}
                   ></div>
                   
                   {/* Marcadores de tempo */}
-                  <div className="absolute -bottom-6 left-0 text-xs text-muted-foreground">0'</div>
-                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-muted-foreground">45'</div>
-                  <div className="absolute -bottom-6 right-0 text-xs text-muted-foreground">90'</div>
+                  <div className="absolute -bottom-6 left-0 text-xs text-muted-foreground font-medium">0'</div>
+                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-primary font-medium">45'</div>
+                  <div className="absolute -bottom-6 right-0 text-xs text-primary font-medium">90'</div>
+                  
+                  {/* Tempo atual com acréscimo */}
+                  {match.status === 'in_progress' && currentMinute !== null && (
+                    <div 
+                      className="absolute -top-8 transform -translate-x-1/2 text-sm text-primary font-bold"
+                      style={{ left: `${Math.min(100, ((currentMinute || 0) / maxMinute) * 100)}%` }}
+                    >
+                      {currentMinute > 90 ? `90' +${currentMinute - 90}` : `${currentMinute}'`}
+                    </div>
+                  )}
                   
                   {/* Eventos na timeline */}
                   {events.map((event) => (
                     <div
                       key={event.id}
-                      className="absolute -top-6 transform -translate-x-1/2 text-xl hover:scale-125 transition-transform cursor-pointer"
+                      className="absolute -top-7 transform -translate-x-1/2 hover:scale-110 transition-transform cursor-pointer"
                       style={{ left: `${Math.min(100, (event.minute / maxMinute) * 100)}%` }}
                       title={`${event.minute}' - ${getEventText(event)}`}
                     >
@@ -402,34 +412,44 @@ const MatchDetails = () => {
 
             {/* Lista de Eventos */}
             {match.status !== 'not_started' && events.length > 0 && (
-              <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-primary scrollbar-track-background">
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-primary scrollbar-track-background">
                 {events.map((event) => (
                   <div
                     key={event.id}
-                    className="flex items-start gap-3 p-3 bg-muted/10 rounded-lg hover:bg-muted/20 transition-colors"
+                    className="flex items-center gap-4 py-3 border-b border-border/30 last:border-0"
                   >
-                    <span className="text-xl flex-shrink-0">{getEventIcon(event)}</span>
+                    <div className="flex-shrink-0 w-8 flex items-center justify-center">
+                      {getEventIcon(event)}
+                    </div>
                     
                     <div className="flex-1 min-w-0">
                       {event.type === 'goal' ? (
                         <>
-                          <div className="text-sm font-bold truncate">
+                          <div className="text-base font-bold text-foreground">
                             {event.player?.nickname || event.player?.name || 'Jogador'}
                           </div>
                           {event.assist && (
-                            <div className="text-xs text-muted-foreground truncate">
-                              Assist: {event.assist.nickname || event.assist.name}
+                            <div className="text-sm text-muted-foreground mt-0.5">
+                              {event.assist.nickname || event.assist.name}
                             </div>
                           )}
                         </>
+                      ) : event.type === 'match_start' ? (
+                        <div className="text-base text-muted-foreground">Match start</div>
+                      ) : event.type === 'match_end' ? (
+                        <div className="text-base text-muted-foreground">Match end</div>
                       ) : (
-                        <div className="text-sm font-medium">{getEventText(event)}</div>
+                        <div className="text-base font-medium text-foreground">
+                          {event.player?.nickname || event.player?.name || 'Jogador'}
+                        </div>
                       )}
                     </div>
                     
-                    <span className="text-xs text-muted-foreground flex-shrink-0 mt-1">
-                      {event.minute}'
-                    </span>
+                    <div className="flex-shrink-0 text-right">
+                      <span className="text-base text-muted-foreground font-medium">
+                        {event.minute > 90 ? `90' +${event.minute - 90}` : `${event.minute}'`}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
