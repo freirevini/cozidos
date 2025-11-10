@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
-import { Trash2, Upload, HelpCircle } from "lucide-react";
+import { Trash2, Upload, HelpCircle, RotateCcw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -60,6 +60,9 @@ const ManageRanking = () => {
   const [importing, setImporting] = useState(false);
   const [editedRankings, setEditedRankings] = useState<Map<string, Partial<PlayerRanking>>>(new Map());
   const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
+  const [showRecalcDialog, setShowRecalcDialog] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -207,6 +210,62 @@ const ManageRanking = () => {
         description: error.message,
         variant: "destructive",
       });
+    }
+  };
+
+  const resetRankings = async () => {
+    setResetting(true);
+    try {
+      const { data, error } = await supabase.rpc('reset_player_rankings');
+      
+      if (error) throw error;
+      
+      const result = data as { success: boolean; error?: string; message?: string };
+      if (result?.success === false) throw new Error(result.error);
+      
+      setRankings([]);
+      toast({
+        title: "Classificação resetada",
+        description: "Todos os dados de classificação foram removidos.",
+      });
+      
+      setShowRecalcDialog(true);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao resetar classificação",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const recalculateRankings = async () => {
+    setRecalculating(true);
+    try {
+      const { data, error } = await supabase.rpc('recalc_all_player_rankings');
+      
+      if (error) throw error;
+      
+      const result = data as { success: boolean; error?: string; message?: string };
+      if (result?.success === false) throw new Error(result.error);
+      
+      await loadRankings();
+      
+      toast({
+        title: "Pontos recalculados",
+        description: result.message || "Classificação recalculada com sucesso.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao recalcular pontos",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setRecalculating(false);
+      setShowRecalcDialog(false);
     }
   };
 
@@ -404,6 +463,39 @@ const ManageRanking = () => {
               Gerenciar Classificação Geral
             </CardTitle>
             <div className="flex gap-2">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm">
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Resetar Classificação
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="border-border">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="text-destructive">
+                      ⚠️ Resetar Classificação Geral
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação irá <strong>deletar todos os registros</strong> da classificação geral.
+                      <br/><br/>
+                      Os dados de rodadas, partidas e eventos (gols, cartões, etc.) <strong>não serão afetados</strong>.
+                      <br/><br/>
+                      Após o reset, você poderá recalcular os pontos automaticamente.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={resetRankings}
+                      className="bg-destructive hover:bg-destructive/90"
+                      disabled={resetting}
+                    >
+                      {resetting ? "Resetando..." : "Confirmar Reset"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
               <Button
                 variant="default"
                 size="sm"
@@ -632,6 +724,39 @@ const ManageRanking = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Dialog de Recálculo (aparece após reset) */}
+        <AlertDialog open={showRecalcDialog} onOpenChange={setShowRecalcDialog}>
+          <AlertDialogContent className="border-border">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-primary">
+                Recalcular Pontos Automaticamente?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                A classificação foi resetada com sucesso.
+                <br/><br/>
+                Deseja recalcular os pontos de todos os jogadores aprovados com base nas rodadas finalizadas?
+                <br/><br/>
+                Esta operação irá:
+                <ul className="list-disc ml-6 mt-2">
+                  <li>Buscar todas as rodadas finalizadas</li>
+                  <li>Calcular gols, assistências, vitórias, etc.</li>
+                  <li>Atribuir pontos seguindo as regras oficiais</li>
+                  <li>Recriar a classificação geral</li>
+                </ul>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Não, manter zerado</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={recalculateRankings}
+                disabled={recalculating}
+              >
+                {recalculating ? "Recalculando..." : "Sim, Recalcular Pontos"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

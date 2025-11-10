@@ -676,6 +676,7 @@ export type Database = {
       recalc_all_player_rankings: { Args: never; Returns: Json }
       recalc_round_aggregates: { Args: { p_round_id: string }; Returns: Json }
       reset_all_data: { Args: never; Returns: undefined }
+      reset_player_rankings: { Args: never; Returns: Json }
       set_player_birth_date: {
         Args: { p_birth_date: string; p_player_id: string }
         Returns: Json
