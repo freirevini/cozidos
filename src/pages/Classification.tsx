@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import {
   Table,
   TableBody,
@@ -213,9 +214,9 @@ export default function Classification() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header isAdmin={isAdmin} isPlayer={isPlayer} />
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 flex-1">
         <Card className="card-glow bg-card border-border">
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-primary glow-text text-center">
@@ -270,6 +271,7 @@ export default function Classification() {
           </CardContent>
         </Card>
       </main>
+      <Footer />
     </div>
   );
 }
