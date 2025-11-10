@@ -53,6 +53,7 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    scroll-behavior: smooth;
   }
 
   /* Estilos personalizados */
@@ -145,5 +146,23 @@ All colors MUST be HSL.
   /* Remove scrollbar buttons/arrows */
   *::-webkit-scrollbar-button {
     display: none;
+  }
+
+  /* Smooth scrolling for all elements */
+  * {
+    scroll-behavior: smooth;
+  }
+
+  /* Enhanced table scrolling */
+  table {
+    scroll-behavior: smooth;
+  }
+
+  /* Smooth scroll for overflow containers */
+  .overflow-auto,
+  .overflow-x-auto,
+  .overflow-y-auto {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
   }
 }
