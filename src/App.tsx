@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import { AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import PageTransition from "@/components/PageTransition";
+import LoadingLogo from "@/components/LoadingLogo";
 import Classification from "./pages/Classification";
 import Matches from "./pages/Matches";
 import Statistics from "./pages/Statistics";
@@ -51,9 +52,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   };
 
   if (isAuthenticated === null) {
-    return <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="text-primary">Carregando...</div>
-    </div>;
+    return <LoadingLogo />;
   }
 
   return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />;

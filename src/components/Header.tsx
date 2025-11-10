@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, X, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,9 @@ interface HeaderProps {
 
 export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -63,16 +66,47 @@ export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps
     ? [...navLinks, ...adminLinks] 
     : [...navLinks, ...userLinks];
 
+  const checkScrollPosition = () => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      setShowLeftArrow(container.scrollLeft > 10);
+      setShowRightArrow(
+        container.scrollLeft < container.scrollWidth - container.clientWidth - 10
+      );
+    }
+  };
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      checkScrollPosition();
+      container.addEventListener('scroll', checkScrollPosition);
+      window.addEventListener('resize', checkScrollPosition);
+      return () => {
+        container.removeEventListener('scroll', checkScrollPosition);
+        window.removeEventListener('resize', checkScrollPosition);
+      };
+    }
+  }, [allLinks]);
+
+  const scroll = (direction: 'left' | 'right') => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const scrollAmount = 200;
+      container.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-black/95 backdrop-blur supports-[backdrop-filter]:bg-black/80">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3">
+          <Link to="/" className="flex items-center">
             <img src={logo} alt="Cozidos FC" className="h-10 w-10" />
-            <span className="text-2xl font-bold text-primary glow-text">
-              Cozidos FC
-            </span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -90,15 +124,36 @@ export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps
             </button>
           </nav>
 
-          {/* Tablet Navigation - Compact version */}
-          <nav className="hidden md:flex lg:hidden items-center gap-2">
-            <div className="flex-1 overflow-x-auto scrollbar-hide">
-              <div className="inline-block min-w-max">
-                <SlideTabs 
-                  tabs={allLinks.map(link => ({ title: link.label, url: link.href }))} 
-                  currentPath={location.pathname}
-                />
+          {/* Tablet Navigation - Compact version with scroll indicators */}
+          <nav className="hidden md:flex lg:hidden items-center gap-2 flex-1 max-w-[calc(100%-120px)]">
+            <div className="relative flex items-center flex-1">
+              {showLeftArrow && (
+                <button
+                  onClick={() => scroll('left')}
+                  className="absolute left-0 z-10 p-1 bg-background/80 backdrop-blur-sm rounded-full text-primary hover:bg-muted transition-colors"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+              )}
+              <div 
+                ref={scrollContainerRef}
+                className="flex-1 overflow-x-auto scrollbar-hide"
+              >
+                <div className="inline-block min-w-max">
+                  <SlideTabs 
+                    tabs={allLinks.map(link => ({ title: link.label, url: link.href }))} 
+                    currentPath={location.pathname}
+                  />
+                </div>
               </div>
+              {showRightArrow && (
+                <button
+                  onClick={() => scroll('right')}
+                  className="absolute right-0 z-10 p-1 bg-background/80 backdrop-blur-sm rounded-full text-primary hover:bg-muted transition-colors"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              )}
             </div>
             <button
               onClick={handleLogout}
