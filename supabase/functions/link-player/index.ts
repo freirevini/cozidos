@@ -23,6 +23,8 @@ Deno.serve(async (req) => {
       throw new Error('Dados incompletos: auth_user_id, email e birth_date são obrigatórios')
     }
 
+    console.log('[link-player] Recebido:', { auth_user_id, email, birth_date, first_name, last_name, position })
+
     // Gerar player_id (SHA256 de email + birthdate)
     const raw = `${email.toLowerCase().trim()}|${birth_date}`
     const encoder = new TextEncoder()
@@ -43,6 +45,8 @@ Deno.serve(async (req) => {
     }
 
     if (existingProfile) {
+      console.log('[link-player] Perfil existente encontrado:', existingProfile.id)
+      
       // Vincular usuário ao perfil existente (matching determinístico)
       const { error: updateError } = await supabaseAdmin
         .from('profiles')
@@ -56,6 +60,7 @@ Deno.serve(async (req) => {
         .eq('id', existingProfile.id)
 
       if (updateError) {
+        console.error('[link-player] Erro ao vincular:', updateError)
         throw updateError
       }
 
@@ -70,6 +75,8 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     } else {
+      console.log('[link-player] Criando novo perfil de jogador')
+      
       // Criar novo perfil
       const fullName = `${first_name || ''} ${last_name || ''}`.trim() || 'Jogador'
       
@@ -90,8 +97,11 @@ Deno.serve(async (req) => {
         })
 
       if (insertError) {
+        console.error('[link-player] Erro ao criar perfil:', insertError)
         throw insertError
       }
+      
+      console.log('[link-player] Novo perfil criado com sucesso')
 
       return new Response(
         JSON.stringify({

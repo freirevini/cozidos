@@ -131,14 +131,19 @@ export default function Auth() {
     try {
       setLoading(true);
       
-      // Criar conta de autenticação
+      // Garantir metadados completos para o trigger handle_new_user
+      const fullName = `${validation.data.first_name} ${validation.data.last_name}`.trim();
+      
       const { data, error } = await supabase.auth.signUp({
         email: validation.data.email,
         password: validation.data.password,
         options: {
           data: {
+            name: fullName || 'Usuário',
             first_name: validation.data.first_name,
             last_name: validation.data.last_name,
+            nickname: validation.data.first_name || validation.data.email,
+            birth_date: validation.data.birthDate,
             is_player: isPlayer === "sim",
           },
           emailRedirectTo: `${window.location.origin}/`,
@@ -150,6 +155,8 @@ export default function Auth() {
       if (data.user) {
         // Se for jogador, chamar Edge Function para vincular/criar player_id
         if (isPlayer === "sim") {
+          console.log('[Auth] Invocando link-player para:', data.user.id);
+          
           const { data: linkResult, error: linkError } = await supabase.functions.invoke('link-player', {
             body: {
               auth_user_id: data.user.id,
@@ -162,12 +169,13 @@ export default function Auth() {
           });
 
           if (linkError) {
-            console.error("Erro ao vincular jogador:", linkError);
-            toast.error("Erro ao vincular jogador: " + linkError.message);
+            console.error("[Auth] Erro ao vincular jogador:", linkError);
+            toast.error("Erro ao processar cadastro de jogador");
             return;
           }
 
-          toast.success(linkResult.message);
+          console.log('[Auth] Link-player retornou:', linkResult);
+          toast.success(linkResult.message || "Cadastro realizado com sucesso!");
         } else {
           toast.success("Conta criada com sucesso! Você pode acessar as informações do sistema.");
         }
