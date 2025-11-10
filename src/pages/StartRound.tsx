@@ -161,7 +161,7 @@ Esta ação não pode ser desfeita.`)) {
                               onClick={() => editRound(round.id)}
                               variant="default"
                             >
-                              Editar
+                              {round.status === 'a_iniciar' ? 'Iniciar' : 'Editar'}
                             </Button>
                             <Button
                               size="sm"

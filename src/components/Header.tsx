@@ -21,6 +21,25 @@ export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const getCurrentPath = () => {
+    const path = location.pathname;
+    
+    // Verificar correspondências parciais para rotas aninhadas de admin
+    if (path.startsWith('/admin/round')) return '/admin/round';
+    if (path.startsWith('/admin/teams')) return '/admin/teams';
+    if (path.startsWith('/admin/players')) return '/admin/players';
+    if (path.startsWith('/admin/ranking')) return '/admin/ranking';
+    
+    // Verificar correspondências parciais para outras rotas
+    if (path.startsWith('/times')) return '/times';
+    if (path.startsWith('/profile')) return '/profile';
+    if (path.startsWith('/matches')) return '/matches';
+    if (path.startsWith('/statistics')) return '/statistics';
+    
+    // Retornar o path original se não houver correspondência
+    return path;
+  };
+
   const isActive = (path: string) => location.pathname === path;
 
   const handleLogout = async () => {
@@ -113,7 +132,7 @@ export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps
           <nav className="hidden lg:flex items-center justify-center flex-1">
             <SlideTabs 
               tabs={allLinks.map(link => ({ title: link.label, url: link.href }))} 
-              currentPath={location.pathname}
+              currentPath={getCurrentPath()}
             />
           </nav>
           
@@ -143,7 +162,7 @@ export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps
                 <div className="inline-block min-w-max">
                   <SlideTabs 
                     tabs={allLinks.map(link => ({ title: link.label, url: link.href }))} 
-                    currentPath={location.pathname}
+                    currentPath={getCurrentPath()}
                   />
                 </div>
               </div>
