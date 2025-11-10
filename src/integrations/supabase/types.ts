@@ -673,6 +673,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { user_id: string }; Returns: boolean }
+      recalc_all_player_rankings: { Args: never; Returns: Json }
       recalc_round_aggregates: { Args: { p_round_id: string }; Returns: Json }
       reset_all_data: { Args: never; Returns: undefined }
       set_player_birth_date: {

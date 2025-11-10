@@ -63,7 +63,14 @@ export default function StartRound() {
   };
 
   const deleteRound = async (roundId: string, roundNumber: number) => {
-    if (!confirm(`Tem certeza que deseja excluir a Rodada ${roundNumber}? Esta ação não pode ser desfeita.`)) {
+    if (!confirm(`Tem certeza que deseja excluir a Rodada ${roundNumber}?
+
+Esta ação irá:
+• Excluir todas as partidas desta rodada
+• Remover gols, assistências e cartões registrados
+• Recalcular automaticamente a classificação geral
+
+Esta ação não pode ser desfeita.`)) {
       return;
     }
 
@@ -75,7 +82,7 @@ export default function StartRound() {
 
       if (error) throw error;
       
-      toast.success("Rodada excluída com sucesso!");
+      toast.success("Rodada excluída e classificação recalculada com sucesso!");
       loadAvailableRounds();
     } catch (error: any) {
       console.error("Erro ao excluir rodada:", error);
