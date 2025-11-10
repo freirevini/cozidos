@@ -235,6 +235,12 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     try {
       const currentMinute = Math.floor((Date.now() - new Date().setHours(0, 0, 0, 0)) / 60000);
       
+      // Validar minuto (0-120)
+      if (currentMinute < 0 || currentMinute > 120) {
+        toast.error("Minuto inválido. Deve estar entre 0 e 120.");
+        return;
+      }
+      
       const { data: goalInserted, error: goalError } = await supabase
         .from("goals")
         .insert([{
@@ -321,6 +327,12 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
     try {
       const currentMinute = Math.floor((Date.now() - new Date().setHours(0, 0, 0, 0)) / 60000);
+
+      // Validar minuto (0-120)
+      if (currentMinute < 0 || currentMinute > 120) {
+        toast.error("Minuto inválido. Deve estar entre 0 e 120.");
+        return;
+      }
 
       const { error } = await supabase.from("cards").insert([{
         match_id: matchId,

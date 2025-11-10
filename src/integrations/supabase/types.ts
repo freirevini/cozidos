@@ -665,6 +665,13 @@ export type Database = {
         Returns: undefined
       }
       delete_player_by_id: { Args: { profile_id: string }; Returns: undefined }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["user_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       recalc_round_aggregates: { Args: { p_round_id: string }; Returns: Json }
       reset_all_data: { Args: never; Returns: undefined }

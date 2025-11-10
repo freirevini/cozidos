@@ -315,6 +315,12 @@ export default function ManageMatch() {
     // Calcular minuto atual baseado no cronômetro
     const currentMinute = Math.ceil((720 - timer) / 60);
 
+    // Validar minuto (0-120)
+    if (currentMinute < 0 || currentMinute > 120) {
+      toast.error("Minuto inválido. Deve estar entre 0 e 120.");
+      return;
+    }
+
     setLoading(true);
     try {
       // Se for gol contra, usar player_id null
@@ -375,6 +381,12 @@ export default function ManageMatch() {
 
     // Calcular minuto atual baseado no cronômetro
     const currentMinute = Math.ceil((720 - timer) / 60);
+
+    // Validar minuto (0-120)
+    if (currentMinute < 0 || currentMinute > 120) {
+      toast.error("Minuto inválido. Deve estar entre 0 e 120.");
+      return;
+    }
 
     setLoading(true);
     try {
