@@ -10,6 +10,7 @@ import { ArrowLeft } from "lucide-react";
 interface Match {
   id: string;
   round_id: string;
+  round_number?: number;
   match_number: number;
   team_home: string;
   team_away: string;
@@ -92,20 +93,32 @@ const MatchDetails = () => {
   useEffect(() => {
     if (!matchId) return;
     loadMatchData();
-    loadEvents();
   }, [matchId]);
+
+  // Carregar eventos após match estar disponível
+  useEffect(() => {
+    if (match) {
+      loadEvents();
+    }
+  }, [match, matchId]);
 
   const loadMatchData = async () => {
     if (!matchId) return;
     
     const { data } = await supabase
       .from("matches")
-      .select("*")
+      .select(`
+        *,
+        round:rounds(round_number)
+      `)
       .eq("id", matchId)
       .single();
 
     if (data) {
-      setMatch(data);
+      setMatch({
+        ...data,
+        round_number: data.round?.round_number
+      });
       setLoading(false);
     }
   };
@@ -331,36 +344,41 @@ const MatchDetails = () => {
         </Button>
 
         <Card className="overflow-hidden border-border">
-          <CardContent className="p-6 space-y-8">
-            {/* Header com Horário */}
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">
-                {match.started_at ? formatTime(match.started_at) : match.scheduled_time}
+          <CardContent className="p-6 space-y-6">
+            {/* Header com Rodada e Jogo */}
+            <div className="text-center mb-4">
+              <div className="text-xl sm:text-2xl font-bold text-primary">
+                {match.round_number && `Rodada ${match.round_number} - Jogo ${match.match_number}`}
               </div>
             </div>
 
-            {/* Placar Central */}
-            <div className="flex items-center justify-center gap-4 sm:gap-8">
-              <div className="text-center flex-1">
-                <div className="text-lg sm:text-xl font-bold uppercase truncate">
+            {/* Placar Central com melhor alinhamento */}
+            <div className="flex items-center justify-between gap-6">
+              {/* Time Casa */}
+              <div className="flex-1 text-center">
+                <div className="text-base sm:text-lg font-bold uppercase">
                   {teamNames[match.team_home] || match.team_home}
                 </div>
               </div>
               
-              <div className="flex flex-col items-center min-w-[120px]">
-                <div className="text-4xl sm:text-6xl font-bold">
+              {/* Placar e Status */}
+              <div className="flex flex-col items-center gap-2">
+                <div className="text-5xl sm:text-6xl font-bold tabular-nums">
                   {match.score_home} : {match.score_away}
                 </div>
                 {match.status === 'in_progress' && currentMinute !== null && (
-                  <div className="text-primary text-xl sm:text-2xl mt-2">{currentMinute}'</div>
+                  <div className="text-primary text-lg sm:text-xl">
+                    {currentMinute > 12 ? `12'+${currentMinute - 12}` : `${currentMinute}'`}
+                  </div>
                 )}
                 {match.status === 'finished' && (
-                  <div className="text-primary text-base sm:text-lg mt-2">Encerrada</div>
+                  <div className="text-primary text-sm sm:text-base">Encerrada</div>
                 )}
               </div>
 
-              <div className="text-center flex-1">
-                <div className="text-lg sm:text-xl font-bold uppercase truncate">
+              {/* Time Visitante */}
+              <div className="flex-1 text-center">
+                <div className="text-base sm:text-lg font-bold uppercase">
                   {teamNames[match.team_away] || match.team_away}
                 </div>
               </div>
@@ -401,45 +419,81 @@ const MatchDetails = () => {
             {/* Eventos por Time - Grid 2 Colunas */}
             {match.status !== 'not_started' && (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 border-t pt-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 border-t pt-6">
                   {/* Coluna Esquerda - Time Casa */}
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-bold text-muted-foreground text-center border-b pb-2">
-                      {teamNames[match.team_home]}
-                    </h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-center gap-2 border-b pb-2 mb-3">
+                      <h3 className="text-sm font-bold text-primary uppercase">
+                        {teamNames[match.team_home]}
+                      </h3>
+                    </div>
                     {events
-                      .filter(event => event.team_color === match.team_home)
-                      .map((event) => (
-                        <div key={event.id} className="flex items-center gap-2 text-sm">
-                          <span className="text-xl">{getEventIcon(event)}</span>
-                          <span className="flex-1 truncate">
-                            {event.player?.nickname || event.player?.name}
-                          </span>
-                    <span className="text-xs text-muted-foreground">
-                      {event.minute > 12 ? `12'+${event.minute - 12}` : `${event.minute}'`}
-                    </span>
-                        </div>
-                      ))}
+                      .filter(event => 
+                        event.type !== 'match_start' && 
+                        event.type !== 'match_end' && 
+                        event.team_color === match.team_home
+                      )
+                      .length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center italic">
+                          Sem eventos
+                        </p>
+                      ) : (
+                        events
+                          .filter(event => 
+                            event.type !== 'match_start' && 
+                            event.type !== 'match_end' && 
+                            event.team_color === match.team_home
+                          )
+                          .map((event) => (
+                            <div key={event.id} className="flex items-center gap-2 text-sm bg-muted/10 p-2 rounded">
+                              <span className="text-lg">{getEventIcon(event)}</span>
+                              <span className="flex-1 truncate font-medium">
+                                {event.player?.nickname || event.player?.name}
+                              </span>
+                              <span className="text-xs text-primary font-bold">
+                                {event.minute > 12 ? `12'+${event.minute - 12}` : `${event.minute}'`}
+                              </span>
+                            </div>
+                          ))
+                      )}
                   </div>
 
                   {/* Coluna Direita - Time Visitante */}
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-bold text-muted-foreground text-center border-b pb-2">
-                      {teamNames[match.team_away]}
-                    </h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-center gap-2 border-b pb-2 mb-3">
+                      <h3 className="text-sm font-bold text-primary uppercase">
+                        {teamNames[match.team_away]}
+                      </h3>
+                    </div>
                     {events
-                      .filter(event => event.team_color === match.team_away)
-                      .map((event) => (
-                        <div key={event.id} className="flex items-center gap-2 text-sm">
-                          <span className="text-xl">{getEventIcon(event)}</span>
-                          <span className="flex-1 truncate">
-                            {event.player?.nickname || event.player?.name}
-                          </span>
-                    <span className="text-xs text-muted-foreground">
-                      {event.minute > 12 ? `12'+${event.minute - 12}` : `${event.minute}'`}
-                    </span>
-                        </div>
-                      ))}
+                      .filter(event => 
+                        event.type !== 'match_start' && 
+                        event.type !== 'match_end' && 
+                        event.team_color === match.team_away
+                      )
+                      .length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center italic">
+                          Sem eventos
+                        </p>
+                      ) : (
+                        events
+                          .filter(event => 
+                            event.type !== 'match_start' && 
+                            event.type !== 'match_end' && 
+                            event.team_color === match.team_away
+                          )
+                          .map((event) => (
+                            <div key={event.id} className="flex items-center gap-2 text-sm bg-muted/10 p-2 rounded">
+                              <span className="text-lg">{getEventIcon(event)}</span>
+                              <span className="flex-1 truncate font-medium">
+                                {event.player?.nickname || event.player?.name}
+                              </span>
+                              <span className="text-xs text-primary font-bold">
+                                {event.minute > 12 ? `12'+${event.minute - 12}` : `${event.minute}'`}
+                              </span>
+                            </div>
+                          ))
+                      )}
                   </div>
                 </div>
 

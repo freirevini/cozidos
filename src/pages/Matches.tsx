@@ -334,26 +334,60 @@ export default function Matches() {
                       </span>
                     </div>
                     
-                    {/* Gols */}
+                    {/* Gols separados por time */}
                     {match.goals.length > 0 && (
-                      <div className="space-y-2 border-t border-border pt-3">
-                        {match.goals
-                          .sort((a, b) => a.minute - b.minute)
-                          .map((goal, idx) => (
-                            <div key={idx} className="flex items-start gap-2 text-sm">
-                              <span className="text-lg">⚽</span>
-                              <div className="flex-1">
-                                <span className="text-foreground font-medium">
-                                  {goal.minute}' {goal.player?.nickname || goal.player?.name || 'Desconhecido'}
-                                </span>
-                                {goal.assist?.player && (
-                                  <div className="text-xs text-muted-foreground mt-0.5">
-                                    Assist: {goal.assist.player.nickname || goal.assist.player.name}
+                      <div className="border-t border-border pt-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          {/* Gols Time Casa */}
+                          <div className="space-y-1.5">
+                            {match.goals
+                              .filter(goal => goal.team_color === match.team_home)
+                              .sort((a, b) => a.minute - b.minute)
+                              .map((goal, idx) => (
+                                <div key={`home-${idx}`} className="flex items-start gap-1.5 text-xs">
+                                  <span className="text-base">⚽</span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium truncate">
+                                      {goal.minute}' {goal.player?.nickname || goal.player?.name}
+                                    </div>
+                                    {goal.assist?.player && (
+                                      <div className="text-[10px] text-muted-foreground truncate">
+                                        Assist: {goal.assist.player.nickname || goal.assist.player.name}
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                                </div>
+                              ))}
+                            {match.goals.filter(g => g.team_color === match.team_home).length === 0 && (
+                              <div className="text-xs text-muted-foreground italic text-center">-</div>
+                            )}
+                          </div>
+
+                          {/* Gols Time Visitante */}
+                          <div className="space-y-1.5">
+                            {match.goals
+                              .filter(goal => goal.team_color === match.team_away)
+                              .sort((a, b) => a.minute - b.minute)
+                              .map((goal, idx) => (
+                                <div key={`away-${idx}`} className="flex items-start gap-1.5 text-xs">
+                                  <span className="text-base">⚽</span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium truncate">
+                                      {goal.minute}' {goal.player?.nickname || goal.player?.name}
+                                    </div>
+                                    {goal.assist?.player && (
+                                      <div className="text-[10px] text-muted-foreground truncate">
+                                        Assist: {goal.assist.player.nickname || goal.assist.player.name}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            {match.goals.filter(g => g.team_color === match.team_away).length === 0 && (
+                              <div className="text-xs text-muted-foreground italic text-center">-</div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </CardContent>
