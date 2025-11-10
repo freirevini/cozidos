@@ -180,7 +180,7 @@ export default function ManageRounds() {
             score_home: 0,
             score_away: 0,
             scheduled_time: timeString,
-            status: 'not_started',
+            status: 'in_progress',
           });
 
           currentTime += 12;
@@ -216,7 +216,7 @@ export default function ManageRounds() {
             score_home: 0,
             score_away: 0,
             scheduled_time: timeString,
-            status: 'not_started',
+            status: 'in_progress',
           });
 
           currentTime += 12;
@@ -237,7 +237,7 @@ export default function ManageRounds() {
               score_home: 0,
               score_away: 0,
               scheduled_time: timeString,
-              status: 'not_started',
+              status: 'in_progress',
             });
 
             currentTime += 12;
@@ -250,6 +250,16 @@ export default function ManageRounds() {
         .insert(matchesToCreate);
 
       if (insertError) throw insertError;
+
+      // Atualizar status da rodada para "em_andamento"
+      const { error: updateRoundError } = await supabase
+        .from('rounds')
+        .update({ status: 'em_andamento' })
+        .eq('id', roundId);
+
+      if (updateRoundError) {
+        console.error('Erro ao atualizar status da rodada:', updateRoundError);
+      }
 
       toast.success("Partidas criadas com sucesso!");
       loadRoundData();
@@ -381,6 +391,73 @@ export default function ManageRounds() {
     }
   };
 
+  const startMatch = async (matchId: string) => {
+    try {
+      const { error } = await supabase
+        .from('matches')
+        .update({ 
+          status: 'in_progress',
+          started_at: new Date().toISOString(),
+          match_timer_started_at: new Date().toISOString()
+        })
+        .eq('id', matchId);
+      
+      if (error) throw error;
+      
+      toast.success('Partida iniciada com sucesso!');
+      await loadRoundData();
+      await syncRoundStatus();
+    } catch (error: any) {
+      toast.error('Erro ao iniciar partida: ' + error.message);
+    }
+  };
+
+  const deleteMatch = async (matchId: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta partida?\n\nGols, assistências e cartões também serão excluídos.')) {
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('matches')
+        .delete()
+        .eq('id', matchId);
+      
+      if (error) throw error;
+      
+      toast.success('Partida excluída com sucesso!');
+      await loadRoundData();
+      await syncRoundStatus();
+    } catch (error: any) {
+      toast.error('Erro ao excluir partida: ' + error.message);
+    }
+  };
+
+  const syncRoundStatus = async () => {
+    if (!roundId) return;
+    
+    const allFinished = matches.every(m => m.status === 'finished');
+    const anyInProgress = matches.some(m => m.status === 'in_progress');
+    const allNotStarted = matches.every(m => m.status === 'not_started');
+    
+    let newStatus: 'a_iniciar' | 'em_andamento' | 'finalizada' | null = null;
+    
+    if (allNotStarted) {
+      newStatus = 'a_iniciar';
+    } else if (anyInProgress || !allFinished) {
+      newStatus = 'em_andamento';
+    }
+    
+    if (newStatus && round?.status !== newStatus) {
+      await supabase
+        .from('rounds')
+        .update({ status: newStatus })
+        .eq('id', roundId);
+      
+      loadRoundData();
+    }
+  };
+
   const openMatchPage = (match: Match) => {
     navigate(`/admin/match/${match.id}/${roundId}`);
   };
@@ -437,12 +514,12 @@ export default function ManageRounds() {
                 </Badge>
               )}
             </CardTitle>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 mt-4">
               <Button
                 onClick={finishAllMatches}
                 disabled={loading || matches.every(m => m.status === 'finished')}
                 variant="outline"
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto py-3 sm:py-2"
               >
                 Encerrar Todas as Partidas
               </Button>
@@ -450,14 +527,14 @@ export default function ManageRounds() {
                 onClick={showAttendanceDialog}
                 disabled={loading || matches.some(m => m.status !== 'finished')}
                 variant="secondary"
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto py-3 sm:py-2"
               >
                 Registrar Atrasos/Faltas
               </Button>
               <Button
                 onClick={finalizeRound}
                 disabled={loading || matches.some(m => m.status !== 'finished')}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto py-3 sm:py-2"
               >
                 Finalizar Rodada
               </Button>
@@ -477,7 +554,8 @@ export default function ManageRounds() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="overflow-x-auto">
+                {/* Desktop: Tabela completa */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
@@ -507,40 +585,128 @@ export default function ManageRounds() {
                           <td className="p-3 text-center">
                             <Badge 
                               className={
-                                match.status === 'not_started' ? 'bg-red-600 text-white' :
-                                match.status === 'in_progress' ? 'bg-yellow-700 text-white' :
+                                match.status === 'not_started' ? 'bg-gray-600 text-white' :
+                                match.status === 'in_progress' ? 'bg-yellow-600 text-white' :
                                 'bg-green-600 text-white'
                               }
                             >
-                              {match.status === 'not_started' ? 'Não Iniciado' : 
+                              {match.status === 'not_started' ? 'A Iniciar' : 
                                match.status === 'in_progress' ? 'Em Andamento' : 'Encerrado'}
                             </Badge>
                           </td>
                           <td className="p-3 text-center">
-                            <div className="flex gap-2 justify-center">
-                              <Button
-                                size="sm"
-                                onClick={() => openMatchPage(match)}
-                                variant="default"
-                              >
-                                Exibir
-                              </Button>
-                              {match.status !== 'not_started' && (
+                            <div className="flex gap-2 justify-center flex-wrap">
+                              {match.status === 'not_started' && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => startMatch(match.id)}
+                                  variant="default"
+                                  className="min-w-[80px]"
+                                >
+                                  Iniciar
+                                </Button>
+                              )}
+                              
+                              {(match.status === 'in_progress' || match.status === 'finished') && (
                                 <Button
                                   size="sm"
                                   variant="secondary"
                                   onClick={() => handleEditMatch(match.id)}
-                                  disabled={round?.status === 'a_iniciar'}
+                                  className="min-w-[80px]"
                                 >
                                   Editar
                                 </Button>
                               )}
+                              
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => deleteMatch(match.id)}
+                                className="min-w-[80px]"
+                              >
+                                Excluir
+                              </Button>
                             </div>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile: Cards */}
+                <div className="md:hidden space-y-4">
+                  {matches.map((match) => (
+                    <Card key={match.id} className="bg-muted/10">
+                      <CardContent className="p-4">
+                        <div className="text-sm text-muted-foreground mb-2">
+                          {match.scheduled_time.substring(0, 5)}
+                        </div>
+                        
+                        <div className="flex items-center justify-center gap-3 mb-3">
+                          <div className="text-center">
+                            <Badge className={`${teamColors[match.team_home]} mb-1`}>
+                              {teamNames[match.team_home]}
+                            </Badge>
+                            <div className="text-2xl font-bold">{match.score_home}</div>
+                          </div>
+                          <span className="text-muted-foreground text-xl">×</span>
+                          <div className="text-center">
+                            <Badge className={`${teamColors[match.team_away]} mb-1`}>
+                              {teamNames[match.team_away]}
+                            </Badge>
+                            <div className="text-2xl font-bold">{match.score_away}</div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-center mb-3">
+                          <Badge 
+                            className={
+                              match.status === 'not_started' ? 'bg-gray-600 text-white' :
+                              match.status === 'in_progress' ? 'bg-yellow-600 text-white' :
+                              'bg-green-600 text-white'
+                            }
+                          >
+                            {match.status === 'not_started' ? 'A Iniciar' : 
+                             match.status === 'in_progress' ? 'Em Andamento' : 'Encerrado'}
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex gap-2 justify-center flex-wrap">
+                          {match.status === 'not_started' && (
+                            <Button
+                              size="sm"
+                              onClick={() => startMatch(match.id)}
+                              variant="default"
+                              className="flex-1 min-w-[100px]"
+                            >
+                              Iniciar
+                            </Button>
+                          )}
+                          
+                          {(match.status === 'in_progress' || match.status === 'finished') && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => handleEditMatch(match.id)}
+                              className="flex-1 min-w-[100px]"
+                            >
+                              Editar
+                            </Button>
+                          )}
+                          
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => deleteMatch(match.id)}
+                            className="flex-1 min-w-[100px]"
+                          >
+                            Excluir
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               </div>
             )}
