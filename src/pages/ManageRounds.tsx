@@ -180,7 +180,7 @@ export default function ManageRounds() {
             score_home: 0,
             score_away: 0,
             scheduled_time: timeString,
-            status: 'in_progress',
+            status: 'not_started',
           });
 
           currentTime += 12;
@@ -216,7 +216,7 @@ export default function ManageRounds() {
             score_home: 0,
             score_away: 0,
             scheduled_time: timeString,
-            status: 'in_progress',
+            status: 'not_started',
           });
 
           currentTime += 12;
@@ -237,7 +237,7 @@ export default function ManageRounds() {
               score_home: 0,
               score_away: 0,
               scheduled_time: timeString,
-              status: 'in_progress',
+              status: 'not_started',
             });
 
             currentTime += 12;
@@ -251,15 +251,8 @@ export default function ManageRounds() {
 
       if (insertError) throw insertError;
 
-      // Atualizar status da rodada para "em_andamento"
-      const { error: updateRoundError } = await supabase
-        .from('rounds')
-        .update({ status: 'em_andamento' })
-        .eq('id', roundId);
-
-      if (updateRoundError) {
-        console.error('Erro ao atualizar status da rodada:', updateRoundError);
-      }
+      // Rodada permanece como 'a_iniciar' até que alguma partida seja iniciada
+      // Não alterar status automaticamente aqui
 
       toast.success("Partidas criadas com sucesso!");
       loadRoundData();
