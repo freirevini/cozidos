@@ -701,7 +701,7 @@ export type Database = {
       card_type: "amarelo" | "azul"
       player_level: "A" | "B" | "C" | "D" | "E"
       player_position: "goleiro" | "defensor" | "meio-campista" | "atacante"
-      player_status: "aprovado" | "aprovar" | "congelado"
+      player_status: "aprovado" | "pendente" | "congelado" | "rejeitado"
       player_type_enum: "mensal" | "avulso" | "avulso_fixo"
       round_status: "a_iniciar" | "em_andamento" | "finalizada"
       team_color: "branco" | "vermelho" | "azul" | "laranja"
@@ -837,7 +837,7 @@ export const Constants = {
       card_type: ["amarelo", "azul"],
       player_level: ["A", "B", "C", "D", "E"],
       player_position: ["goleiro", "defensor", "meio-campista", "atacante"],
-      player_status: ["aprovado", "aprovar", "congelado"],
+      player_status: ["aprovado", "pendente", "congelado", "rejeitado"],
       player_type_enum: ["mensal", "avulso", "avulso_fixo"],
       round_status: ["a_iniciar", "em_andamento", "finalizada"],
       team_color: ["branco", "vermelho", "azul", "laranja"],
