@@ -11,10 +11,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Filter, UserCheck, UserX, AlertTriangle, UserPlus, RefreshCw } from "lucide-react";
+import { Trash2, Search, Filter, UserCheck, UserX, AlertTriangle, UserPlus, RefreshCw, Upload } from "lucide-react";
 import { AlertDialogIcon } from "@/components/ui/alert-dialog-icon";
 import { toast as sonnerToast } from "sonner";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import * as XLSX from "xlsx";
+import Papa from "papaparse";
 import {
   Dialog,
   DialogContent,
@@ -66,6 +68,7 @@ export default function ManagePlayers() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
 
   // Filtros
   const [searchTerm, setSearchTerm] = useState("");
@@ -498,6 +501,148 @@ export default function ManagePlayers() {
     }
   };
 
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    try {
+      const fileExtension = file.name.split(".").pop()?.toLowerCase();
+
+      if (fileExtension === "csv") {
+        const text = await file.text();
+        Papa.parse(text, {
+          header: true,
+          complete: (results) => {
+            processImportedData(results.data);
+          },
+        });
+      } else if (fileExtension === "xlsx" || fileExtension === "xls") {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        processImportedData(jsonData);
+      } else {
+        sonnerToast.error("Formato inválido. Use arquivos .csv, .xlsx ou .xls");
+      }
+    } catch (error: any) {
+      sonnerToast.error("Erro ao importar: " + error.message);
+    } finally {
+      setImporting(false);
+      event.target.value = "";
+    }
+  };
+
+  const processImportedData = async (data: any[]) => {
+    if (data.length === 0) {
+      sonnerToast.error("Arquivo vazio");
+      return;
+    }
+
+    const firstRow = data[0];
+    const requiredColumns = ["Nome", "Sobrenome", "E-mail", "Data de Nascimento"];
+    const missingColumns = requiredColumns.filter(
+      col => !(col in firstRow) && !(col.toLowerCase() in firstRow)
+    );
+
+    if (missingColumns.length > 0) {
+      sonnerToast.error(
+        `Colunas obrigatórias ausentes: ${missingColumns.join(", ")}`
+      );
+      return;
+    }
+
+    const inserts: any[] = [];
+    const errors: string[] = [];
+    let created = 0;
+    let skipped = 0;
+
+    for (const row of data) {
+      const firstName = row["Nome"] || row["nome"];
+      const lastName = row["Sobrenome"] || row["sobrenome"];
+      const nickname = row["Apelido"] || row["apelido"];
+      const email = (row["E-mail"] || row["email"])?.toString().toLowerCase().trim();
+      const birthDateStr = row["Data de Nascimento"] || row["data de nascimento"];
+
+      if (!firstName || !lastName || !email || !birthDateStr) {
+        errors.push(`Linha com dados incompletos: ${email || firstName || "desconhecido"}`);
+        skipped++;
+        continue;
+      }
+
+      let birthDate: string | null = null;
+      try {
+        const [day, month, year] = birthDateStr.toString().split("/");
+        if (day && month && year) {
+          birthDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+        } else {
+          throw new Error("Formato inválido");
+        }
+      } catch {
+        errors.push(`Data de nascimento inválida para ${email}: ${birthDateStr}`);
+        skipped++;
+        continue;
+      }
+
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (existingProfile) {
+        errors.push(`E-mail já cadastrado: ${email}`);
+        skipped++;
+        continue;
+      }
+
+      inserts.push({
+        id: crypto.randomUUID(),
+        first_name: firstName,
+        last_name: lastName,
+        name: `${firstName} ${lastName}`,
+        nickname: nickname || null,
+        email: email,
+        birth_date: birthDate,
+        is_player: true,
+        status: 'pendente',
+        level: null,
+        position: null,
+        user_id: null,
+      });
+      created++;
+    }
+
+    if (inserts.length > 0) {
+      const { error } = await supabase
+        .from("profiles")
+        .insert(inserts);
+
+      if (error) {
+        sonnerToast.error("Erro ao inserir jogadores: " + error.message);
+        return;
+      }
+    }
+
+    await loadPlayers();
+
+    if (created > 0) {
+      sonnerToast.success(
+        `✅ ${created} jogador(es) importado(s) com sucesso!` +
+        (skipped > 0 ? ` (${skipped} linha(s) ignorada(s))` : "")
+      );
+    }
+
+    if (errors.length > 0) {
+      console.warn("Erros de importação:", errors);
+      sonnerToast.warning(
+        `${errors.length} linha(s) com erro. Verifique o console para detalhes.`
+      );
+    }
+  };
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-background">
@@ -536,17 +681,37 @@ export default function ManagePlayers() {
       <Header />
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <CardTitle className="text-3xl font-bold text-primary glow-text">
               Gerenciar Jogadores
             </CardTitle>
-            <Button 
-              onClick={() => setAddDialogOpen(true)}
-              className="flex items-center gap-2"
-            >
-              <UserPlus className="h-4 w-4" />
-              Cadastrar Novo Jogador
-            </Button>
+            
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Button 
+                onClick={() => document.getElementById('excel-upload')?.click()}
+                disabled={importing}
+                className="w-full sm:w-auto min-h-[44px] bg-primary hover:bg-primary/90"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {importing ? "Importando..." : "Importar Excel"}
+              </Button>
+              
+              <Button 
+                onClick={() => setAddDialogOpen(true)} 
+                className="w-full sm:w-auto min-h-[44px] bg-primary hover:bg-primary/90"
+              >
+                <UserPlus className="mr-2 h-4 w-4" />
+                Cadastrar Novo Jogador
+              </Button>
+            </div>
+            
+            <input
+              id="excel-upload"
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              onChange={handleFileImport}
+              className="hidden"
+            />
           </CardHeader>
           <CardContent>
             {/* Quick Filters - Mobile Only */}
