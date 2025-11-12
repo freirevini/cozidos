@@ -9,9 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, Search, Filter, UserCheck, UserX, AlertTriangle, UserPlus } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Trash2, Search, Filter, UserCheck, UserX, AlertTriangle, UserPlus, RefreshCw } from "lucide-react";
 import { AlertDialogIcon } from "@/components/ui/alert-dialog-icon";
 import { toast as sonnerToast } from "sonner";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import {
   Dialog,
   DialogContent,
@@ -122,6 +124,7 @@ export default function ManagePlayers() {
   };
 
   const loadPlayers = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -137,6 +140,14 @@ export default function ManagePlayers() {
       setLoading(false);
     }
   };
+
+  const { isRefreshing, pullDistance } = usePullToRefresh({
+    onRefresh: async () => {
+      await loadPlayers();
+      sonnerToast.success("Dados atualizados!");
+    },
+    enabled: true,
+  });
 
   const applyFilters = () => {
     let filtered = [...players];
@@ -505,6 +516,24 @@ export default function ManagePlayers() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Pull to Refresh Indicator */}
+      {(pullDistance > 0 || isRefreshing) && (
+        <div 
+          className="fixed top-0 left-0 right-0 flex justify-center items-center z-50 transition-all"
+          style={{ 
+            transform: `translateY(${Math.min(pullDistance, 60)}px)`,
+            opacity: Math.min(pullDistance / 60, 1)
+          }}
+        >
+          <div className="bg-primary/90 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="text-sm font-medium">
+              {isRefreshing ? 'Atualizando...' : 'Solte para atualizar'}
+            </span>
+          </div>
+        </div>
+      )}
+
       <Header isAdmin={isAdmin} />
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border">
@@ -521,8 +550,74 @@ export default function ManagePlayers() {
             </Button>
           </CardHeader>
           <CardContent>
-            {/* Filtros */}
-            <div className="mb-6 space-y-4">
+            {/* Quick Filters - Mobile Only */}
+            <div className="md:hidden mb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-semibold text-muted-foreground">Filtros Rápidos</span>
+              </div>
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth pb-2">
+                <Button
+                  variant={filterStatus === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilterStatus("all")}
+                  className="whitespace-nowrap"
+                >
+                  Todos
+                </Button>
+                <Button
+                  variant={filterStatus === "pendente" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilterStatus("pendente")}
+                  className="whitespace-nowrap"
+                >
+                  Pendentes
+                </Button>
+                <Button
+                  variant={filterStatus === "aprovado" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilterStatus("aprovado")}
+                  className="whitespace-nowrap"
+                >
+                  Aprovados
+                </Button>
+                <Button
+                  variant={filterPosition === "goleiro" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilterPosition(filterPosition === "goleiro" ? "all" : "goleiro")}
+                  className="whitespace-nowrap"
+                >
+                  🥅 Goleiros
+                </Button>
+                <Button
+                  variant={filterPosition === "defensor" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilterPosition(filterPosition === "defensor" ? "all" : "defensor")}
+                  className="whitespace-nowrap"
+                >
+                  🛡️ Defensores
+                </Button>
+                <Button
+                  variant={filterPosition === "meio-campista" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilterPosition(filterPosition === "meio-campista" ? "all" : "meio-campista")}
+                  className="whitespace-nowrap"
+                >
+                  ⚙️ Meias
+                </Button>
+                <Button
+                  variant={filterPosition === "atacante" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilterPosition(filterPosition === "atacante" ? "all" : "atacante")}
+                  className="whitespace-nowrap"
+                >
+                  ⚽ Atacantes
+                </Button>
+              </div>
+            </div>
+
+            {/* Filtros Completos - Desktop */}
+            <div className="mb-6 space-y-4 hidden md:block">
               <div className="flex items-center gap-2 text-muted-foreground mb-2">
                 <Filter className="h-5 w-5" />
                 <span className="font-semibold">Filtros</span>
@@ -760,7 +855,29 @@ export default function ManagePlayers() {
             {/* Mobile: Cards */}
             <div className="md:hidden space-y-3">
               {loading ? (
-                <div className="text-center py-8">Carregando...</div>
+                // Skeleton Loading
+                Array.from({ length: 3 }).map((_, i) => (
+                  <Card key={i} className="border-border">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-5 w-32" />
+                          <Skeleton className="h-4 w-48" />
+                        </div>
+                        <Skeleton className="h-6 w-20" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-4 w-32" />
+                      </div>
+                      <div className="flex gap-2">
+                        <Skeleton className="h-11 flex-1" />
+                        <Skeleton className="h-11 flex-1" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
               ) : filteredPlayers.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   Nenhum jogador encontrado

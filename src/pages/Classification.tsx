@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -13,7 +14,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Info } from "lucide-react";
+import { Info, RefreshCw, Trophy, Target } from "lucide-react";
+import { toast } from "sonner";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +51,7 @@ export default function Classification() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isPlayer, setIsPlayer] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [filterType, setFilterType] = useState<"all" | "top" | "goals">("all");
 
   useEffect(() => {
     checkAdmin();
@@ -75,6 +79,7 @@ export default function Classification() {
   };
 
   const loadStats = async () => {
+    setLoading(true);
     try {
       // Fetch directly from player_rankings table
       const { data: rankings, error } = await supabase
@@ -118,8 +123,47 @@ export default function Classification() {
     }
   };
 
+  const { isRefreshing, pullDistance } = usePullToRefresh({
+    onRefresh: async () => {
+      await loadStats();
+      toast.success("Classificação atualizada!");
+    },
+    enabled: true,
+  });
+
+  const getFilteredStats = () => {
+    switch (filterType) {
+      case "top":
+        return stats.slice(0, 10);
+      case "goals":
+        return [...stats].sort((a, b) => b.gols - a.gols).slice(0, 10);
+      default:
+        return stats;
+    }
+  };
+
+  const filteredStats = getFilteredStats();
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Pull to Refresh Indicator */}
+      {(pullDistance > 0 || isRefreshing) && (
+        <div 
+          className="fixed top-0 left-0 right-0 flex justify-center items-center z-50 transition-all"
+          style={{ 
+            transform: `translateY(${Math.min(pullDistance, 60)}px)`,
+            opacity: Math.min(pullDistance / 60, 1)
+          }}
+        >
+          <div className="bg-primary/90 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="text-sm font-medium">
+              {isRefreshing ? 'Atualizando...' : 'Solte para atualizar'}
+            </span>
+          </div>
+        </div>
+      )}
+
       <Header isAdmin={isAdmin} isPlayer={isPlayer} />
       <main className="container mx-auto px-4 py-8 flex-1">
         <Card className="card-glow bg-card border-border">
@@ -175,8 +219,48 @@ export default function Classification() {
             </div>
           </CardHeader>
           <CardContent>
+            {/* Quick Filters - Mobile Only */}
+            <div className="lg:hidden mb-4">
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth pb-2">
+                <Button
+                  variant={filterType === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilterType("all")}
+                  className="whitespace-nowrap flex items-center gap-1"
+                >
+                  <Trophy className="h-4 w-4" />
+                  Todos
+                </Button>
+                <Button
+                  variant={filterType === "top" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilterType("top")}
+                  className="whitespace-nowrap flex items-center gap-1"
+                >
+                  🏆 Top 10
+                </Button>
+                <Button
+                  variant={filterType === "goals" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilterType("goals")}
+                  className="whitespace-nowrap flex items-center gap-1"
+                >
+                  <Target className="h-4 w-4" />
+                  Artilheiros
+                </Button>
+              </div>
+            </div>
+
             {loading ? (
-              <div className="text-center py-8">Carregando...</div>
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-muted/10 rounded-lg">
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                    <Skeleton className="h-5 flex-1" />
+                    <Skeleton className="h-6 w-16" />
+                  </div>
+                ))}
+              </div>
             ) : (
               <>
                 {/* Desktop: Tabela completa */}
@@ -201,7 +285,7 @@ export default function Classification() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {stats.map((stat, index) => (
+                      {filteredStats.map((stat, index) => (
                         <TableRow key={stat.player_id} className="border-border hover:bg-muted/30">
                           <TableCell className="font-bold text-primary">{index + 1}</TableCell>
                           <TableCell className="font-medium">{stat.nickname}</TableCell>
@@ -245,7 +329,7 @@ export default function Classification() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {stats.map((stat, index) => (
+                            {filteredStats.map((stat, index) => (
                               <TableRow key={stat.player_id} className="border-border">
                                 <TableCell className="font-bold text-primary">{index + 1}</TableCell>
                                 <TableCell className="font-medium">{stat.nickname}</TableCell>
@@ -274,7 +358,7 @@ export default function Classification() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {stats.map((stat) => (
+                            {filteredStats.map((stat) => (
                               <TableRow key={stat.player_id} className="border-border">
                                 <TableCell className="font-medium min-w-[120px]">{stat.nickname}</TableCell>
                                 <TableCell className="text-center">{stat.gols}</TableCell>

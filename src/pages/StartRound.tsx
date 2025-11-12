@@ -4,9 +4,12 @@ import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { RefreshCw } from "lucide-react";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 
 export default function StartRound() {
   const navigate = useNavigate();
@@ -44,6 +47,7 @@ export default function StartRound() {
   }, [isAdmin]);
 
   const loadAvailableRounds = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from("rounds")
@@ -59,6 +63,14 @@ export default function StartRound() {
       setLoading(false);
     }
   };
+
+  const { isRefreshing, pullDistance } = usePullToRefresh({
+    onRefresh: async () => {
+      await loadAvailableRounds();
+      toast.success("Rodadas atualizadas!");
+    },
+    enabled: true,
+  });
 
   const editRound = (roundId: string) => {
     navigate(`/admin/round/manage?round=${roundId}`);
@@ -107,6 +119,24 @@ Esta ação não pode ser desfeita.`)) {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Pull to Refresh Indicator */}
+      {(pullDistance > 0 || isRefreshing) && (
+        <div 
+          className="fixed top-0 left-0 right-0 flex justify-center items-center z-50 transition-all"
+          style={{ 
+            transform: `translateY(${Math.min(pullDistance, 60)}px)`,
+            opacity: Math.min(pullDistance / 60, 1)
+          }}
+        >
+          <div className="bg-primary/90 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="text-sm font-medium">
+              {isRefreshing ? 'Atualizando...' : 'Solte para atualizar'}
+            </span>
+          </div>
+        </div>
+      )}
+
       <Header isAdmin={isAdmin} />
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border max-w-4xl mx-auto">
@@ -184,7 +214,27 @@ Esta ação não pode ser desfeita.`)) {
 
                 {/* Mobile: Cards */}
                 <div className="md:hidden space-y-3">
-                  {rounds.map((round) => (
+                  {loading ? (
+                    // Skeleton Loading
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <Card key={i} className="border-border">
+                        <CardContent className="p-4">
+                          <div className="flex justify-between items-center mb-2">
+                            <div className="space-y-2">
+                              <Skeleton className="h-4 w-24" />
+                              <Skeleton className="h-5 w-32" />
+                            </div>
+                            <Skeleton className="h-6 w-24" />
+                          </div>
+                          <div className="flex gap-2 mt-3">
+                            <Skeleton className="h-11 flex-1" />
+                            <Skeleton className="h-11 flex-1" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    rounds.map((round) => (
                     <Card key={round.id} className="border-border">
                       <CardContent className="p-4">
                         <div className="flex justify-between items-center mb-2">
@@ -222,7 +272,8 @@ Esta ação não pode ser desfeita.`)) {
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                    ))
+                  )}
                 </div>
               </>
             )}

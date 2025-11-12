@@ -3,9 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { RefreshCw } from "lucide-react";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 
 export default function ManageTeams() {
   const navigate = useNavigate();
@@ -44,6 +47,7 @@ export default function ManageTeams() {
   }, [isAdmin]);
 
   const loadPendingRounds = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from("rounds")
@@ -61,6 +65,14 @@ export default function ManageTeams() {
       setLoading(false);
     }
   };
+
+  const { isRefreshing, pullDistance } = usePullToRefresh({
+    onRefresh: async () => {
+      await loadPendingRounds();
+      toast.success("Times atualizados!");
+    },
+    enabled: true,
+  });
 
   const deleteRound = async (roundId: string, roundNumber: number) => {
     try {
@@ -104,6 +116,24 @@ export default function ManageTeams() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Pull to Refresh Indicator */}
+      {(pullDistance > 0 || isRefreshing) && (
+        <div 
+          className="fixed top-0 left-0 right-0 flex justify-center items-center z-50 transition-all"
+          style={{ 
+            transform: `translateY(${Math.min(pullDistance, 60)}px)`,
+            opacity: Math.min(pullDistance / 60, 1)
+          }}
+        >
+          <div className="bg-primary/90 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="text-sm font-medium">
+              {isRefreshing ? 'Atualizando...' : 'Solte para atualizar'}
+            </span>
+          </div>
+        </div>
+      )}
+
       <Header isAdmin={isAdmin} />
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border">
@@ -177,7 +207,25 @@ export default function ManageTeams() {
 
                 {/* Mobile: Cards */}
                 <div className="md:hidden space-y-3">
-                  {rounds.map((round) => (
+                  {loading ? (
+                    // Skeleton Loading
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <Card key={i} className="border-border">
+                        <CardContent className="p-4">
+                          <div className="mb-3 space-y-2">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-5 w-32" />
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <Skeleton className="h-11 w-full" />
+                            <Skeleton className="h-11 w-full" />
+                            <Skeleton className="h-11 w-full" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    rounds.map((round) => (
                     <Card key={round.id} className="border-border">
                       <CardContent className="p-4">
                         <div className="mb-3">
@@ -212,7 +260,8 @@ export default function ManageTeams() {
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                    ))
+                  )}
                 </div>
                 <Button onClick={() => navigate("/admin/teams")} variant="outline" className="w-full mt-4 min-h-[44px]">
                   Voltar para Times
