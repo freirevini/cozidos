@@ -4,15 +4,12 @@ import { Menu, X, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import logo from "@/assets/novo-logo.png";
 import { SlideTabs } from "@/components/ui/slide-tabs";
 
-interface HeaderProps {
-  isAdmin?: boolean;
-  isPlayer?: boolean;
-}
-
-export default function Header({ isAdmin = false, isPlayer = true }: HeaderProps) {
+export default function Header() {
+  const { isAdmin, isPlayer } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);

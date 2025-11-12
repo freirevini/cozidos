@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,8 +39,8 @@ const positionLabels: Record<string, string> = {
 };
 
 export default function DefineTeams() {
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [numTeams, setNumTeams] = useState<number>(0);
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
@@ -49,27 +50,13 @@ export default function DefineTeams() {
   const [scheduledDate, setScheduledDate] = useState<string>("");
 
   useEffect(() => {
-    checkAdmin();
-    loadAvailablePlayers();
-  }, []);
-
-  const checkAdmin = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .single();
-      
-      if (data?.role !== "admin") {
-        toast.error("Acesso não autorizado");
-        navigate("/");
-        return;
-      }
-      setIsAdmin(data?.role === "admin");
+    if (!isAdmin) {
+      navigate("/");
+      toast.error("Acesso não autorizado");
+    } else {
+      loadAvailablePlayers();
     }
-  };
+  }, [isAdmin, navigate]);
 
   const loadAvailablePlayers = async () => {
     try {
@@ -327,7 +314,7 @@ export default function DefineTeams() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header isAdmin={isAdmin} />
+      <Header />
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border">
           <CardHeader>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,40 +44,24 @@ const teamNames: Record<string, string> = {
 };
 
 export default function ManageRounds() {
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const roundId = searchParams.get("round");
   
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [round, setRound] = useState<Round | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
 
   useEffect(() => {
-    checkAdmin();
-    if (roundId) {
+    if (!isAdmin) {
+      toast.error("Acesso não autorizado");
+      navigate("/");
+    } else if (roundId) {
       loadRoundData();
     }
-  }, [roundId]);
-
-  const checkAdmin = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .single();
-      
-      if (data?.role !== "admin") {
-        toast.error("Acesso não autorizado");
-        navigate("/");
-        return;
-      }
-      setIsAdmin(data?.role === "admin");
-    }
-  };
+  }, [isAdmin, roundId, navigate]);
 
   const loadRoundData = async () => {
     if (!roundId) return;
@@ -458,7 +443,7 @@ export default function ManageRounds() {
   if (!roundId) {
     return (
       <div className="min-h-screen bg-background">
-        <Header isAdmin={isAdmin} />
+        <Header />
         <main className="container mx-auto px-4 py-8">
           <Card className="card-glow bg-card border-border">
             <CardContent className="py-8 text-center">
@@ -475,7 +460,7 @@ export default function ManageRounds() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header isAdmin={isAdmin} />
+      <Header />
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border">
           <CardHeader>

@@ -253,7 +253,7 @@ export default function Matches() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header isAdmin={isAdmin} />
+      <Header />
       
       {/* Navegação de Rodadas - Sticky Header */}
       <div className="sticky top-0 z-10 bg-background border-b border-border">

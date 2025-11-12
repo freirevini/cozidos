@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -42,15 +43,14 @@ const positionMap: Record<string, string> = {
 };
 
 export default function ViewTeams() {
+  const { isAdmin } = useAuth();
   const [rounds, setRounds] = useState<Round[]>([]);
   const [selectedRound, setSelectedRound] = useState<string>("");
   const [teamPlayers, setTeamPlayers] = useState<TeamPlayer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    checkAdmin();
     loadRounds();
   }, []);
 
@@ -59,18 +59,6 @@ export default function ViewTeams() {
       loadTeamPlayers();
     }
   }, [selectedRound]);
-
-  const checkAdmin = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .single();
-      setIsAdmin(data?.role === "admin");
-    }
-  };
 
   const loadRounds = async () => {
     try {
@@ -142,7 +130,7 @@ export default function ViewTeams() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header isAdmin={isAdmin} />
+      <Header />
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border">
           <CardHeader>

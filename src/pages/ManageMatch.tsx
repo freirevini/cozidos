@@ -457,7 +457,7 @@ export default function ManageMatch() {
   if (loading || !match) {
     return (
       <div className="min-h-screen bg-background">
-        <Header isAdmin={isAdmin} />
+        <Header />
         <main className="container mx-auto px-4 py-8">
           <div className="text-center">Carregando...</div>
         </main>
@@ -467,7 +467,7 @@ export default function ManageMatch() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header isAdmin={isAdmin} />
+      <Header />
       
       {/* Cronômetro fixo no topo - apenas quando em andamento */}
       {match.status === 'in_progress' && (

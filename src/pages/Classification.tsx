@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,37 +47,15 @@ interface PlayerStats {
 }
 
 export default function Classification() {
+  const { isAdmin, isPlayer } = useAuth();
   const [stats, setStats] = useState<PlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isPlayer, setIsPlayer] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [filterType, setFilterType] = useState<"all" | "top" | "goals">("all");
 
   useEffect(() => {
-    checkAdmin();
     loadStats();
   }, []);
-
-  const checkAdmin = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .single();
-      setIsAdmin(data?.role === "admin");
-
-      // Verificar se é jogador
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_player")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      setIsPlayer(profile?.is_player || false);
-    }
-  };
 
   const loadStats = async () => {
     setLoading(true);
@@ -164,7 +143,7 @@ export default function Classification() {
         </div>
       )}
 
-      <Header isAdmin={isAdmin} isPlayer={isPlayer} />
+      <Header />
       <main className="container mx-auto px-4 py-8 flex-1">
         <Card className="card-glow bg-card border-border">
           <CardHeader>

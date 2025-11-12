@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,39 +13,19 @@ import { RefreshCw } from "lucide-react";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 
 export default function StartRound() {
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    checkAdmin();
-  }, []);
-
-  const checkAdmin = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .single();
-      
-      if (data?.role !== "admin") {
-        toast.error("Acesso não autorizado");
-        navigate("/");
-        return;
-      }
-      setIsAdmin(data?.role === "admin");
-    }
-  };
-
   const [rounds, setRounds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (!isAdmin) {
+      toast.error("Acesso não autorizado");
+      navigate("/");
+    } else {
       loadAvailableRounds();
     }
-  }, [isAdmin]);
+  }, [isAdmin, navigate]);
 
   const loadAvailableRounds = async () => {
     setLoading(true);
@@ -137,7 +118,7 @@ Esta ação não pode ser desfeita.`)) {
         </div>
       )}
 
-      <Header isAdmin={isAdmin} />
+      <Header />
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border max-w-4xl mx-auto">
           <CardHeader>

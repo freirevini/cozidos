@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,16 +42,15 @@ const levelMap: Record<string, string> = {
 };
 
 export default function Profile() {
+  const { isAdmin, isPlayer: isPlayerFromAuth } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [isPlayer, setIsPlayer] = useState(false);
   const [userId, setUserId] = useState<string>("");
   const { toast } = useToast();
 
   useEffect(() => {
-    checkAdmin();
     loadProfile();
     loadStats();
   }, []);
@@ -80,17 +80,6 @@ export default function Profile() {
     };
   }, [userId]);
 
-  const checkAdmin = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .single();
-      setIsAdmin(data?.role === "admin");
-    }
-  };
 
   const loadProfile = async () => {
     try {
@@ -172,7 +161,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header isAdmin={isAdmin} isPlayer={isPlayer} />
+      <Header />
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border max-w-2xl mx-auto">
           <CardHeader>

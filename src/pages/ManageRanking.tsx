@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,9 +56,10 @@ interface EditedRanking {
 }
 
 const ManageRanking = () => {
+  const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [rankings, setRankings] = useState<PlayerRanking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [importing, setImporting] = useState(false);
   const [editedRankings, setEditedRankings] = useState<Map<string, Partial<PlayerRanking>>>(new Map());
   const [saving, setSaving] = useState(false);
@@ -65,24 +68,17 @@ const ManageRanking = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    checkAdmin();
-    loadRankings();
-  }, []);
-
-  const checkAdmin = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setIsAdmin(false);
-      return;
+    if (!isAdmin) {
+      navigate("/");
+      toast({
+        title: "Acesso negado",
+        description: "Acesso restrito a administradores.",
+        variant: "destructive",
+      });
+    } else {
+      loadRankings();
     }
-
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id);
-
-    setIsAdmin(roles?.some((r) => r.role === "admin") || false);
-  };
+  }, [isAdmin, navigate]);
 
   const loadRankings = async () => {
     setLoading(true);
@@ -450,7 +446,7 @@ const ManageRanking = () => {
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-background">
-        <Header isAdmin={isAdmin} />
+        <Header />
         <div className="container mx-auto px-4 py-8">
           <Card className="bg-card/50 border-primary/20">
             <CardHeader>
@@ -469,7 +465,7 @@ const ManageRanking = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header isAdmin={isAdmin} />
+      <Header isAdmin={true} />
       <div className="container mx-auto px-4 py-8">
         <Card className="bg-card/50 border-primary/20 shadow-card-glow">
           <CardHeader className="flex flex-row items-center justify-between">

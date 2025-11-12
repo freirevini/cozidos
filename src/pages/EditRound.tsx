@@ -239,7 +239,7 @@ export default function EditRound() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header isAdmin={isAdmin} />
+        <Header />
         <main className="container mx-auto px-4 py-8">
           <div className="text-center">Carregando...</div>
         </main>
@@ -249,7 +249,7 @@ export default function EditRound() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header isAdmin={isAdmin} />
+      <Header />
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border">
           <CardHeader>

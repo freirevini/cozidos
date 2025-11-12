@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,11 +61,11 @@ const positionLabels: Record<string, string> = {
 };
 
 export default function ManagePlayers() {
+  const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [players, setPlayers] = useState<Player[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const navigate = useNavigate();
 
   // Filtros
   const [searchTerm, setSearchTerm] = useState("");
@@ -502,7 +503,7 @@ export default function ManagePlayers() {
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-background">
-        <Header isAdmin={false} />
+        <Header />
         <main className="container mx-auto px-4 py-8">
           <Card>
             <CardContent className="py-8 text-center">
@@ -534,7 +535,7 @@ export default function ManagePlayers() {
         </div>
       )}
 
-      <Header isAdmin={isAdmin} />
+      <Header />
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between">
