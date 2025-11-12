@@ -554,9 +554,9 @@ export default function ManagePlayers() {
                   .from("profiles")
                   .update({
                     nickname: editingPlayerData.nickname,
-                    level: editingPlayerData.level,
-                    position: editingPlayerData.position,
-                    status: editingPlayerData.status,
+                    level: editingPlayerData.level as "A" | "B" | "C" | "D" | "E" | null,
+                    position: editingPlayerData.position as "goleiro" | "defensor" | "meio-campista" | "atacante" | null,
+                    status: editingPlayerData.status as "pendente" | "aprovado" | "congelado" | "rejeitado" | null,
                   })
                   .eq("id", editingPlayerData.id);
 
