@@ -18,14 +18,14 @@ Deno.serve(async (req) => {
 
     const { auth_user_id, email, birth_date, first_name, last_name, position } = await req.json()
 
-    // Validar dados
+    // Validar dados obrigatórios
     if (!auth_user_id || !email || !birth_date) {
       throw new Error('Dados incompletos: auth_user_id, email e birth_date são obrigatórios')
     }
 
     console.log('[link-player] Recebido:', { auth_user_id, email, birth_date, first_name, last_name, position })
 
-    // Gerar player_id (SHA256 de email + birthdate)
+    // Gerar player_id determinístico (SHA256 de email + birthdate)
     const raw = `${email.toLowerCase().trim()}|${birth_date}`
     const encoder = new TextEncoder()
     const data = encoder.encode(raw)
@@ -33,21 +33,36 @@ Deno.serve(async (req) => {
     const hashArray = Array.from(new Uint8Array(hashBuffer))
     const player_id = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
 
-    // Buscar por perfil existente com mesmo player_id
+    console.log('[link-player] player_id gerado:', player_id)
+
+    // Buscar perfil PRÉ-EXISTENTE (criado pelo admin) com mesmo player_id
     const { data: existingProfile, error: searchError } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .eq('player_id', player_id)
+      .is('user_id', null) // Apenas perfis SEM user_id (criados por admin)
       .maybeSingle()
 
     if (searchError) {
-      console.error('Erro ao buscar perfil existente:', searchError)
+      console.error('[link-player] Erro ao buscar perfil existente:', searchError)
+    }
+
+    // Buscar perfil TEMPORÁRIO criado pelo trigger handle_new_user
+    const { data: tempProfile, error: tempError } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('user_id', auth_user_id)
+      .is('player_id', null) // Perfil temporário sem player_id
+      .maybeSingle()
+
+    if (tempError) {
+      console.error('[link-player] Erro ao buscar perfil temporário:', tempError)
     }
 
     if (existingProfile) {
-      console.log('[link-player] Perfil existente encontrado:', existingProfile.id)
+      console.log('[link-player] ✅ MATCH ENCONTRADO! Perfil pré-existente:', existingProfile.id)
       
-      // Vincular usuário ao perfil existente (matching determinístico)
+      // Vincular user_id ao perfil pré-existente
       const { error: updateError } = await supabaseAdmin
         .from('profiles')
         .update({
@@ -60,8 +75,22 @@ Deno.serve(async (req) => {
         .eq('id', existingProfile.id)
 
       if (updateError) {
-        console.error('[link-player] Erro ao vincular:', updateError)
+        console.error('[link-player] Erro ao vincular perfil existente:', updateError)
         throw updateError
+      }
+
+      // CLEANUP: Deletar perfil temporário criado pelo trigger
+      if (tempProfile) {
+        console.log('[link-player] 🗑️ Deletando perfil temporário:', tempProfile.id)
+        const { error: deleteError } = await supabaseAdmin
+          .from('profiles')
+          .delete()
+          .eq('id', tempProfile.id)
+
+        if (deleteError) {
+          console.error('[link-player] Erro ao deletar perfil temporário:', deleteError)
+          // Não bloqueia o fluxo - só loga
+        }
       }
 
       return new Response(
@@ -75,49 +104,78 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     } else {
-      console.log('[link-player] Criando novo perfil de jogador')
+      console.log('[link-player] ❌ Nenhum perfil pré-existente encontrado. Atualizando perfil temporário.')
       
-      // Criar novo perfil
-      const fullName = `${first_name || ''} ${last_name || ''}`.trim() || 'Jogador'
-      
-      const { error: insertError } = await supabaseAdmin
-        .from('profiles')
-        .insert({
-          player_id,
-          user_id: auth_user_id,
-          email,
-          name: fullName,
-          first_name: first_name || 'Jogador',
-          last_name: last_name || '',
-          nickname: first_name || 'Jogador',
-          birth_date,
-          position,
-          is_player: true,
-          status: 'pendente',
-        })
+      if (tempProfile) {
+        // Atualizar perfil temporário com player_id e dados completos
+        const { error: updateError } = await supabaseAdmin
+          .from('profiles')
+          .update({
+            player_id,
+            position,
+            status: 'pendente', // Aguarda aprovação do admin
+          })
+          .eq('id', tempProfile.id)
 
-      if (insertError) {
-        console.error('[link-player] Erro ao criar perfil:', insertError)
-        throw insertError
+        if (updateError) {
+          console.error('[link-player] Erro ao atualizar perfil temporário:', updateError)
+          throw updateError
+        }
+
+        console.log('[link-player] ✅ Perfil temporário atualizado com player_id')
+
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            player_id,
+            linked: false,
+            created: true,
+            message: 'Cadastro realizado com sucesso! Aguarde aprovação do administrador para ser escalado em times.'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      } else {
+        // Fallback: criar perfil do zero (caso trigger tenha falhado)
+        console.log('[link-player] ⚠️ Perfil temporário não encontrado. Criando do zero.')
+        const fullName = `${first_name || ''} ${last_name || ''}`.trim() || 'Jogador'
+        
+        const { error: insertError } = await supabaseAdmin
+          .from('profiles')
+          .insert({
+            player_id,
+            user_id: auth_user_id,
+            email,
+            name: fullName,
+            first_name: first_name || 'Jogador',
+            last_name: last_name || '',
+            nickname: first_name || 'Jogador',
+            birth_date,
+            position,
+            is_player: true,
+            status: 'pendente',
+          })
+
+        if (insertError) {
+          console.error('[link-player] Erro ao criar perfil:', insertError)
+          throw insertError
+        }
+
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            player_id,
+            linked: false,
+            created: true,
+            message: 'Cadastro realizado com sucesso! Aguarde aprovação do administrador para ser escalado em times.'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
-      
-      console.log('[link-player] Novo perfil criado com sucesso')
-
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          player_id,
-          linked: false,
-          created: true,
-          message: 'Cadastro realizado com sucesso! Aguarde aprovação do administrador para ser escalado em times.'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
     }
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
-    console.error('Erro na função link-player:', error)
+    console.error('[link-player] ❌ ERRO GERAL:', error)
     return new Response(
       JSON.stringify({ ok: false, error: errorMessage }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
