@@ -465,7 +465,7 @@ const ManageRanking = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header isAdmin={true} />
+      <Header />
       <div className="container mx-auto px-4 py-8">
         <Card className="bg-card/50 border-primary/20 shadow-card-glow">
           <CardHeader className="flex flex-row items-center justify-between">
