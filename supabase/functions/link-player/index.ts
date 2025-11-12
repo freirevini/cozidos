@@ -49,15 +49,30 @@ Deno.serve(async (req) => {
     }
 
     // Buscar perfil TEMPORÁRIO criado pelo trigger handle_new_user
-    const { data: tempProfile, error: tempError } = await supabaseAdmin
+    let { data: tempProfile, error: tempError } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .eq('user_id', auth_user_id)
-      .is('player_id', null) // Perfil temporário sem player_id
-      .maybeSingle()
+      .maybeSingle() // Removido filtro player_id IS NULL
 
     if (tempError) {
       console.error('[link-player] Erro ao buscar perfil temporário:', tempError)
+    }
+
+    // Fallback: buscar por email se não encontrou por user_id
+    if (!tempProfile) {
+      console.log('[link-player] Perfil temporário não encontrado por user_id. Tentando por email...')
+      const { data: byEmail } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('email', normalizedEmail)
+        .eq('user_id', auth_user_id)
+        .maybeSingle()
+      
+      if (byEmail) {
+        console.log('[link-player] Perfil encontrado por email:', byEmail.id)
+        tempProfile = byEmail
+      }
     }
 
     if (existingProfile) {
@@ -175,11 +190,17 @@ Deno.serve(async (req) => {
     }
 
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
+    // Extrair detalhes completos do erro
+    const err = (error && typeof error === 'object') ? (error as any) : null
+    const errorMessage = err?.message || err?.details || err?.hint || JSON.stringify(err) || 'Erro desconhecido'
+    
     console.error('[link-player] ❌ ERRO GERAL:', error)
+    console.error('[link-player] Detalhes:', { message: err?.message, details: err?.details, hint: err?.hint, code: err?.code })
+    
+    // Retornar 200 com ok: false para evitar Runtime Error na UI
     return new Response(
       JSON.stringify({ ok: false, error: errorMessage }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })

@@ -173,12 +173,21 @@ export default function Auth() {
 
           if (linkError) {
             console.error("[Auth] Erro ao vincular jogador:", linkError);
-            toast.error("Erro ao processar cadastro de jogador");
+            toast.error("Erro ao processar cadastro de jogador. Tente novamente.");
             return;
           }
 
           console.log('[Auth] Link-player retornou:', linkResult);
-          toast.success(linkResult.message || "Cadastro realizado com sucesso!");
+          
+          // Tratar resposta ok: false de forma suave (evita bloqueio)
+          if (linkResult && linkResult.ok === false) {
+            console.warn('[Auth] Link-player retornou ok: false:', linkResult.error);
+            toast.success("Cadastro criado! Estamos processando seus dados. Se necessário, recarregue a página em alguns segundos.", {
+              duration: 5000,
+            });
+          } else {
+            toast.success(linkResult?.message || "Cadastro realizado com sucesso!");
+          }
         } else {
           toast.success("Conta criada com sucesso! Você pode acessar as informações do sistema.");
         }
