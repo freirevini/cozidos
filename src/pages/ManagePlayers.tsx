@@ -617,37 +617,6 @@ export default function ManagePlayers() {
       }
     } catch (error: any) {
       sonnerToast.error("Erro ao importar: " + error.message);
-    }
-  };
-
-  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setImporting(true);
-    try {
-      const fileExtension = file.name.split(".").pop()?.toLowerCase();
-
-      if (fileExtension === "csv") {
-        const text = await file.text();
-        Papa.parse(text, {
-          header: true,
-          complete: (results) => {
-            processImportedData(results.data);
-          },
-        });
-      } else if (fileExtension === "xlsx" || fileExtension === "xls") {
-        const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data);
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        processImportedData(jsonData);
-      } else {
-        sonnerToast.error("Formato inválido. Use arquivos .csv, .xlsx ou .xls");
-      }
-    } catch (error: any) {
-      sonnerToast.error("Erro ao importar: " + error.message);
     } finally {
       setImporting(false);
       event.target.value = "";
