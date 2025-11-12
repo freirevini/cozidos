@@ -675,7 +675,7 @@ export type Database = {
       }
       delete_player_by_id: { Args: { profile_id: string }; Returns: undefined }
       delete_player_complete: { Args: { p_profile_id: string }; Returns: Json }
-      generate_player_id: {
+      generate_player_key: {
         Args: { p_birth_date: string; p_email: string }
         Returns: string
       }

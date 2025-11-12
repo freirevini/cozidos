@@ -25,15 +25,16 @@ Deno.serve(async (req) => {
 
     console.log('[link-player] Recebido:', { auth_user_id, email, birth_date, first_name, last_name, position })
 
-    // Gerar player_id determinístico (SHA256 de email + birthdate)
-    const raw = `${email.toLowerCase().trim()}|${birth_date}`
-    const encoder = new TextEncoder()
-    const data = encoder.encode(raw)
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-    const hashArray = Array.from(new Uint8Array(hashBuffer))
-    const player_id = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+    // Gerar player_id determinístico (ddMMyyyy + email sanitizado)
+    // Exemplo: 02/10/1992 + vinicius@hotmail.com = 02101992viniciushotmailcom
+    const normalizedEmail = email.toLowerCase().trim()
+    const sanitizedEmail = normalizedEmail.replace(/[^a-z0-9]/g, '')
+    
+    // birth_date vem como YYYY-MM-DD do frontend
+    const [yyyy, mm, dd] = birth_date.split('-')
+    const player_id = `${dd}${mm}${yyyy}${sanitizedEmail}`
 
-    console.log('[link-player] player_id gerado:', player_id)
+    console.log('[link-player] player_id gerado:', player_id, `(de ${birth_date} + ${normalizedEmail})`)
 
     // Buscar perfil PRÉ-EXISTENTE (criado pelo admin) com mesmo player_id
     const { data: existingProfile, error: searchError } = await supabaseAdmin
