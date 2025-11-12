@@ -120,8 +120,6 @@ export default function ManagePlayers() {
       sonnerToast.error("Acesso negado: apenas administradores");
       return;
     }
-
-    setIsAdmin(true);
   };
 
   const loadPlayers = async () => {
