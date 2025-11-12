@@ -75,9 +75,13 @@ export default function ManagePlayers() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPosition, setFilterPosition] = useState<string>("all");
 
-  // Estados para inline editing
+  // Estados para inline editing (nickname - desktop)
   const [editingNickname, setEditingNickname] = useState<string | null>(null);
   const [nicknameValue, setNicknameValue] = useState("");
+
+  // Estados para edição completa (mobile)
+  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
+  const [editingPlayerData, setEditingPlayerData] = useState<Player | null>(null);
 
   // Estados para dialog de cadastro
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -498,6 +502,121 @@ export default function ManagePlayers() {
       loadPlayers();
     } catch (error: any) {
       sonnerToast.error("Erro ao cadastrar jogador: " + error.message);
+    }
+  };
+
+  // Funções para edição inline mobile
+  const handleEditPlayer = (player: Player) => {
+    setEditingPlayerId(player.id);
+    setEditingPlayerData({ ...player });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPlayerId(null);
+    setEditingPlayerData(null);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingPlayerData) return;
+
+    return new Promise<void>((resolve) => {
+      const dialog = document.createElement('div');
+      document.body.appendChild(dialog);
+      
+      const root = document.createElement('div');
+      dialog.appendChild(root);
+      
+      const cleanup = () => {
+        document.body.removeChild(dialog);
+        resolve();
+      };
+
+      import('react-dom/client').then(({ createRoot }) => {
+        const reactRoot = createRoot(root);
+        reactRoot.render(
+          <AlertDialogIcon
+            icon={UserCheck}
+            title="Salvar Alterações"
+            description="Deseja realmente salvar as alterações realizadas neste jogador?"
+            actionText="Salvar"
+            cancelText="Descartar"
+            variant="default"
+            open={true}
+            onOpenChange={(open) => {
+              if (!open) {
+                reactRoot.unmount();
+                cleanup();
+              }
+            }}
+            onAction={async () => {
+              try {
+                const { error } = await supabase
+                  .from("profiles")
+                  .update({
+                    nickname: editingPlayerData.nickname,
+                    level: editingPlayerData.level,
+                    position: editingPlayerData.position,
+                    status: editingPlayerData.status,
+                  })
+                  .eq("id", editingPlayerData.id);
+
+                if (error) throw error;
+
+                setPlayers(
+                  players.map((p) => (p.id === editingPlayerData.id ? editingPlayerData : p))
+                );
+
+                sonnerToast.success("Alterações salvas com sucesso!");
+                setEditingPlayerId(null);
+                setEditingPlayerData(null);
+              } catch (error: any) {
+                sonnerToast.error("Erro ao salvar: " + error.message);
+              }
+              
+              reactRoot.unmount();
+              cleanup();
+            }}
+            onCancel={() => {
+              sonnerToast.info("Alterações descartadas");
+              setEditingPlayerId(null);
+              setEditingPlayerData(null);
+              reactRoot.unmount();
+              cleanup();
+            }}
+          />
+        );
+      });
+    });
+  };
+
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    try {
+      const fileExtension = file.name.split(".").pop()?.toLowerCase();
+
+      if (fileExtension === "csv") {
+        const text = await file.text();
+        Papa.parse(text, {
+          header: true,
+          complete: (results) => {
+            processImportedData(results.data);
+          },
+        });
+      } else if (fileExtension === "xlsx" || fileExtension === "xls") {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        processImportedData(jsonData);
+      } else {
+        sonnerToast.error("Formato inválido. Use arquivos .csv, .xlsx ou .xls");
+      }
+    } catch (error: any) {
+      sonnerToast.error("Erro ao importar: " + error.message);
     }
   };
 
@@ -1047,74 +1166,196 @@ export default function ManagePlayers() {
                   Nenhum jogador encontrado
                 </div>
               ) : (
-                filteredPlayers.map((player) => (
-                  <Card key={player.id} className="border-border">
-                    <CardContent className="p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1">
-                          <h3 className="font-bold text-base">
-                            {player.nickname || player.first_name || player.name}
-                          </h3>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {player.email || "-"}
-                          </p>
+                filteredPlayers.map((player) => {
+                  const isEditing = editingPlayerId === player.id;
+                  const editData = isEditing && editingPlayerData ? editingPlayerData : player;
+
+                  return (
+                    <Card key={player.id} className="border-border">
+                      <CardContent className="p-4">
+                        {/* Cabeçalho */}
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1">
+                            <h3 className="font-bold text-base">
+                              {player.nickname || player.first_name || player.name}
+                            </h3>
+                            <p className="text-sm text-muted-foreground truncate">
+                              {player.email || "-"}
+                            </p>
+                          </div>
+                          {!isEditing && (
+                            <Badge className={statusColors[player.status || "pendente"]}>
+                              {statusLabels[player.status || "pendente"]}
+                            </Badge>
+                          )}
                         </div>
-                        <Badge className={statusColors[player.status || "pendente"]}>
-                          {statusLabels[player.status || "pendente"]}
-                        </Badge>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-                        <div>
-                          <span className="text-muted-foreground">Idade:</span>{" "}
-                          <span className="font-medium">{calculateAge(player.birth_date)}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Nível:</span>{" "}
-                          <span className="font-medium">{player.level || "-"}</span>
-                        </div>
-                        <div className="col-span-2">
-                          <span className="text-muted-foreground">Posição:</span>{" "}
-                          <span className="font-medium">{positionLabels[player.position || ""] || "-"}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-2 flex-wrap">
-                        {player.status === "pendente" && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="default"
-                              onClick={() => approvePlayer(player.id, player.name)}
-                              className="bg-green-600 hover:bg-green-700 flex-1 min-h-[44px]"
-                            >
-                              <UserCheck className="h-4 w-4 mr-1" />
-                              Aprovar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => rejectPlayer(player.id, player.name)}
-                              className="flex-1 min-h-[44px]"
-                            >
-                              <UserX className="h-4 w-4 mr-1" />
-                              Rejeitar
-                            </Button>
-                          </>
+                        
+                        {/* Campos - Modo Visualização ou Edição */}
+                        {!isEditing ? (
+                          <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                            <div>
+                              <span className="text-muted-foreground">Idade:</span>{" "}
+                              <span className="font-medium">{calculateAge(player.birth_date)}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Nível:</span>{" "}
+                              <span className="font-medium">{player.level || "-"}</span>
+                            </div>
+                            <div className="col-span-2">
+                              <span className="text-muted-foreground">Posição:</span>{" "}
+                              <span className="font-medium">{positionLabels[player.position || ""] || "-"}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 mb-3">
+                            {/* Apelido */}
+                            <div className="space-y-1">
+                              <Label htmlFor={`nickname-${player.id}`} className="text-xs text-muted-foreground">
+                                Apelido
+                              </Label>
+                              <Input
+                                id={`nickname-${player.id}`}
+                                value={editData.nickname || ""}
+                                onChange={(e) => setEditingPlayerData(prev => prev ? { ...prev, nickname: e.target.value } : null)}
+                                className="h-11 text-base"
+                              />
+                            </div>
+
+                            {/* Nível */}
+                            <div className="space-y-1">
+                              <Label htmlFor={`level-${player.id}`} className="text-xs text-muted-foreground">
+                                Nível
+                              </Label>
+                              <Select
+                                value={editData.level || ""}
+                                onValueChange={(value) => setEditingPlayerData(prev => prev ? { ...prev, level: value } : null)}
+                              >
+                                <SelectTrigger id={`level-${player.id}`} className="h-11 text-base">
+                                  <SelectValue placeholder="Selecione o nível" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="A">A</SelectItem>
+                                  <SelectItem value="B">B</SelectItem>
+                                  <SelectItem value="C">C</SelectItem>
+                                  <SelectItem value="D">D</SelectItem>
+                                  <SelectItem value="E">E</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Posição */}
+                            <div className="space-y-1">
+                              <Label htmlFor={`position-${player.id}`} className="text-xs text-muted-foreground">
+                                Posição
+                              </Label>
+                              <Select
+                                value={editData.position || ""}
+                                onValueChange={(value) => setEditingPlayerData(prev => prev ? { ...prev, position: value } : null)}
+                              >
+                                <SelectTrigger id={`position-${player.id}`} className="h-11 text-base">
+                                  <SelectValue placeholder="Selecione a posição" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="goleiro">Goleiro</SelectItem>
+                                  <SelectItem value="defensor">Defensor</SelectItem>
+                                  <SelectItem value="meio-campista">Meio-Campista</SelectItem>
+                                  <SelectItem value="atacante">Atacante</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Status */}
+                            <div className="space-y-1">
+                              <Label htmlFor={`status-${player.id}`} className="text-xs text-muted-foreground">
+                                Status
+                              </Label>
+                              <Select
+                                value={editData.status || "pendente"}
+                                onValueChange={(value) => setEditingPlayerData(prev => prev ? { ...prev, status: value } : null)}
+                              >
+                                <SelectTrigger id={`status-${player.id}`} className="h-11 text-base">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="pendente">Pendente</SelectItem>
+                                  <SelectItem value="aprovado">Aprovado</SelectItem>
+                                  <SelectItem value="congelado">Congelado</SelectItem>
+                                  <SelectItem value="rejeitado">Rejeitado</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
                         )}
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => deletePlayer(player.id, player.name, player.email)}
-                          className={`min-h-[44px] ${player.status === "pendente" ? "w-full" : "flex-1"}`}
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Excluir
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
+                        
+                        {/* Botões */}
+                        <div className="flex gap-2 flex-wrap">
+                          {!isEditing ? (
+                            <>
+                              {player.status === "pendente" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    onClick={() => approvePlayer(player.id, player.name)}
+                                    className="bg-green-600 hover:bg-green-700 flex-1 min-h-[44px]"
+                                  >
+                                    <UserCheck className="h-4 w-4 mr-1" />
+                                    Aprovar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => rejectPlayer(player.id, player.name)}
+                                    className="flex-1 min-h-[44px]"
+                                  >
+                                    <UserX className="h-4 w-4 mr-1" />
+                                    Rejeitar
+                                  </Button>
+                                </>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEditPlayer(player)}
+                                className={`min-h-[44px] ${player.status === "pendente" ? "w-full" : "flex-1"}`}
+                              >
+                                Editar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => deletePlayer(player.id, player.name, player.email)}
+                                className={`min-h-[44px] ${player.status === "pendente" ? "w-full" : "flex-1"}`}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Excluir
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={handleSaveEdit}
+                                className="flex-1 min-h-[44px] bg-primary hover:bg-primary/90"
+                              >
+                                Salvar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleCancelEdit}
+                                className="flex-1 min-h-[44px]"
+                              >
+                                Cancelar
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
               )}
             </div>
           </CardContent>
