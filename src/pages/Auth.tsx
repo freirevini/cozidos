@@ -134,6 +134,9 @@ export default function Auth() {
       // Garantir metadados completos para o trigger handle_new_user
       const fullName = `${validation.data.first_name} ${validation.data.last_name}`.trim();
       
+      // Normalizar data de nascimento no formato ISO (YYYY-MM-DD)
+      const birthIso = birthDate ? new Date(birthDate).toISOString().slice(0, 10) : null;
+      
       const { data, error } = await supabase.auth.signUp({
         email: validation.data.email,
         password: validation.data.password,
@@ -143,7 +146,7 @@ export default function Auth() {
             first_name: validation.data.first_name,
             last_name: validation.data.last_name,
             nickname: validation.data.first_name || validation.data.email,
-            birth_date: validation.data.birthDate,
+            birth_date: birthIso,
             is_player: isPlayer === "sim",
           },
           emailRedirectTo: `${window.location.origin}/`,
@@ -161,7 +164,7 @@ export default function Auth() {
             body: {
               auth_user_id: data.user.id,
               email: validation.data.email,
-              birth_date: birthDate,
+              birth_date: birthIso,
               first_name: validation.data.first_name,
               last_name: validation.data.last_name,
               position: newPlayer.position,
