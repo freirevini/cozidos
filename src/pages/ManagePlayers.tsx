@@ -8,9 +8,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, Search, Filter, UserCheck, UserX, AlertTriangle } from "lucide-react";
+import { Trash2, Search, Filter, UserCheck, UserX, AlertTriangle, UserPlus } from "lucide-react";
 import { AlertDialogIcon } from "@/components/ui/alert-dialog-icon";
 import { toast as sonnerToast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Player {
   id: string;
@@ -63,6 +71,18 @@ export default function ManagePlayers() {
   // Estados para inline editing
   const [editingNickname, setEditingNickname] = useState<string | null>(null);
   const [nicknameValue, setNicknameValue] = useState("");
+
+  // Estados para dialog de cadastro
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    first_name: "",
+    last_name: "",
+    nickname: "",
+    email: "",
+    birth_date: "",
+    level: "",
+    position: "",
+  });
 
   useEffect(() => {
     checkAdmin();
@@ -389,6 +409,84 @@ export default function ManagePlayers() {
     setEditingNickname(null);
   };
 
+  const handleCreatePlayer = async () => {
+    // Validações
+    if (!formData.first_name || !formData.last_name || !formData.email || !formData.birth_date || !formData.level || !formData.position) {
+      sonnerToast.error("Preencha todos os campos obrigatórios");
+      return;
+    }
+
+    // Validar email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      sonnerToast.error("E-mail inválido");
+      return;
+    }
+
+    // Validar data de nascimento
+    const birthDate = new Date(formData.birth_date);
+    const today = new Date();
+    if (birthDate > today) {
+      sonnerToast.error("Data de nascimento não pode ser no futuro");
+      return;
+    }
+    if (birthDate < new Date("1900-01-01")) {
+      sonnerToast.error("Data de nascimento inválida");
+      return;
+    }
+
+    try {
+      // Normalizar email
+      const normalizedEmail = formData.email.toLowerCase().trim();
+
+      // Verificar duplicidade de email
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", normalizedEmail)
+        .maybeSingle();
+
+      if (existing) {
+        sonnerToast.error("Já existe um jogador com este e-mail");
+        return;
+      }
+
+      // Inserir novo perfil
+      const { error } = await supabase
+        .from("profiles")
+        .insert([{
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          nickname: formData.nickname || formData.first_name,
+          name: `${formData.first_name} ${formData.last_name}`,
+          email: normalizedEmail,
+          birth_date: formData.birth_date,
+          level: formData.level as "A" | "B" | "C" | "D" | "E",
+          position: formData.position as "goleiro" | "defensor" | "meio-campista" | "atacante",
+          is_player: true,
+          status: "aprovado" as "aprovado",
+          user_id: null,
+        }]);
+
+      if (error) throw error;
+
+      sonnerToast.success("Jogador cadastrado com sucesso!");
+      setAddDialogOpen(false);
+      setFormData({
+        first_name: "",
+        last_name: "",
+        nickname: "",
+        email: "",
+        birth_date: "",
+        level: "",
+        position: "",
+      });
+      loadPlayers();
+    } catch (error: any) {
+      sonnerToast.error("Erro ao cadastrar jogador: " + error.message);
+    }
+  };
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-background">
@@ -409,10 +507,17 @@ export default function ManagePlayers() {
       <Header isAdmin={isAdmin} />
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-3xl font-bold text-primary glow-text">
               Gerenciar Jogadores
             </CardTitle>
+            <Button 
+              onClick={() => setAddDialogOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <UserPlus className="h-4 w-4" />
+              Cadastrar Novo Jogador
+            </Button>
           </CardHeader>
           <CardContent>
             {/* Filtros */}
@@ -652,6 +757,154 @@ export default function ManagePlayers() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Dialog de Cadastro */}
+        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold text-primary">
+                Cadastrar Novo Jogador
+              </DialogTitle>
+              <DialogDescription>
+                Preencha os dados do jogador. Ele será cadastrado como aprovado e poderá ser escalado imediatamente.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Nome */}
+                <div className="space-y-2">
+                  <Label htmlFor="first_name">
+                    Nome <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="first_name"
+                    placeholder="Ex: João"
+                    value={formData.first_name}
+                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                  />
+                </div>
+
+                {/* Sobrenome */}
+                <div className="space-y-2">
+                  <Label htmlFor="last_name">
+                    Sobrenome <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="last_name"
+                    placeholder="Ex: Silva"
+                    value={formData.last_name}
+                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                  />
+                </div>
+
+                {/* Apelido */}
+                <div className="space-y-2">
+                  <Label htmlFor="nickname">Apelido</Label>
+                  <Input
+                    id="nickname"
+                    placeholder="Ex: João (opcional)"
+                    value={formData.nickname}
+                    onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+                  />
+                </div>
+
+                {/* Email */}
+                <div className="space-y-2">
+                  <Label htmlFor="email">
+                    E-mail <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Ex: joao@email.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
+
+                {/* Data de Nascimento */}
+                <div className="space-y-2">
+                  <Label htmlFor="birth_date">
+                    Data de Nascimento <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="birth_date"
+                    type="date"
+                    value={formData.birth_date}
+                    onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
+                  />
+                </div>
+
+                {/* Nível */}
+                <div className="space-y-2">
+                  <Label htmlFor="level">
+                    Nível <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={formData.level}
+                    onValueChange={(value) => setFormData({ ...formData, level: value })}
+                  >
+                    <SelectTrigger id="level">
+                      <SelectValue placeholder="Selecione o nível" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A">A</SelectItem>
+                      <SelectItem value="B">B</SelectItem>
+                      <SelectItem value="C">C</SelectItem>
+                      <SelectItem value="D">D</SelectItem>
+                      <SelectItem value="E">E</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Posição */}
+                <div className="space-y-2">
+                  <Label htmlFor="position">
+                    Posição <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={formData.position}
+                    onValueChange={(value) => setFormData({ ...formData, position: value })}
+                  >
+                    <SelectTrigger id="position">
+                      <SelectValue placeholder="Selecione a posição" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="goleiro">Goleiro</SelectItem>
+                      <SelectItem value="defensor">Defensor</SelectItem>
+                      <SelectItem value="meio-campista">Meio-Campista</SelectItem>
+                      <SelectItem value="atacante">Atacante</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setAddDialogOpen(false);
+                  setFormData({
+                    first_name: "",
+                    last_name: "",
+                    nickname: "",
+                    email: "",
+                    birth_date: "",
+                    level: "",
+                    position: "",
+                  });
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleCreatePlayer}>
+                Cadastrar Jogador
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
