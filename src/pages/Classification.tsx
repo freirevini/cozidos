@@ -178,50 +178,119 @@ export default function Classification() {
             {loading ? (
               <div className="text-center py-8">Carregando...</div>
             ) : (
-              <div className="overflow-x-auto w-full">
+              <>
+                {/* Desktop: Tabela completa */}
+                <div className="hidden lg:block overflow-x-auto w-full scroll-smooth">
                   <Table>
-                  <TableHeader>
-                    <TableRow className="border-border hover:bg-muted/50">
-                      <TableHead className="text-primary font-bold">Posição</TableHead>
-                      <TableHead className="text-primary font-bold min-w-[120px]">Jogador</TableHead>
-                      <TableHead className="text-primary font-bold text-center">Presença</TableHead>
-                      <TableHead className="text-primary font-bold text-center">Vitória</TableHead>
-                      <TableHead className="text-primary font-bold text-center">Empate</TableHead>
-                      <TableHead className="text-primary font-bold text-center">Derrota</TableHead>
-                      <TableHead className="text-primary font-bold text-center">Gols</TableHead>
-                      <TableHead className="text-primary font-bold text-center">Assistências</TableHead>
-            <TableHead className="text-primary font-bold text-center">Atraso</TableHead>
-            <TableHead className="text-primary font-bold text-center">Falta</TableHead>
-            <TableHead className="text-primary font-bold text-center">Punição</TableHead>
-            <TableHead className="text-primary font-bold text-center">🟨</TableHead>
-            <TableHead className="text-primary font-bold text-center">🟦</TableHead>
-            <TableHead className="text-primary font-bold text-center">Total de Pontos</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {stats.map((stat, index) => (
-                      <TableRow key={stat.player_id} className="border-border hover:bg-muted/30">
-                        <TableCell className="font-bold text-primary">{index + 1}</TableCell>
-                        <TableCell className="font-medium">{stat.nickname}</TableCell>
-                        <TableCell className="text-center">{stat.presencas}</TableCell>
-                        <TableCell className="text-center">{stat.vitorias}</TableCell>
-                        <TableCell className="text-center">{stat.empates}</TableCell>
-                        <TableCell className="text-center">{stat.derrotas}</TableCell>
-                        <TableCell className="text-center">{stat.gols}</TableCell>
-                        <TableCell className="text-center">{stat.assistencias}</TableCell>
-                        <TableCell className="text-center">{stat.atrasos}</TableCell>
-                        <TableCell className="text-center">{stat.faltas}</TableCell>
-                        <TableCell className="text-center">{stat.punicoes}</TableCell>
-                        <TableCell className="text-center">{stat.cartoes_amarelos}</TableCell>
-                        <TableCell className="text-center">{stat.cartoes_azuis}</TableCell>
-                        <TableCell className="text-center font-bold text-primary">
-                          {stat.pontos_totais}
-                        </TableCell>
+                    <TableHeader>
+                      <TableRow className="border-border hover:bg-muted/50">
+                        <TableHead className="text-primary font-bold">Posição</TableHead>
+                        <TableHead className="text-primary font-bold min-w-[120px]">Jogador</TableHead>
+                        <TableHead className="text-primary font-bold text-center">Presença</TableHead>
+                        <TableHead className="text-primary font-bold text-center">Vitória</TableHead>
+                        <TableHead className="text-primary font-bold text-center">Empate</TableHead>
+                        <TableHead className="text-primary font-bold text-center">Derrota</TableHead>
+                        <TableHead className="text-primary font-bold text-center">Gols</TableHead>
+                        <TableHead className="text-primary font-bold text-center">Assistências</TableHead>
+                        <TableHead className="text-primary font-bold text-center">Atraso</TableHead>
+                        <TableHead className="text-primary font-bold text-center">Falta</TableHead>
+                        <TableHead className="text-primary font-bold text-center">Punição</TableHead>
+                        <TableHead className="text-primary font-bold text-center">🟨</TableHead>
+                        <TableHead className="text-primary font-bold text-center">🟦</TableHead>
+                        <TableHead className="text-primary font-bold text-center">Total de Pontos</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {stats.map((stat, index) => (
+                        <TableRow key={stat.player_id} className="border-border hover:bg-muted/30">
+                          <TableCell className="font-bold text-primary">{index + 1}</TableCell>
+                          <TableCell className="font-medium">{stat.nickname}</TableCell>
+                          <TableCell className="text-center">{stat.presencas}</TableCell>
+                          <TableCell className="text-center">{stat.vitorias}</TableCell>
+                          <TableCell className="text-center">{stat.empates}</TableCell>
+                          <TableCell className="text-center">{stat.derrotas}</TableCell>
+                          <TableCell className="text-center">{stat.gols}</TableCell>
+                          <TableCell className="text-center">{stat.assistencias}</TableCell>
+                          <TableCell className="text-center">{stat.atrasos}</TableCell>
+                          <TableCell className="text-center">{stat.faltas}</TableCell>
+                          <TableCell className="text-center">{stat.punicoes}</TableCell>
+                          <TableCell className="text-center">{stat.cartoes_amarelos}</TableCell>
+                          <TableCell className="text-center">{stat.cartoes_azuis}</TableCell>
+                          <TableCell className="text-center font-bold text-primary">
+                            {stat.pontos_totais}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile: Tabela compacta com scroll horizontal */}
+                <div className="lg:hidden">
+                  <Tabs defaultValue="pontos" className="w-full">
+                    <TabsList className="w-full grid grid-cols-2">
+                      <TabsTrigger value="pontos">Pontos</TabsTrigger>
+                      <TabsTrigger value="stats">Estatísticas</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="pontos" className="mt-4">
+                      <div className="overflow-x-auto scroll-smooth">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="border-border">
+                              <TableHead className="text-primary font-bold">Pos</TableHead>
+                              <TableHead className="text-primary font-bold min-w-[120px]">Jogador</TableHead>
+                              <TableHead className="text-primary font-bold text-center">Pres.</TableHead>
+                              <TableHead className="text-primary font-bold text-center">Pontos</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {stats.map((stat, index) => (
+                              <TableRow key={stat.player_id} className="border-border">
+                                <TableCell className="font-bold text-primary">{index + 1}</TableCell>
+                                <TableCell className="font-medium">{stat.nickname}</TableCell>
+                                <TableCell className="text-center">{stat.presencas}</TableCell>
+                                <TableCell className="text-center font-bold text-primary">
+                                  {stat.pontos_totais}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="stats" className="mt-4">
+                      <div className="overflow-x-auto scroll-smooth">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="border-border">
+                              <TableHead className="text-primary font-bold">Jogador</TableHead>
+                              <TableHead className="text-primary font-bold text-center">⚽</TableHead>
+                              <TableHead className="text-primary font-bold text-center">🎯</TableHead>
+                              <TableHead className="text-primary font-bold text-center">🟨</TableHead>
+                              <TableHead className="text-primary font-bold text-center">🟦</TableHead>
+                              <TableHead className="text-primary font-bold text-center">🏆</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {stats.map((stat) => (
+                              <TableRow key={stat.player_id} className="border-border">
+                                <TableCell className="font-medium min-w-[120px]">{stat.nickname}</TableCell>
+                                <TableCell className="text-center">{stat.gols}</TableCell>
+                                <TableCell className="text-center">{stat.assistencias}</TableCell>
+                                <TableCell className="text-center">{stat.cartoes_amarelos}</TableCell>
+                                <TableCell className="text-center">{stat.cartoes_azuis}</TableCell>
+                                <TableCell className="text-center">{stat.vitorias}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

@@ -426,7 +426,7 @@ export default function DefineTeams() {
             ) : (
               <div className="space-y-4">
                 <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-                  <p className="text-sm text-foreground leading-relaxed">
+                  <p className="text-sm sm:text-base text-foreground leading-relaxed">
                     Cada time precisa ter <strong>5 jogadores de linha</strong> (um de cada nível A, B, C, D, E) 
                     e pode ter <strong>1 goleiro</strong> (opcional).
                   </p>
@@ -436,13 +436,13 @@ export default function DefineTeams() {
                   onClick={balanceTeams}
                   disabled={loading}
                   variant="secondary"
-                  className="w-full py-6 text-base flex items-center justify-center gap-2"
+                  className="w-full py-6 text-base sm:text-lg flex items-center justify-center gap-2 min-h-[56px]"
                 >
-                  <Shuffle size={18} />
+                  <Shuffle size={20} />
                   Gerar Times Automaticamente
                 </Button>
 
-                <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+                <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide scroll-smooth">
                   <table className="w-full min-w-[600px] border-collapse">
                     <thead>
                       <tr className="bg-muted/50">
@@ -472,7 +472,7 @@ export default function DefineTeams() {
                                   value={player?.id || ""}
                                   onValueChange={(playerId) => updateTeamPlayer(team, index, playerId)}
                                 >
-                                  <SelectTrigger className="w-full">
+                                  <SelectTrigger className="w-full h-12 text-base">
                                     <SelectValue placeholder={level === 'GR' ? "Goleiro (opcional)" : `Jogador ${level}`}>
                                       {player && (
                                         <div className="flex items-center justify-between w-full">

@@ -126,65 +126,95 @@ export default function ManageTeams() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="overflow-x-auto scrollbar-hide">
-                  <div className="min-w-[700px]">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="bg-muted/50 border-b border-border">
-                          <th className="p-4 text-left font-semibold text-foreground">Data</th>
-                          <th className="p-4 text-left font-semibold text-foreground">Rodada</th>
-                          <th className="p-4 text-center font-semibold text-foreground">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rounds.map((round, index) => (
-                          <tr 
-                            key={round.id}
-                            className={`border-b border-border transition-colors hover:bg-muted/30 ${
-                              index % 2 === 0 ? 'bg-muted/10' : ''
-                            }`}
-                          >
-                            <td className="p-4 text-foreground">
-                              {new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
-                            </td>
-                            <td className="p-4 font-bold text-primary">
-                              Rodada {round.round_number}
-                            </td>
-                            <td className="p-4">
-                              <div className="flex flex-wrap gap-2 justify-center">
-                                <Button 
-                                  onClick={() => navigate(`/admin/round/${round.id}/view`)}
-                                  variant="outline"
-                                  size="sm"
-                                  className="flex-1 sm:flex-none min-w-[100px]"
-                                >
-                                  Ver Times
-                                </Button>
-                                <Button 
-                                  onClick={() => navigate(`/admin/round/${round.id}/edit`)}
-                                  variant="outline"
-                                  size="sm"
-                                  className="flex-1 sm:flex-none min-w-[100px]"
-                                >
-                                  Editar Times
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => deleteRound(round.id, round.round_number)}
-                                  className="flex-1 sm:flex-none min-w-[100px]"
-                                >
-                                  Excluir
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                {/* Desktop: Tabela */}
+                <div className="hidden md:block overflow-x-auto scrollbar-hide scroll-smooth">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-border">
+                        <TableHead>Data</TableHead>
+                        <TableHead>Rodada</TableHead>
+                        <TableHead className="text-center">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rounds.map((round) => (
+                        <TableRow key={round.id} className="border-border hover:bg-muted/30">
+                          <TableCell>{new Date(round.scheduled_date).toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell className="font-bold text-primary">Rodada {round.round_number}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-2 justify-center">
+                              <Button 
+                                onClick={() => navigate(`/admin/round/${round.id}/view`)}
+                                variant="outline"
+                                size="sm"
+                                className="min-w-[100px]"
+                              >
+                                Ver Times
+                              </Button>
+                              <Button 
+                                onClick={() => navigate(`/admin/round/${round.id}/edit`)}
+                                variant="outline"
+                                size="sm"
+                                className="min-w-[100px]"
+                              >
+                                Editar Times
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => deleteRound(round.id, round.round_number)}
+                                className="min-w-[100px]"
+                              >
+                                Excluir
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-                <Button onClick={() => navigate("/admin/teams")} variant="outline" className="w-full mt-4">
+
+                {/* Mobile: Cards */}
+                <div className="md:hidden space-y-3">
+                  {rounds.map((round) => (
+                    <Card key={round.id} className="border-border">
+                      <CardContent className="p-4">
+                        <div className="mb-3">
+                          <p className="text-sm text-muted-foreground">Rodada {round.round_number}</p>
+                          <p className="font-medium">{new Date(round.scheduled_date).toLocaleDateString('pt-BR')}</p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Button 
+                            onClick={() => navigate(`/admin/round/${round.id}/view`)}
+                            variant="outline"
+                            size="sm"
+                            className="w-full min-h-[44px]"
+                          >
+                            Ver Times
+                          </Button>
+                          <Button 
+                            onClick={() => navigate(`/admin/round/${round.id}/edit`)}
+                            variant="outline"
+                            size="sm"
+                            className="w-full min-h-[44px]"
+                          >
+                            Editar Times
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => deleteRound(round.id, round.round_number)}
+                            className="w-full min-h-[44px]"
+                          >
+                            Excluir
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                <Button onClick={() => navigate("/admin/teams")} variant="outline" className="w-full mt-4 min-h-[44px]">
                   Voltar para Times
                 </Button>
               </div>

@@ -128,22 +128,70 @@ Esta ação não pode ser desfeita.`)) {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Rodada</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-center">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rounds.map((round) => (
-                      <TableRow key={round.id}>
-                        <TableCell>{formatDate(round.scheduled_date)}</TableCell>
-                        <TableCell>{round.round_number}</TableCell>
-                        <TableCell>
+              <>
+                {/* Desktop: Tabela */}
+                <div className="hidden md:block overflow-x-auto scroll-smooth">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Rodada</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-center">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rounds.map((round) => (
+                        <TableRow key={round.id}>
+                          <TableCell>{formatDate(round.scheduled_date)}</TableCell>
+                          <TableCell>{round.round_number}</TableCell>
+                          <TableCell>
+                            <Badge 
+                              className={`${
+                                round.status === 'a_iniciar' ? 'bg-gray-600 hover:bg-gray-600' :
+                                round.status === 'em_andamento' ? 'bg-yellow-600 hover:bg-yellow-600' :
+                                'bg-green-600 hover:bg-green-600'
+                              } text-white`}
+                            >
+                              {getStatusLabel(round.status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2 justify-center">
+                              <Button
+                                size="sm"
+                                onClick={() => editRound(round.id)}
+                                variant="default"
+                                className="min-w-[80px]"
+                              >
+                                {round.status === 'a_iniciar' ? 'Iniciar' : 'Editar'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => deleteRound(round.id, round.round_number)}
+                                variant="destructive"
+                                className="min-w-[80px]"
+                              >
+                                Excluir
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile: Cards */}
+                <div className="md:hidden space-y-3">
+                  {rounds.map((round) => (
+                    <Card key={round.id} className="border-border">
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Rodada {round.round_number}</p>
+                            <p className="font-medium">{formatDate(round.scheduled_date)}</p>
+                          </div>
                           <Badge 
                             className={`${
                               round.status === 'a_iniciar' ? 'bg-gray-600 hover:bg-gray-600' :
@@ -153,30 +201,30 @@ Esta ação não pode ser desfeita.`)) {
                           >
                             {getStatusLabel(round.status)}
                           </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2 justify-center">
-                            <Button
-                              size="sm"
-                              onClick={() => editRound(round.id)}
-                              variant="default"
-                            >
-                              {round.status === 'a_iniciar' ? 'Iniciar' : 'Editar'}
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => deleteRound(round.id, round.round_number)}
-                              variant="destructive"
-                            >
-                              Excluir
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                        </div>
+                        <div className="flex gap-2 mt-3">
+                          <Button
+                            size="sm"
+                            onClick={() => editRound(round.id)}
+                            variant="default"
+                            className="flex-1 min-h-[44px]"
+                          >
+                            {round.status === 'a_iniciar' ? 'Iniciar' : 'Editar'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => deleteRound(round.id, round.round_number)}
+                            variant="destructive"
+                            className="flex-1 min-h-[44px]"
+                          >
+                            Excluir
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -586,8 +587,8 @@ export default function ManagePlayers() {
               </div>
             </div>
 
-            {/* Tabela */}
-            <div className="overflow-x-auto">
+            {/* Desktop: Tabela completa */}
+            <div className="hidden md:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -755,6 +756,86 @@ export default function ManagePlayers() {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Mobile: Cards */}
+            <div className="md:hidden space-y-3">
+              {loading ? (
+                <div className="text-center py-8">Carregando...</div>
+              ) : filteredPlayers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nenhum jogador encontrado
+                </div>
+              ) : (
+                filteredPlayers.map((player) => (
+                  <Card key={player.id} className="border-border">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <h3 className="font-bold text-base">
+                            {player.nickname || player.first_name || player.name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {player.email || "-"}
+                          </p>
+                        </div>
+                        <Badge className={statusColors[player.status || "pendente"]}>
+                          {statusLabels[player.status || "pendente"]}
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                        <div>
+                          <span className="text-muted-foreground">Idade:</span>{" "}
+                          <span className="font-medium">{calculateAge(player.birth_date)}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Nível:</span>{" "}
+                          <span className="font-medium">{player.level || "-"}</span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-muted-foreground">Posição:</span>{" "}
+                          <span className="font-medium">{positionLabels[player.position || ""] || "-"}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2 flex-wrap">
+                        {player.status === "pendente" && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => approvePlayer(player.id, player.name)}
+                              className="bg-green-600 hover:bg-green-700 flex-1 min-h-[44px]"
+                            >
+                              <UserCheck className="h-4 w-4 mr-1" />
+                              Aprovar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => rejectPlayer(player.id, player.name)}
+                              className="flex-1 min-h-[44px]"
+                            >
+                              <UserX className="h-4 w-4 mr-1" />
+                              Rejeitar
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => deletePlayer(player.id, player.name, player.email)}
+                          className={`min-h-[44px] ${player.status === "pendente" ? "w-full" : "flex-1"}`}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Excluir
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -782,6 +863,7 @@ export default function ManagePlayers() {
                     placeholder="Ex: João"
                     value={formData.first_name}
                     onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                    className="h-12 text-base"
                   />
                 </div>
 
@@ -795,6 +877,7 @@ export default function ManagePlayers() {
                     placeholder="Ex: Silva"
                     value={formData.last_name}
                     onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                    className="h-12 text-base"
                   />
                 </div>
 
@@ -806,6 +889,7 @@ export default function ManagePlayers() {
                     placeholder="Ex: João (opcional)"
                     value={formData.nickname}
                     onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+                    className="h-12 text-base"
                   />
                 </div>
 
@@ -820,6 +904,7 @@ export default function ManagePlayers() {
                     placeholder="Ex: joao@email.com"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="h-12 text-base"
                   />
                 </div>
 
@@ -833,6 +918,7 @@ export default function ManagePlayers() {
                     type="date"
                     value={formData.birth_date}
                     onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
+                    className="h-12 text-base"
                   />
                 </div>
 
@@ -845,7 +931,7 @@ export default function ManagePlayers() {
                     value={formData.level}
                     onValueChange={(value) => setFormData({ ...formData, level: value })}
                   >
-                    <SelectTrigger id="level">
+                    <SelectTrigger id="level" className="h-12 text-base">
                       <SelectValue placeholder="Selecione o nível" />
                     </SelectTrigger>
                     <SelectContent>
@@ -867,7 +953,7 @@ export default function ManagePlayers() {
                     value={formData.position}
                     onValueChange={(value) => setFormData({ ...formData, position: value })}
                   >
-                    <SelectTrigger id="position">
+                    <SelectTrigger id="position" className="h-12 text-base">
                       <SelectValue placeholder="Selecione a posição" />
                     </SelectTrigger>
                     <SelectContent>
@@ -881,7 +967,7 @@ export default function ManagePlayers() {
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -896,10 +982,11 @@ export default function ManagePlayers() {
                     position: "",
                   });
                 }}
+                className="h-12 text-base w-full sm:w-auto"
               >
                 Cancelar
               </Button>
-              <Button onClick={handleCreatePlayer}>
+              <Button onClick={handleCreatePlayer} className="h-12 text-base w-full sm:w-auto">
                 Cadastrar Jogador
               </Button>
             </DialogFooter>
