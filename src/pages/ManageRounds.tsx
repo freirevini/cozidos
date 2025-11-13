@@ -585,7 +585,18 @@ export default function ManageRounds() {
                                 </Button>
                               )}
                               
-                              {(match.status === 'in_progress' || match.status === 'finished') && (
+                              {match.status === 'in_progress' && (
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => openMatchPage(match)}
+                                  className="min-w-[80px]"
+                                >
+                                  Gerenciar
+                                </Button>
+                              )}
+                              
+                              {match.status === 'finished' && (
                                 <Button
                                   size="sm"
                                   variant="secondary"
@@ -656,18 +667,29 @@ export default function ManageRounds() {
                               size="sm"
                               onClick={() => startMatch(match.id)}
                               variant="default"
-                              className="flex-1 min-w-[100px]"
+                              className="flex-1 min-w-[100px] min-h-[44px]"
                             >
                               Iniciar
                             </Button>
                           )}
                           
-                          {(match.status === 'in_progress' || match.status === 'finished') && (
+                          {match.status === 'in_progress' && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => openMatchPage(match)}
+                              className="flex-1 min-w-[100px] min-h-[44px]"
+                            >
+                              Gerenciar
+                            </Button>
+                          )}
+                          
+                          {match.status === 'finished' && (
                             <Button
                               size="sm"
                               variant="secondary"
                               onClick={() => handleEditMatch(match.id)}
-                              className="flex-1 min-w-[100px]"
+                              className="flex-1 min-w-[100px] min-h-[44px]"
                             >
                               Editar
                             </Button>
@@ -677,7 +699,7 @@ export default function ManageRounds() {
                             size="sm"
                             variant="destructive"
                             onClick={() => deleteMatch(match.id)}
-                            className="flex-1 min-w-[100px]"
+                            className="flex-1 min-w-[100px] min-h-[44px]"
                           >
                             Excluir
                           </Button>
