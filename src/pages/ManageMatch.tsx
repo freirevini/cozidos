@@ -412,6 +412,50 @@ export default function ManageMatch() {
     }
   };
 
+  const deleteLastGoal = async () => {
+    if (goals.length === 0) {
+      toast.error("Não há gols para deletar");
+      return;
+    }
+
+    const confirmed = window.confirm("Tem certeza que deseja deletar o último gol registrado?");
+    if (!confirmed) return;
+
+    setLoading(true);
+    try {
+      const lastGoal = [...goals].sort((a, b) => b.minute - a.minute)[0];
+
+      // Deletar gol (assistências são deletadas automaticamente via CASCADE)
+      const { error: deleteError } = await supabase
+        .from("goals")
+        .delete()
+        .eq("id", lastGoal.id);
+
+      if (deleteError) throw deleteError;
+
+      // Atualizar placar
+      const teamToUpdate = lastGoal.team_color === match?.team_home ? 'score_home' : 'score_away';
+      const currentScore = lastGoal.team_color === match?.team_home ? match?.score_home : match?.score_away;
+      
+      const { error: updateError } = await supabase
+        .from("matches")
+        .update({
+          [teamToUpdate]: Math.max(0, (currentScore || 0) - 1)
+        })
+        .eq("id", match?.id);
+
+      if (updateError) throw updateError;
+
+      toast.success("Último gol deletado com sucesso!");
+      await loadMatchData();
+    } catch (error) {
+      console.error("Erro ao deletar gol:", error);
+      toast.error("Erro ao deletar gol");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const finishMatch = async () => {
     if (!match) return;
 
@@ -534,34 +578,69 @@ export default function ManageMatch() {
               </div>
             </div>
             
-        {/* Gols - Formato Simplificado */}
-        <div className="space-y-3 mb-6">
-          {goals.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground italic">Sem gols</p>
-          ) : (
-            goals
-              .sort((a, b) => a.minute - b.minute)
-              .map((goal, idx) => {
-                const scorer = goal.player;
-                const assist = goal.assists && goal.assists.length > 0 ? goal.assists[0] : null;
-                
-                return (
-                  <div key={idx} className="flex items-center gap-3 p-3 bg-muted/10 rounded-lg">
-                    <span className="text-2xl">⚽</span>
-                    <div className="flex flex-col flex-1">
-                      <span className="text-sm font-medium">
-                        {goal.minute}' {goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}
-                      </span>
+        {/* Gols - Dividido por Time */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          {/* Coluna Time Casa */}
+          <div>
+            <h3 className="font-bold text-center mb-3 text-sm">{teamNames[match.team_home]}</h3>
+            {goals.filter(g => g.team_color === match.team_home).length === 0 ? (
+              <p className="text-center text-xs text-muted-foreground">-</p>
+            ) : (
+              goals
+                .filter(g => g.team_color === match.team_home)
+                .sort((a, b) => a.minute - b.minute)
+                .map((goal, idx) => {
+                  const scorer = goal.player;
+                  const assist = goal.assists && goal.assists.length > 0 ? goal.assists[0] : null;
+                  
+                  return (
+                    <div key={idx} className="mb-3 p-2 bg-muted/10 rounded">
+                      <div className="text-sm font-medium flex items-center gap-1">
+                        <span>⚽</span>
+                        <span>{goal.minute}'</span>
+                        <span className="ml-1">{goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}</span>
+                      </div>
                       {assist?.player && (
-                        <span className="text-xs text-muted-foreground">
-                          Assist: {assist.player.nickname || assist.player.name}
-                        </span>
+                        <div className="text-xs text-muted-foreground mt-1 ml-6">
+                          (Assist: {assist.player.nickname || assist.player.name})
+                        </div>
                       )}
                     </div>
-                  </div>
-                );
-              })
-          )}
+                  );
+                })
+            )}
+          </div>
+
+          {/* Coluna Time Visitante */}
+          <div>
+            <h3 className="font-bold text-center mb-3 text-sm">{teamNames[match.team_away]}</h3>
+            {goals.filter(g => g.team_color === match.team_away).length === 0 ? (
+              <p className="text-center text-xs text-muted-foreground">-</p>
+            ) : (
+              goals
+                .filter(g => g.team_color === match.team_away)
+                .sort((a, b) => a.minute - b.minute)
+                .map((goal, idx) => {
+                  const scorer = goal.player;
+                  const assist = goal.assists && goal.assists.length > 0 ? goal.assists[0] : null;
+                  
+                  return (
+                    <div key={idx} className="mb-3 p-2 bg-muted/10 rounded">
+                      <div className="text-sm font-medium flex items-center gap-1">
+                        <span>⚽</span>
+                        <span>{goal.minute}'</span>
+                        <span className="ml-1">{goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}</span>
+                      </div>
+                      {assist?.player && (
+                        <div className="text-xs text-muted-foreground mt-1 ml-6">
+                          (Assist: {assist.player.nickname || assist.player.name})
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+            )}
+          </div>
         </div>
           </CardHeader>
 
@@ -574,11 +653,11 @@ export default function ManageMatch() {
 
             {match.status === 'in_progress' && (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <Button
                     onClick={() => setAddingGoal(!addingGoal)}
                     variant={addingGoal ? "secondary" : "default"}
-                    className={addingGoal ? "bg-red-600 hover:bg-red-700 text-white" : ""}
+                    className={`min-h-[44px] ${addingGoal ? "bg-red-600 hover:bg-red-700 text-white" : ""}`}
                   >
                     {addingGoal ? "Cancelar Gol" : "Registrar Gol"}
                   </Button>
@@ -586,17 +665,26 @@ export default function ManageMatch() {
                   <Button
                     onClick={() => setAddingCard(!addingCard)}
                     variant={addingCard ? "secondary" : "default"}
-                    className={addingCard ? "bg-red-600 hover:bg-red-700 text-white" : ""}
+                    className={`min-h-[44px] ${addingCard ? "bg-red-600 hover:bg-red-700 text-white" : ""}`}
                   >
                     {addingCard ? "Cancelar Cartão" : "Registrar Cartão"}
+                  </Button>
+
+                  <Button
+                    onClick={deleteLastGoal}
+                    variant="destructive"
+                    disabled={goals.length === 0}
+                    className="min-h-[44px] text-xs sm:text-sm"
+                  >
+                    Desfazer Último Gol
                   </Button>
                 </div>
 
                 {addingGoal && (
                   <Card className="bg-muted/20 border-border">
-                    <CardContent className="pt-6 space-y-3">
-                      <Select value={goalData.team} onValueChange={(v) => setGoalData({ ...goalData, team: v, player_id: "" })}>
-                        <SelectTrigger>
+                    <CardContent className="pt-6 space-y-4">
+                      <Select value={goalData.team} onValueChange={(v) => setGoalData({ ...goalData, team: v, player_id: "", has_assist: false, assist_player_id: "" })}>
+                        <SelectTrigger className="h-12">
                           <SelectValue placeholder="Selecione o time" />
                         </SelectTrigger>
                         <SelectContent>
@@ -606,53 +694,72 @@ export default function ManageMatch() {
                       </Select>
 
                       {goalData.team && (
-                        <Select value={goalData.player_id} onValueChange={(v) => setGoalData({ ...goalData, player_id: v })}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o jogador" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {players[goalData.team]?.map((player) => (
-                              <SelectItem key={player.id} value={player.id}>
-                                {player.nickname || player.name}
-                              </SelectItem>
-                            ))}
-                            <SelectItem value="own_goal">Gol Contra</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-
-                      {goalData.player_id && goalData.player_id !== "own_goal" && (
                         <>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={goalData.has_assist}
-                              onChange={(e) => setGoalData({ ...goalData, has_assist: e.target.checked })}
-                              className="h-4 w-4"
-                            />
-                            <label className="text-sm">Houve assistência?</label>
+                          <div>
+                            <p className="text-sm font-medium mb-2">Quem marcou o gol?</p>
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                              {players[goalData.team]?.map((player) => (
+                                <Button
+                                  key={player.id}
+                                  variant={goalData.player_id === player.id ? "default" : "outline"}
+                                  className="h-auto py-3 px-2 text-xs min-h-[44px]"
+                                  onClick={() => setGoalData({ ...goalData, player_id: player.id })}
+                                >
+                                  {player.nickname || player.name}
+                                </Button>
+                              ))}
+                              <Button
+                                variant={goalData.player_id === "own_goal" ? "default" : "outline"}
+                                className="h-auto py-3 px-2 text-xs min-h-[44px]"
+                                onClick={() => setGoalData({ ...goalData, player_id: "own_goal", has_assist: false, assist_player_id: "" })}
+                              >
+                                Gol Contra
+                              </Button>
+                            </div>
                           </div>
 
-                          {goalData.has_assist && (
-                            <Select value={goalData.assist_player_id} onValueChange={(v) => setGoalData({ ...goalData, assist_player_id: v })}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Quem deu a assistência?" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {players[goalData.team]
-                                  ?.filter(p => p.id !== goalData.player_id)
-                                  .map((player) => (
-                                    <SelectItem key={player.id} value={player.id}>
-                                      {player.nickname || player.name}
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
+                          {goalData.player_id && goalData.player_id !== "own_goal" && (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={goalData.has_assist}
+                                  onChange={(e) => setGoalData({ ...goalData, has_assist: e.target.checked, assist_player_id: "" })}
+                                  className="h-5 w-5"
+                                  id="has-assist"
+                                />
+                                <label htmlFor="has-assist" className="text-sm font-medium">Houve assistência?</label>
+                              </div>
+
+                              {goalData.has_assist && (
+                                <div>
+                                  <p className="text-sm font-medium mb-2">Quem deu a assistência?</p>
+                                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                    {players[goalData.team]
+                                      ?.filter(p => p.id !== goalData.player_id)
+                                      .map((player) => (
+                                        <Button
+                                          key={player.id}
+                                          variant={goalData.assist_player_id === player.id ? "default" : "outline"}
+                                          className="h-auto py-3 px-2 text-xs min-h-[44px]"
+                                          onClick={() => setGoalData({ ...goalData, assist_player_id: player.id })}
+                                        >
+                                          {player.nickname || player.name}
+                                        </Button>
+                                      ))}
+                                  </div>
+                                </div>
+                              )}
+                            </>
                           )}
                         </>
                       )}
 
-                      <Button onClick={addGoal} className="w-full" disabled={loading}>
+                      <Button 
+                        onClick={addGoal} 
+                        className="w-full min-h-[44px]" 
+                        disabled={loading || !goalData.team || !goalData.player_id || (goalData.has_assist && !goalData.assist_player_id)}
+                      >
                         Confirmar Gol (Minuto: {Math.ceil((720 - timer) / 60)})
                       </Button>
                     </CardContent>
