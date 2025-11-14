@@ -53,6 +53,27 @@ export default function StartRound() {
     enabled: true,
   });
 
+  const startRound = async (roundId: string) => {
+    try {
+      const { error } = await supabase
+        .from("rounds")
+        .update({ status: 'em_andamento' })
+        .eq("id", roundId);
+      
+      if (error) throw error;
+      
+      toast.success("Rodada iniciada com sucesso!");
+      loadAvailableRounds();
+    } catch (error: any) {
+      console.error("Erro ao iniciar rodada:", error);
+      toast.error("Erro ao iniciar rodada: " + error.message);
+    }
+  };
+
+  const manageRound = (roundId: string) => {
+    navigate(`/admin/round/manage?round=${roundId}`);
+  };
+
   const editRound = (roundId: string) => {
     navigate(`/admin/round/manage?round=${roundId}`);
   };
@@ -169,22 +190,66 @@ Esta ação não pode ser desfeita.`)) {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2 justify-center">
-                              <Button
-                                size="sm"
-                                onClick={() => editRound(round.id)}
-                                variant="default"
-                                className="min-w-[80px]"
-                              >
-                                {round.status === 'a_iniciar' ? 'Iniciar' : 'Editar'}
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={() => deleteRound(round.id, round.round_number)}
-                                variant="destructive"
-                                className="min-w-[80px]"
-                              >
-                                Excluir
-                              </Button>
+                              {round.status === 'a_iniciar' && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => startRound(round.id)}
+                                    variant="default"
+                                    className="min-w-[80px]"
+                                  >
+                                    Iniciar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => deleteRound(round.id, round.round_number)}
+                                    variant="destructive"
+                                    className="min-w-[80px]"
+                                  >
+                                    Excluir
+                                  </Button>
+                                </>
+                              )}
+                              {round.status === 'em_andamento' && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => manageRound(round.id)}
+                                    variant="default"
+                                    className="min-w-[80px]"
+                                  >
+                                    Gerenciar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => deleteRound(round.id, round.round_number)}
+                                    variant="destructive"
+                                    className="min-w-[80px]"
+                                  >
+                                    Excluir
+                                  </Button>
+                                </>
+                              )}
+                              {round.status === 'finalizada' && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => editRound(round.id)}
+                                    variant="default"
+                                    className="min-w-[80px]"
+                                  >
+                                    Editar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => deleteRound(round.id, round.round_number)}
+                                    variant="destructive"
+                                    className="min-w-[80px]"
+                                  >
+                                    Excluir
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -234,22 +299,66 @@ Esta ação não pode ser desfeita.`)) {
                           </Badge>
                         </div>
                         <div className="flex gap-2 mt-3">
-                          <Button
-                            size="sm"
-                            onClick={() => editRound(round.id)}
-                            variant="default"
-                            className="flex-1 min-h-[44px]"
-                          >
-                            {round.status === 'a_iniciar' ? 'Iniciar' : 'Editar'}
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => deleteRound(round.id, round.round_number)}
-                            variant="destructive"
-                            className="flex-1 min-h-[44px]"
-                          >
-                            Excluir
-                          </Button>
+                          {round.status === 'a_iniciar' && (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => startRound(round.id)}
+                                variant="default"
+                                className="flex-1 min-h-[44px]"
+                              >
+                                Iniciar
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => deleteRound(round.id, round.round_number)}
+                                variant="destructive"
+                                className="flex-1 min-h-[44px]"
+                              >
+                                Excluir
+                              </Button>
+                            </>
+                          )}
+                          {round.status === 'em_andamento' && (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => manageRound(round.id)}
+                                variant="default"
+                                className="flex-1 min-h-[44px]"
+                              >
+                                Gerenciar
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => deleteRound(round.id, round.round_number)}
+                                variant="destructive"
+                                className="flex-1 min-h-[44px]"
+                              >
+                                Excluir
+                              </Button>
+                            </>
+                          )}
+                          {round.status === 'finalizada' && (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => editRound(round.id)}
+                                variant="default"
+                                className="flex-1 min-h-[44px]"
+                              >
+                                Editar
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => deleteRound(round.id, round.round_number)}
+                                variant="destructive"
+                                className="flex-1 min-h-[44px]"
+                              >
+                                Excluir
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
