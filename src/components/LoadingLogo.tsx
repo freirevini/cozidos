@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import logo from "@/assets/novo-logo.png";
+import logo from "@/assets/vitor_gif.gif";
 
 export default function LoadingLogo() {
   return (
@@ -17,7 +17,7 @@ export default function LoadingLogo() {
           }}
           className="relative"
         >
-          <img src={logo} alt="Cozidos FC" className="h-20 w-20" />
+          <img src={logo} alt="Cozidos FC" className="h-24 w-24 object-contain" />
           <motion.div
             className="absolute inset-0 rounded-full"
             animate={{
