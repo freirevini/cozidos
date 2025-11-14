@@ -75,7 +75,7 @@ export default function Matches() {
       const { data: roundsData } = await supabase
         .from("rounds")
         .select("*")
-        .order("round_number", { ascending: false });
+        .order("round_number", { ascending: true });
 
       if (!roundsData) {
         setLoading(false);
