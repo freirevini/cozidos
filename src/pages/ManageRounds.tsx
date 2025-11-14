@@ -414,25 +414,25 @@ export default function ManageRounds() {
   const syncRoundStatus = async () => {
     if (!roundId) return;
     
-    const allFinished = matches.every(m => m.status === 'finished');
-    const anyInProgress = matches.some(m => m.status === 'in_progress');
-    const allNotStarted = matches.every(m => m.status === 'not_started');
-    
-    let newStatus: 'a_iniciar' | 'em_andamento' | 'finalizada' | null = null;
-    
-    if (allNotStarted) {
-      newStatus = 'a_iniciar';
-    } else if (anyInProgress || !allFinished) {
-      newStatus = 'em_andamento';
+    // NÃO alterar rodadas que já foram iniciadas ou finalizadas manualmente
+    if (round?.status === 'em_andamento' || round?.status === 'finalizada') {
+      return;
     }
     
-    if (newStatus && round?.status !== newStatus) {
-      await supabase
-        .from('rounds')
-        .update({ status: newStatus })
-        .eq('id', roundId);
+    // Apenas sincronizar rodadas em 'a_iniciar'
+    if (round?.status === 'a_iniciar') {
+      const anyInProgress = matches.some(m => m.status === 'in_progress');
+      const anyFinished = matches.some(m => m.status === 'finished');
       
-      loadRoundData();
+      // Se alguma partida foi iniciada, mudar status para 'em_andamento'
+      if (anyInProgress || anyFinished) {
+        await supabase
+          .from('rounds')
+          .update({ status: 'em_andamento' })
+          .eq('id', roundId);
+        
+        loadRoundData();
+      }
     }
   };
 
