@@ -25,6 +25,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { AvatarUpload } from "@/components/AvatarUpload";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface Player {
   id: string;
@@ -39,6 +41,7 @@ interface Player {
   position: string | null;
   status: string | null;
   user_id: string | null;
+  avatar_url: string | null;
 }
 
 const statusLabels: Record<string, string> = {
@@ -134,7 +137,7 @@ export default function ManagePlayers() {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, name, first_name, last_name, nickname, email, birth_date, is_player, level, position, status, user_id, avatar_url")
         .eq("is_player", true)
         .order("created_at", { ascending: false });
 
@@ -1177,6 +1180,16 @@ export default function ManagePlayers() {
                           </div>
                         ) : (
                           <div className="space-y-3 mb-3">
+                            {/* Avatar Upload */}
+                            <div className="flex justify-center py-4">
+                              <AvatarUpload
+                                playerId={player.id}
+                                playerName={player.nickname || player.name}
+                                currentAvatarUrl={editData.avatar_url}
+                                onUploadComplete={(url) => setEditingPlayerData(prev => prev ? { ...prev, avatar_url: url } : null)}
+                              />
+                            </div>
+
                             {/* Apelido */}
                             <div className="space-y-1">
                               <Label htmlFor={`nickname-${player.id}`} className="text-xs text-muted-foreground">

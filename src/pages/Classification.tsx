@@ -32,6 +32,7 @@ import {
 interface PlayerStats {
   player_id: string;
   nickname: string;
+  avatar_url: string | null;
   presencas: number;
   vitorias: number;
   empates: number;
@@ -60,10 +61,13 @@ export default function Classification() {
   const loadStats = async () => {
     setLoading(true);
     try {
-      // Fetch directly from player_rankings table
+      // Fetch directly from player_rankings table with avatar
       const { data: rankings, error } = await supabase
         .from("player_rankings")
-        .select("*")
+        .select(`
+          *,
+          profiles!inner(avatar_url)
+        `)
         .order("pontos_totais", { ascending: false });
 
       if (error) {
@@ -80,6 +84,7 @@ export default function Classification() {
       const mappedStats: PlayerStats[] = rankings.map((rank) => ({
         player_id: rank.player_id,
         nickname: rank.nickname,
+        avatar_url: rank.profiles?.avatar_url || null,
         presencas: rank.presencas,
         vitorias: rank.vitorias,
         empates: rank.empates,
