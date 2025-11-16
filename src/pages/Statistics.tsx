@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,6 +17,7 @@ interface PlayerRanking {
   id: string;
   player_id: string;
   nickname: string;
+  avatar_url: string | null;
   gols: number;
   assistencias: number;
   vitorias: number;
@@ -74,21 +75,31 @@ export default function Statistics() {
       setLoading(true);
 
       if (selectedRound === "all") {
-        // Buscar do player_rankings para ranking geral
+        // Buscar do player_rankings para ranking geral com avatar
         const { data, error } = await supabase
           .from("player_rankings")
-          .select("*")
+          .select(`
+            *,
+            profiles!inner(avatar_url)
+          `)
           .order("pontos_totais", { ascending: false });
 
         if (error) throw error;
-        setRankings(data || []);
+        
+        // Mapear adicionando avatar_url
+        const mappedData = (data || []).map(rank => ({
+          ...rank,
+          avatar_url: rank.profiles?.avatar_url || null
+        }));
+        
+        setRankings(mappedData);
       } else {
         // Buscar do player_round_stats para rodada específica
         const { data, error } = await supabase
           .from("player_round_stats")
           .select(`
             *,
-            profiles!inner(id, nickname, name)
+            profiles!inner(id, nickname, name, avatar_url)
           `)
           .eq("round_id", selectedRound);
 
@@ -124,6 +135,7 @@ export default function Statistics() {
             id: stat.id,
             player_id: playerId,
             nickname: stat.profiles.nickname || stat.profiles.name,
+            avatar_url: stat.profiles.avatar_url || null,
             gols: goals?.length || 0,
             assistencias: assists?.length || 0,
             vitorias: stat.victories || 0,
@@ -220,9 +232,17 @@ export default function Statistics() {
 
                 {/* Avatar */}
                 <Avatar className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0">
-                  <AvatarFallback className="text-xs md:text-sm">
-                    {player.nickname.substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
+                  {player.avatar_url ? (
+                    <AvatarImage 
+                      src={player.avatar_url} 
+                      alt={player.nickname}
+                      className="object-cover"
+                    />
+                  ) : (
+                    <AvatarFallback className="text-xs md:text-sm">
+                      {player.nickname.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  )}
                 </Avatar>
 
                 {/* Nome */}
