@@ -203,7 +203,7 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-background relative overflow-hidden">
       <div className="absolute inset-0 z-0">
         <BouncingBalls 
           numBalls={100}
@@ -216,7 +216,8 @@ export default function Auth() {
           followMouse={false}
         />
       </div>
-      <Card className="w-full max-w-md card-glow bg-card border-border relative z-10">
+      <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
+        <Card className="w-full max-w-md card-glow bg-card border-border">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center mb-6">
             <img src={novoLogo} alt="Logo" className="h-48 w-auto object-contain" />
@@ -333,6 +334,7 @@ export default function Auth() {
           </form>
         </CardContent>
       </Card>
+      </div>
       <Footer />
     </div>
   );
