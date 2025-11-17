@@ -72,6 +72,7 @@ export default function ManagePlayers() {
   const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [showImportHelp, setShowImportHelp] = useState(false);
 
   // Filtros
   const [searchTerm, setSearchTerm] = useState("");
@@ -628,7 +629,7 @@ export default function ManagePlayers() {
 
   const processImportedData = async (data: any[]) => {
     if (data.length === 0) {
-      sonnerToast.error("Arquivo vazio");
+      sonnerToast.error("❌ Arquivo vazio. O arquivo deve conter pelo menos uma linha de dados.");
       return;
     }
 
@@ -640,51 +641,145 @@ export default function ManagePlayers() {
 
     if (missingColumns.length > 0) {
       sonnerToast.error(
-        `Colunas obrigatórias ausentes: ${missingColumns.join(", ")}`
+        `❌ Colunas obrigatórias ausentes no arquivo Excel:\n\n` +
+        `Faltando: ${missingColumns.join(", ")}\n\n` +
+        `📋 Certifique-se que a primeira linha contém EXATAMENTE:\n` +
+        `Nome | Sobrenome | E-mail | Data de Nascimento | Apelido (opcional)\n\n` +
+        `💡 Clique no botão "❓" ao lado de "Importar Excel" para ver exemplo.`,
+        { duration: 8000 }
       );
       return;
     }
 
     const inserts: any[] = [];
-    const errors: string[] = [];
+    const errors: { row: number; message: string; suggestion: string }[] = [];
     let created = 0;
     let skipped = 0;
 
-    for (const row of data) {
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      const rowNumber = i + 2; // +2 porque linha 1 é cabeçalho, linha 2 é primeira de dados
+      
       const firstName = row["Nome"] || row["nome"];
       const lastName = row["Sobrenome"] || row["sobrenome"];
       const nickname = row["Apelido"] || row["apelido"];
       const email = (row["E-mail"] || row["email"])?.toString().toLowerCase().trim();
       const birthDateStr = row["Data de Nascimento"] || row["data de nascimento"];
 
-      if (!firstName || !lastName || !email || !birthDateStr) {
-        errors.push(`Linha com dados incompletos: ${email || firstName || "desconhecido"}`);
+      // Validação de campos obrigatórios
+      if (!firstName) {
+        errors.push({
+          row: rowNumber,
+          message: "Campo 'Nome' vazio",
+          suggestion: "Preencha o nome do jogador na coluna 'Nome'"
+        });
         skipped++;
         continue;
       }
 
+      if (!lastName) {
+        errors.push({
+          row: rowNumber,
+          message: "Campo 'Sobrenome' vazio",
+          suggestion: "Preencha o sobrenome do jogador na coluna 'Sobrenome'"
+        });
+        skipped++;
+        continue;
+      }
+
+      if (!email) {
+        errors.push({
+          row: rowNumber,
+          message: "Campo 'E-mail' vazio",
+          suggestion: "Preencha o e-mail do jogador na coluna 'E-mail'"
+        });
+        skipped++;
+        continue;
+      }
+
+      // Validação formato de e-mail
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        errors.push({
+          row: rowNumber,
+          message: `E-mail inválido: ${email}`,
+          suggestion: "Use formato válido como: jogador@exemplo.com"
+        });
+        skipped++;
+        continue;
+      }
+
+      if (!birthDateStr) {
+        errors.push({
+          row: rowNumber,
+          message: "Campo 'Data de Nascimento' vazio",
+          suggestion: "Preencha a data no formato DD/MM/AAAA (ex: 15/03/1995)"
+        });
+        skipped++;
+        continue;
+      }
+
+      // Validação de data de nascimento
       let birthDate: string | null = null;
       try {
-        const [day, month, year] = birthDateStr.toString().split("/");
-        if (day && month && year) {
-          birthDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-        } else {
-          throw new Error("Formato inválido");
+        const dateString = birthDateStr.toString().trim();
+        const [day, month, year] = dateString.split("/");
+        
+        if (!day || !month || !year) {
+          throw new Error("Formato incorreto");
         }
-      } catch {
-        errors.push(`Data de nascimento inválida para ${email}: ${birthDateStr}`);
+
+        const dayNum = parseInt(day);
+        const monthNum = parseInt(month);
+        const yearNum = parseInt(year);
+
+        if (isNaN(dayNum) || isNaN(monthNum) || isNaN(yearNum)) {
+          throw new Error("Data contém valores não numéricos");
+        }
+
+        if (yearNum < 1900 || yearNum > new Date().getFullYear()) {
+          throw new Error("Ano inválido");
+        }
+
+        if (monthNum < 1 || monthNum > 12) {
+          throw new Error("Mês deve estar entre 1 e 12");
+        }
+
+        if (dayNum < 1 || dayNum > 31) {
+          throw new Error("Dia deve estar entre 1 e 31");
+        }
+
+        birthDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+        
+        // Verificar se a data é válida
+        const testDate = new Date(birthDate);
+        if (testDate.toString() === "Invalid Date") {
+          throw new Error("Data inválida no calendário");
+        }
+
+      } catch (err: any) {
+        errors.push({
+          row: rowNumber,
+          message: `Data de nascimento inválida (${firstName} ${lastName}): "${birthDateStr}"`,
+          suggestion: `Use formato DD/MM/AAAA. Exemplo: 15/03/1995. Erro: ${err.message}`
+        });
         skipped++;
         continue;
       }
 
+      // Verificar e-mail duplicado no banco
       const { data: existingProfile } = await supabase
         .from("profiles")
-        .select("id")
+        .select("id, nickname, name")
         .eq("email", email)
         .maybeSingle();
 
       if (existingProfile) {
-        errors.push(`E-mail já cadastrado: ${email}`);
+        errors.push({
+          row: rowNumber,
+          message: `E-mail já cadastrado: ${email}`,
+          suggestion: `Este e-mail já pertence a ${existingProfile.nickname || existingProfile.name}. Use outro e-mail ou remova esta linha.`
+        });
         skipped++;
         continue;
       }
@@ -712,25 +807,44 @@ export default function ManagePlayers() {
         .insert(inserts);
 
       if (error) {
-        sonnerToast.error("Erro ao inserir jogadores: " + error.message);
+        sonnerToast.error("❌ Erro ao inserir jogadores no banco de dados: " + error.message);
         return;
       }
     }
 
     await loadPlayers();
 
+    // Mensagens de sucesso e erros detalhados
     if (created > 0) {
       sonnerToast.success(
         `✅ ${created} jogador(es) importado(s) com sucesso!` +
-        (skipped > 0 ? ` (${skipped} linha(s) ignorada(s))` : "")
+        (skipped > 0 ? ` (${skipped} linha(s) ignorada(s) por erros)` : ""),
+        { duration: 5000 }
       );
     }
 
     if (errors.length > 0) {
-      console.warn("Erros de importação:", errors);
-      sonnerToast.warning(
-        `${errors.length} linha(s) com erro. Verifique o console para detalhes.`
+      console.group("📋 Detalhes dos Erros de Importação");
+      errors.forEach(err => {
+        console.error(`Linha ${err.row}: ${err.message}\n💡 ${err.suggestion}`);
+      });
+      console.groupEnd();
+
+      // Mostrar primeiros 3 erros no toast
+      const firstErrors = errors.slice(0, 3);
+      const errorMessage = firstErrors
+        .map(err => `• Linha ${err.row}: ${err.message}\n  💡 ${err.suggestion}`)
+        .join("\n\n");
+
+      sonnerToast.error(
+        `❌ ${errors.length} erro(s) encontrado(s):\n\n${errorMessage}` +
+        (errors.length > 3 ? `\n\n... e mais ${errors.length - 3} erro(s). Veja o console (F12) para detalhes completos.` : ""),
+        { duration: 10000 }
       );
+    }
+
+    if (created === 0 && errors.length === 0) {
+      sonnerToast.warning("⚠️ Nenhum jogador foi importado. Verifique se o arquivo contém dados válidos.");
     }
   };
 
@@ -778,14 +892,27 @@ export default function ManagePlayers() {
             </CardTitle>
             
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <Button 
-                onClick={() => document.getElementById('excel-upload')?.click()}
-                disabled={importing}
-                className="w-full sm:w-auto min-h-[44px] bg-primary hover:bg-primary/90"
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                {importing ? "Importando..." : "Importar Excel"}
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => document.getElementById('excel-upload')?.click()}
+                  disabled={importing}
+                  variant="outline"
+                  className="flex-1 sm:flex-none min-h-[44px]"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {importing ? "Importando..." : "Importar Excel"}
+                </Button>
+                
+                <Button 
+                  onClick={() => setShowImportHelp(true)}
+                  variant="ghost"
+                  size="icon"
+                  className="min-h-[44px] min-w-[44px]"
+                  title="Como formatar o arquivo Excel"
+                >
+                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                </Button>
+              </div>
               
               <Button 
                 onClick={() => setAddDialogOpen(true)} 
@@ -1492,6 +1619,176 @@ export default function ManagePlayers() {
               </Button>
               <Button onClick={handleCreatePlayer} className="h-12 text-base w-full sm:w-auto">
                 Cadastrar Jogador
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog de Ajuda para Importação Excel */}
+        <Dialog open={showImportHelp} onOpenChange={setShowImportHelp}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-2xl">
+                <AlertTriangle className="h-6 w-6 text-yellow-600" />
+                Como Formatar o Arquivo Excel
+              </DialogTitle>
+              <DialogDescription className="text-base">
+                Siga estas instruções para importar jogadores sem erros
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6 py-4">
+              {/* Formato Esperado */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg">📋 Formato do Arquivo</h3>
+                <p className="text-sm text-muted-foreground">
+                  A primeira linha do arquivo deve conter EXATAMENTE estes cabeçalhos:
+                </p>
+                
+                <div className="bg-muted/30 p-4 rounded-lg border border-border">
+                  <div className="grid grid-cols-5 gap-2 text-sm font-mono">
+                    <div className="bg-primary/10 p-2 rounded text-center border border-primary/30">
+                      <strong>Nome</strong>
+                    </div>
+                    <div className="bg-primary/10 p-2 rounded text-center border border-primary/30">
+                      <strong>Sobrenome</strong>
+                    </div>
+                    <div className="bg-primary/10 p-2 rounded text-center border border-primary/30">
+                      <strong>E-mail</strong>
+                    </div>
+                    <div className="bg-primary/10 p-2 rounded text-center border border-primary/30">
+                      <strong>Data de Nascimento</strong>
+                    </div>
+                    <div className="bg-muted/50 p-2 rounded text-center border border-border">
+                      <span className="text-muted-foreground">Apelido</span>
+                      <br />
+                      <span className="text-xs">(opcional)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Importante:</strong> Os nomes das colunas devem estar EXATAMENTE como mostrado acima, 
+                      incluindo acentos e maiúsculas/minúsculas.
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Exemplo de Dados */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg">✅ Exemplo Correto</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-primary/10 border-b-2 border-primary/30">
+                        <th className="p-2 text-left border border-border">Nome</th>
+                        <th className="p-2 text-left border border-border">Sobrenome</th>
+                        <th className="p-2 text-left border border-border">E-mail</th>
+                        <th className="p-2 text-left border border-border">Data de Nascimento</th>
+                        <th className="p-2 text-left border border-border">Apelido</th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-mono text-xs">
+                      <tr className="border-b border-border">
+                        <td className="p-2 border border-border">João</td>
+                        <td className="p-2 border border-border">Silva</td>
+                        <td className="p-2 border border-border">joao.silva@email.com</td>
+                        <td className="p-2 border border-border">15/03/1995</td>
+                        <td className="p-2 border border-border">Joãozinho</td>
+                      </tr>
+                      <tr className="border-b border-border">
+                        <td className="p-2 border border-border">Maria</td>
+                        <td className="p-2 border border-border">Santos</td>
+                        <td className="p-2 border border-border">maria@email.com</td>
+                        <td className="p-2 border border-border">22/07/1998</td>
+                        <td className="p-2 border border-border text-muted-foreground italic">-</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 border border-border">Pedro</td>
+                        <td className="p-2 border border-border">Oliveira</td>
+                        <td className="p-2 border border-border">pedro.oli@email.com</td>
+                        <td className="p-2 border border-border">10/12/2000</td>
+                        <td className="p-2 border border-border">Pedrinho</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Regras de Validação */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg">🔍 Regras de Validação</h3>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary font-bold">•</span>
+                    <span><strong>Data de Nascimento:</strong> Formato obrigatório <code className="bg-muted px-1.5 py-0.5 rounded">DD/MM/AAAA</code> (ex: 15/03/1995)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary font-bold">•</span>
+                    <span><strong>E-mail:</strong> Deve ser válido e único (não pode estar cadastrado)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary font-bold">•</span>
+                    <span><strong>Nome e Sobrenome:</strong> Campos obrigatórios, não podem estar vazios</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary font-bold">•</span>
+                    <span><strong>Apelido:</strong> Opcional, pode ficar em branco</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Erros Comuns */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg text-red-600 dark:text-red-400">❌ Erros Comuns</h3>
+                <div className="space-y-2">
+                  <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded p-3">
+                    <p className="text-sm font-semibold text-red-800 dark:text-red-200">Data em formato americano</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <code className="text-xs bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded">1995-03-15</code>
+                      <span className="text-xs text-red-600 dark:text-red-300">❌ Errado</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <code className="text-xs bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">15/03/1995</code>
+                      <span className="text-xs text-green-600 dark:text-green-300">✅ Correto</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded p-3">
+                    <p className="text-sm font-semibold text-red-800 dark:text-red-200">E-mail duplicado</p>
+                    <p className="text-xs text-red-600 dark:text-red-300 mt-1">
+                      Cada e-mail só pode ser cadastrado uma vez no sistema
+                    </p>
+                  </div>
+
+                  <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded p-3">
+                    <p className="text-sm font-semibold text-red-800 dark:text-red-200">Nomes de colunas diferentes</p>
+                    <p className="text-xs text-red-600 dark:text-red-300 mt-1">
+                      "Name" ou "First Name" não funciona. Deve ser exatamente "Nome"
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dicas */}
+              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <h3 className="font-semibold text-sm text-blue-800 dark:text-blue-200 mb-2">💡 Dicas</h3>
+                <ul className="space-y-1 text-xs text-blue-700 dark:text-blue-300">
+                  <li>• Remova linhas vazias do arquivo antes de importar</li>
+                  <li>• Verifique se não há espaços extras nos e-mails</li>
+                  <li>• Se houver erro, abra o Console do navegador (F12) para ver detalhes</li>
+                  <li>• Formatos aceitos: .xlsx, .xls, .csv</li>
+                </ul>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button onClick={() => setShowImportHelp(false)} className="w-full sm:w-auto">
+                Entendi
               </Button>
             </DialogFooter>
           </DialogContent>
