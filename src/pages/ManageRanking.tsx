@@ -272,38 +272,69 @@ const ManageRanking = () => {
     if (editedRankings.size === 0) {
       toast({
         title: "Nenhuma alteração",
-        description: "Não há alterações para salvar.",
+        description: "Não há alterações pendentes para salvar.",
+        variant: "default",
       });
       return;
     }
 
     setSaving(true);
     try {
-      const updates = Array.from(editedRankings.entries()).map(([id, changes]) => {
-        const fullRanking = rankings.find(r => r.id === id);
-        return {
-          id,
-          ...fullRanking,
-          ...changes,
-        };
+      const adjustmentPromises = Array.from(editedRankings.entries()).flatMap(
+        ([rankingId, fields]) => {
+          const ranking = rankings.find(r => r.id === rankingId);
+          if (!ranking) return [];
+
+          return Object.entries(fields).map(([field, value]) => {
+            const adjustmentTypeMap: Record<string, string> = {
+              gols: 'gols',
+              assistencias: 'assistencias',
+              vitorias: 'vitorias',
+              empates: 'empates',
+              derrotas: 'derrotas',
+              presencas: 'presencas',
+              faltas: 'faltas',
+              atrasos: 'atrasos',
+              punicoes: 'punicoes',
+              cartoes_amarelos: 'cartoes_amarelos',
+              cartoes_azuis: 'cartoes_azuis',
+            };
+
+            const adjustmentType = adjustmentTypeMap[field];
+            if (!adjustmentType) return null;
+
+            return supabase.rpc('apply_ranking_adjustment', {
+              p_player_id: ranking.player_id,
+              p_adjustment_type: adjustmentType,
+              p_new_total: value as number,
+              p_reason: `Ajuste manual via interface administrativa`,
+            });
+          }).filter(Boolean);
+        }
+      );
+
+      const results = await Promise.all(adjustmentPromises);
+
+      const errors = results.filter(r => {
+        const data = r.data as any;
+        return data?.success === false;
       });
-
-      const { error } = await supabase
-        .from("player_rankings")
-        .upsert(updates);
-
-      if (error) throw error;
+      
+      if (errors.length > 0) {
+        const errorData = errors[0].data as any;
+        throw new Error(errorData?.error || 'Erro ao aplicar ajustes');
+      }
 
       toast({
-        title: "Alterações salvas",
-        description: `${editedRankings.size} registro(s) atualizado(s) com sucesso.`,
+        title: "✅ Ajustes aplicados!",
+        description: `${editedRankings.size} jogador(es) ajustado(s). Classificação recalculada automaticamente.`,
       });
 
       setEditedRankings(new Map());
       await loadRankings();
     } catch (error: any) {
       toast({
-        title: "Erro ao salvar alterações",
+        title: "Erro ao salvar ajustes",
         description: error.message,
         variant: "destructive",
       });

@@ -18,6 +18,7 @@ interface Match {
   score_away: number;
   scheduled_time: string;
   status: string;
+  round_id: string;
   match_timer_started_at: string | null;
   match_timer_paused_at: string | null;
   match_timer_total_paused_seconds: number;
@@ -446,7 +447,15 @@ export default function ManageMatch() {
 
       if (updateError) throw updateError;
 
-      toast.success("Último gol deletado com sucesso!");
+      const { error: recalcError } = await supabase.rpc('recalc_round_aggregates', {
+        p_round_id: match.round_id
+      });
+
+      if (recalcError) {
+        console.error("Erro ao recalcular pontos:", recalcError);
+      }
+
+      toast.success("Último gol deletado e pontos recalculados!");
       await loadMatchData();
     } catch (error) {
       console.error("Erro ao deletar gol:", error);

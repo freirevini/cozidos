@@ -232,6 +232,54 @@ export type Database = {
           },
         ]
       }
+      player_ranking_adjustments: {
+        Row: {
+          adjustment_type: string
+          adjustment_value: number
+          created_at: string
+          created_by: string | null
+          id: string
+          player_id: string
+          reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          adjustment_type: string
+          adjustment_value: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          player_id: string
+          reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          adjustment_type?: string
+          adjustment_value?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          player_id?: string
+          reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_ranking_adjustments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_ranking_adjustments_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_rankings: {
         Row: {
           assistencias: number
@@ -666,6 +714,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_ranking_adjustment: {
+        Args: {
+          p_adjustment_type: string
+          p_new_total: number
+          p_player_id: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
       calculate_age_years: { Args: { birth_date: string }; Returns: number }
       close_all_matches_by_round: {
         Args: { p_round_id: string }
