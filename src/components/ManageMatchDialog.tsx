@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { Trash2, Plus } from "lucide-react";
 
 interface Match {
@@ -80,6 +80,7 @@ interface ManageMatchDialogProps {
 }
 
 export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange, onSaved }: ManageMatchDialogProps) {
+  const { toast } = useToast();
   const [match, setMatch] = useState<Match | null>(null);
   const [players, setPlayers] = useState<Record<string, Player[]>>({});
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -130,7 +131,11 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
       await loadCards();
     } catch (error: any) {
       console.error("Erro ao carregar partida:", error);
-      toast.error("Erro ao carregar dados da partida");
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Erro ao carregar dados da partida",
+        variant: "destructive",
+      });
     }
   };
 
@@ -306,13 +311,22 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
         
       if (!error) {
         setAttendanceData({ ...attendanceData, [playerId]: status });
-        toast.success(`Status atualizado: ${player.nickname || player.name}`);
+        toast({
+          title: "Status atualizado",
+          description: `${player.nickname || player.name}`,
+        });
       } else {
-        toast.error("Erro ao atualizar presença");
+        toast({
+          title: "Erro ao atualizar presença",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Erro ao atualizar presença:", error);
-      toast.error("Erro ao atualizar presença");
+      toast({
+        title: "Erro ao atualizar presença",
+        variant: "destructive",
+      });
     }
   };
 
@@ -322,17 +336,23 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
   const handleAddGoal = async () => {
     if (!match || !goalData.team || (!goalData.player_id && !goalData.is_own_goal)) {
-      toast.error("Preencha todos os campos obrigatórios");
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha todos os campos obrigatórios",
+        variant: "destructive",
+      });
       return;
     }
 
     try {
-      // Calcular minuto automaticamente
       const currentMinute = Math.floor((Date.now() - new Date().setHours(0, 0, 0, 0)) / 60000);
 
-      // Validar minuto (0-120)
       if (currentMinute < 0 || currentMinute > 120) {
-        toast.error("Minuto inválido. Deve estar entre 0 e 120.");
+        toast({
+          title: "Minuto inválido",
+          description: "Deve estar entre 0 e 120.",
+          variant: "destructive",
+        });
         return;
       }
       
@@ -372,19 +392,28 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
       if (updateError) throw updateError;
 
-      toast.success("Gol adicionado com sucesso!");
+      toast({
+        title: "Gol adicionado!",
+      });
       setAddingGoal(false);
       setGoalData({ team: "", player_id: "", has_assist: false, assist_player_id: "", is_own_goal: false });
       await loadMatchData();
     } catch (error: any) {
       console.error("Erro ao adicionar gol:", error);
-      toast.error("Erro ao adicionar gol");
+      toast({
+        title: "Erro ao adicionar gol",
+        variant: "destructive",
+      });
     }
   };
 
   const handleDeleteLastGoal = async () => {
     if (goals.length === 0) {
-      toast.error("Não há gols para excluir");
+      toast({
+        title: "Sem gols",
+        description: "Não há gols para excluir",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -406,27 +435,38 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
       await supabase.from("matches").update(newScore).eq("id", matchId);
 
-      toast.success("Último gol excluído com sucesso!");
+      toast({
+        title: "Gol excluído!",
+      });
       await loadMatchData();
     } catch (error: any) {
       console.error("Erro ao excluir gol:", error);
-      toast.error("Erro ao excluir gol");
+      toast({
+        title: "Erro ao excluir gol",
+        variant: "destructive",
+      });
     }
   };
 
   const handleAddCard = async () => {
     if (!cardData.team || !cardData.player_id || !cardData.card_type) {
-      toast.error("Preencha todos os campos");
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha todos os campos",
+        variant: "destructive",
+      });
       return;
     }
 
     try {
-      // Calcular minuto automaticamente
       const currentMinute = Math.floor((Date.now() - new Date().setHours(0, 0, 0, 0)) / 60000);
 
-      // Validar minuto (0-120)
       if (currentMinute < 0 || currentMinute > 120) {
-        toast.error("Minuto inválido. Deve estar entre 0 e 120.");
+        toast({
+          title: "Minuto inválido",
+          description: "Deve estar entre 0 e 120.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -439,19 +479,28 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
       if (error) throw error;
 
-      toast.success("Cartão adicionado com sucesso!");
+      toast({
+        title: "Cartão adicionado!",
+      });
       setAddingCard(false);
       setCardData({ team: "", player_id: "", card_type: "" });
       await loadCards();
     } catch (error: any) {
       console.error("Erro ao adicionar cartão:", error);
-      toast.error("Erro ao adicionar cartão");
+      toast({
+        title: "Erro ao adicionar cartão",
+        variant: "destructive",
+      });
     }
   };
 
   const handleDeleteLastCard = async () => {
     if (cards.length === 0) {
-      toast.error("Não há cartões para excluir");
+      toast({
+        title: "Sem cartões",
+        description: "Não há cartões para excluir",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -464,18 +513,48 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
       if (error) throw error;
 
-      toast.success("Último cartão excluído com sucesso!");
+      toast({
+        title: "Cartão excluído!",
+      });
       await loadCards();
     } catch (error: any) {
       console.error("Erro ao excluir cartão:", error);
-      toast.error("Erro ao excluir cartão");
+      toast({
+        title: "Erro ao excluir cartão",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleSaveMatch = () => {
-    toast.success("Partida salva com sucesso!");
-    onSaved();
-    onOpenChange(false);
+  const handleSaveMatch = async () => {
+    try {
+      const { error: recalcError } = await supabase.rpc('recalc_round_aggregates', {
+        p_round_id: roundId
+      });
+
+      if (recalcError) {
+        console.error("Erro ao recalcular pontos:", recalcError);
+        toast({
+          title: "⚠️ Partida salva com aviso",
+          description: "Dados salvos, mas houve erro ao recalcular pontos.",
+        });
+      } else {
+        toast({
+          title: "✅ Partida salva!",
+          description: "Dados atualizados e pontos recalculados automaticamente.",
+        });
+      }
+
+      onSaved();
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error("Erro ao salvar partida:", error);
+      toast({
+        title: "Erro ao salvar",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   if (!match) return null;
