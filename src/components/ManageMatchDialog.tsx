@@ -528,12 +528,23 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
   const handleSaveMatch = async () => {
     try {
+      // Recalcular stats da rodada
       const { error: recalcError } = await supabase.rpc('recalc_round_aggregates', {
         p_round_id: roundId
       });
 
       if (recalcError) {
-        console.error("Erro ao recalcular pontos:", recalcError);
+        console.error("Erro ao recalcular stats da rodada:", recalcError);
+      }
+
+      // Recalcular rankings globais
+      const { error: rankError } = await supabase.rpc('recalc_all_player_rankings');
+
+      if (rankError) {
+        console.error("Erro ao recalcular rankings:", rankError);
+      }
+
+      if (recalcError || rankError) {
         toast({
           title: "⚠️ Partida salva com aviso",
           description: "Dados salvos, mas houve erro ao recalcular pontos.",
