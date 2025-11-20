@@ -447,12 +447,20 @@ export default function ManageMatch() {
 
       if (updateError) throw updateError;
 
+      // Recalcular stats da rodada
       const { error: recalcError } = await supabase.rpc('recalc_round_aggregates', {
         p_round_id: match.round_id
       });
 
       if (recalcError) {
-        console.error("Erro ao recalcular pontos:", recalcError);
+        console.error("Erro ao recalcular stats da rodada:", recalcError);
+      }
+
+      // Recalcular rankings globais
+      const { error: rankError } = await supabase.rpc('recalc_all_player_rankings');
+      
+      if (rankError) {
+        console.error("Erro ao recalcular rankings:", rankError);
       }
 
       toast.success("Último gol deletado e pontos recalculados!");

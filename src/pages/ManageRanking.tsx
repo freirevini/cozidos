@@ -279,6 +279,12 @@ const ManageRanking = () => {
     }
 
     setSaving(true);
+    
+    toast({
+      title: "Salvando ajustes...",
+      description: "Aplicando alterações ao banco de dados.",
+    });
+
     try {
       const adjustmentPromises = Array.from(editedRankings.entries()).flatMap(
         ([rankingId, fields]) => {
@@ -326,8 +332,16 @@ const ManageRanking = () => {
       }
 
       toast({
-        title: "✅ Ajustes aplicados!",
-        description: `${editedRankings.size} jogador(es) ajustado(s). Classificação recalculada automaticamente.`,
+        title: "Recalculando classificação...",
+        description: "Aguarde enquanto atualizamos todos os dados.",
+      });
+
+      // Aguardar 1.5s para garantir que o trigger execute
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      toast({
+        title: "✅ Concluído!",
+        description: `${editedRankings.size} jogador(es) ajustado(s). Classificação atualizada.`,
       });
 
       setEditedRankings(new Map());
