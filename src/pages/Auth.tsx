@@ -25,10 +25,6 @@ const signUpSchema = z.object({
   birthDate: z.string().optional(),
 });
 
-interface NewPlayer {
-  level: string;
-  position: string;
-}
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -40,10 +36,6 @@ export default function Auth() {
   const [lastName, setLastName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [isPlayer, setIsPlayer] = useState("nao");
-  const [newPlayer, setNewPlayer] = useState<NewPlayer>({
-    level: "",
-    position: "",
-  });
 
   useEffect(() => {
     checkUser();
@@ -109,11 +101,6 @@ export default function Auth() {
         toast.error("Data de nascimento é obrigatória para jogadores");
         return;
       }
-      
-      if (!newPlayer.position) {
-        toast.error("Posição é obrigatória para jogadores");
-        return;
-      }
 
       // Validação de data de nascimento
       const birthDateObj = new Date(birthDate);
@@ -167,7 +154,6 @@ export default function Auth() {
               birth_date: birthIso,
               first_name: validation.data.first_name,
               last_name: validation.data.last_name,
-              position: newPlayer.position,
             }
           });
 
@@ -262,32 +248,16 @@ export default function Auth() {
                   </Select>
                 </div>
                 {isPlayer === "sim" && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="birthDate">Data de Nascimento</Label>
-                      <Input
-                        id="birthDate"
-                        type="date"
-                        value={birthDate}
-                        onChange={(e) => setBirthDate(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="position">Posição</Label>
-                      <Select value={newPlayer.position} onValueChange={(value) => setNewPlayer({...newPlayer, position: value})}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a posição" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="goleiro">Goleiro</SelectItem>
-                          <SelectItem value="defensor">Defensor</SelectItem>
-                          <SelectItem value="meio-campista">Meio-Campista</SelectItem>
-                          <SelectItem value="atacante">Atacante</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </>
+                  <div className="space-y-2">
+                    <Label htmlFor="birthDate">Data de Nascimento</Label>
+                    <Input
+                      id="birthDate"
+                      type="date"
+                      value={birthDate}
+                      onChange={(e) => setBirthDate(e.target.value)}
+                      required
+                    />
+                  </div>
                 )}
               </>
             )}
