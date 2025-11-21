@@ -7,8 +7,11 @@ import { Button } from "@/components/ui/button";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, PlayCircle, Edit3, Trash2, CheckCircle, Clock, AlertCircle, PlusCircle } from "lucide-react";
 import ManageMatchDialog from "@/components/ManageMatchDialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 interface Match {
@@ -53,6 +56,17 @@ export default function ManageRounds() {
   const [round, setRound] = useState<Round | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+  const [deleteConfirmMatch, setDeleteConfirmMatch] = useState<Match | null>(null);
+  const [finishAllConfirm, setFinishAllConfirm] = useState(false);
+  const [finalizeConfirm, setFinalizeConfirm] = useState(false);
+
+  // Pull to refresh
+  const { pullDistance, isRefreshing } = usePullToRefresh({
+    onRefresh: async () => {
+      await loadRoundData();
+      toast.success("Dados atualizados!");
+    }
+  });
 
   useEffect(() => {
     if (!isAdmin) {
@@ -262,11 +276,8 @@ export default function ManageRounds() {
   const finishAllMatches = async () => {
     if (!roundId) return;
 
-    if (!confirm("Tem certeza que deseja encerrar TODAS as partidas desta rodada?")) {
-      return;
-    }
-
     setLoading(true);
+    setFinishAllConfirm(false);
     try {
       const { data, error } = await supabase.rpc('close_all_matches_by_round', {
         p_round_id: roundId
@@ -330,11 +341,8 @@ export default function ManageRounds() {
       return;
     }
 
-    if (!confirm("Tem certeza que deseja finalizar esta rodada?\n\nIsso irá recalcular todas as estatísticas e pontuações dos jogadores.")) {
-      return;
-    }
-
     setLoading(true);
+    setFinalizeConfirm(false);
 
     try {
       // Atualizar status da rodada para "finalizada"
@@ -391,11 +399,8 @@ export default function ManageRounds() {
   };
 
   const deleteMatch = async (matchId: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta partida?\n\nGols, assistências e cartões também serão excluídos.')) {
-      return;
-    }
-    
     try {
+      setDeleteConfirmMatch(null);
       const { error } = await supabase
         .from('matches')
         .delete()
@@ -461,66 +466,145 @@ export default function ManageRounds() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
+      
+      {/* Pull to refresh indicator */}
+      {pullDistance > 0 && (
+        <div 
+          className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-4 pointer-events-none"
+          style={{ opacity: Math.min(pullDistance / 80, 1) }}
+        >
+          <div className="bg-primary text-primary-foreground rounded-full p-3 shadow-lg">
+            {isRefreshing ? (
+              <div className="animate-spin">⟳</div>
+            ) : (
+              <div>↓</div>
+            )}
+          </div>
+        </div>
+      )}
+
       <main className="container mx-auto px-4 py-8">
         <Card className="card-glow bg-card border-border">
           <CardHeader>
-            <div className="flex items-center mb-4">
+            <div className="flex items-center justify-between mb-4">
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => {
-                  if (confirm("Tem certeza que deseja voltar? Alterações não salvas serão perdidas.")) {
-                    navigate("/admin/round");
-                  }
-                }}
+                onClick={() => navigate("/admin/round")}
+                className="hover:bg-primary/10"
               >
                 <ArrowLeft size={24} />
               </Button>
+              
+              {matches.length === 0 && !loading && (
+                <Button
+                  onClick={createMatches}
+                  size="sm"
+                  className="gap-2"
+                >
+                  <PlusCircle size={16} />
+                  <span className="hidden sm:inline">Criar Partidas</span>
+                </Button>
+              )}
             </div>
-            <CardTitle className="text-2xl sm:text-3xl font-bold text-primary glow-text text-center mb-6 flex items-center justify-center gap-4">
-              <span>Rodada - {round && new Date(round.scheduled_date).toLocaleDateString('pt-BR')}</span>
+            
+            <div className="text-center mb-6">
+              <CardTitle className="text-2xl sm:text-3xl font-bold text-primary glow-text mb-3">
+                Rodada {round?.round_number}
+              </CardTitle>
+              <div className="text-muted-foreground mb-3">
+                {round && new Date(round.scheduled_date).toLocaleDateString('pt-BR', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </div>
               {round && (
                 <Badge 
-                  className={`text-base py-1 px-3 ${
+                  className={`text-base py-2 px-4 ${
                     round.status === 'a_iniciar' ? 'bg-gray-600 hover:bg-gray-600' :
                     round.status === 'em_andamento' ? 'bg-yellow-600 hover:bg-yellow-600' :
                     'bg-green-600 hover:bg-green-600'
                   } text-white`}
                 >
+                  {round.status === 'a_iniciar' && <Clock size={16} className="inline mr-2" />}
+                  {round.status === 'em_andamento' && <PlayCircle size={16} className="inline mr-2" />}
+                  {round.status === 'finalizada' && <CheckCircle size={16} className="inline mr-2" />}
                   {round.status === 'a_iniciar' ? 'A Iniciar' : 
                    round.status === 'em_andamento' ? 'Em Andamento' : 'Finalizada'}
                 </Badge>
               )}
-            </CardTitle>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 mt-4">
-              <Button
-                onClick={finishAllMatches}
-                disabled={loading || matches.every(m => m.status === 'finished')}
-                variant="outline"
-                className="w-full sm:w-auto py-3 sm:py-2"
-              >
-                Encerrar Todas as Partidas
-              </Button>
-              <Button
-                onClick={showAttendanceDialog}
-                disabled={loading || matches.some(m => m.status !== 'finished')}
-                variant="secondary"
-                className="w-full sm:w-auto py-3 sm:py-2"
-              >
-                Registrar Atrasos/Faltas
-              </Button>
-              <Button
-                onClick={finalizeRound}
-                disabled={loading || matches.some(m => m.status !== 'finished')}
-                className="w-full sm:w-auto py-3 sm:py-2"
-              >
-                Finalizar Rodada
-              </Button>
             </div>
+            
+            {matches.length > 0 && (
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
+                <Button
+                  onClick={() => setFinishAllConfirm(true)}
+                  disabled={loading || matches.every(m => m.status === 'finished')}
+                  variant="outline"
+                  className="w-full sm:w-auto py-3 sm:py-2 gap-2"
+                >
+                  <CheckCircle size={18} />
+                  Encerrar Todas
+                </Button>
+                <Button
+                  onClick={showAttendanceDialog}
+                  disabled={loading || matches.some(m => m.status !== 'finished')}
+                  variant="secondary"
+                  className="w-full sm:w-auto py-3 sm:py-2 gap-2"
+                >
+                  <AlertCircle size={18} />
+                  Atrasos/Faltas
+                </Button>
+                <Button
+                  onClick={() => setFinalizeConfirm(true)}
+                  disabled={loading || matches.some(m => m.status !== 'finished')}
+                  className="w-full sm:w-auto py-3 sm:py-2 gap-2"
+                >
+                  <CheckCircle size={18} />
+                  Finalizar Rodada
+                </Button>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="text-center py-8">Carregando...</div>
+              <>
+                {/* Loading skeletons desktop */}
+                <div className="hidden md:block space-y-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="flex items-center gap-4 p-4 border-b border-border">
+                      <Skeleton className="h-6 w-20" />
+                      <Skeleton className="h-8 w-64" />
+                      <Skeleton className="h-6 w-24 ml-auto" />
+                      <Skeleton className="h-9 w-32" />
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Loading skeletons mobile */}
+                <div className="md:hidden space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <Card key={i} className="bg-muted/10">
+                      <CardContent className="p-5">
+                        <div className="flex justify-between mb-4">
+                          <Skeleton className="h-5 w-16" />
+                          <Skeleton className="h-6 w-24" />
+                        </div>
+                        <div className="flex justify-center gap-4 mb-5">
+                          <Skeleton className="h-20 w-20" />
+                          <Skeleton className="h-20 w-20" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Skeleton className="h-12 w-full" />
+                          <Skeleton className="h-12 w-full" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
             ) : matches.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground mb-4">
@@ -532,55 +616,72 @@ export default function ManageRounds() {
               </div>
             ) : (
               <div className="space-y-4">
-                {/* Desktop: Tabela completa */}
+                {/* Desktop: Tabela otimizada */}
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left p-3 text-primary font-bold">Horário</th>
-                        <th className="text-left p-3 text-primary font-bold">Partida</th>
-                        <th className="text-center p-3 text-primary font-bold">Status</th>
-                        <th className="text-center p-3 text-primary font-bold">Ações</th>
+                      <tr className="border-b-2 border-primary/20">
+                        <th className="text-left p-4 text-primary font-bold">
+                          <div className="flex items-center gap-2">
+                            <Clock size={18} />
+                            Horário
+                          </div>
+                        </th>
+                        <th className="text-left p-4 text-primary font-bold">Partida</th>
+                        <th className="text-center p-4 text-primary font-bold">Status</th>
+                        <th className="text-center p-4 text-primary font-bold">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
                       {matches.map((match) => (
-                        <tr key={match.id} className="border-b border-border hover:bg-muted/30">
-                          <td className="p-3">{match.scheduled_time.substring(0, 5)}</td>
-                          <td className="p-3">
-                            <div className="flex items-center gap-2">
-                              <Badge className={teamColors[match.team_home]}>
+                        <tr 
+                          key={match.id} 
+                          className="border-b border-border hover:bg-muted/30 transition-colors"
+                        >
+                          <td className="p-4">
+                            <div className="flex items-center gap-2 text-base font-medium">
+                              <Clock size={16} className="text-muted-foreground" />
+                              {match.scheduled_time.substring(0, 5)}
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <Badge className={`${teamColors[match.team_home]} text-sm px-3 py-1`}>
                                 {teamNames[match.team_home]}
                               </Badge>
-                              <span className="text-xl font-bold">{match.score_home}</span>
-                              <span className="text-muted-foreground">×</span>
-                              <span className="text-xl font-bold">{match.score_away}</span>
-                              <Badge className={teamColors[match.team_away]}>
+                              <span className="text-2xl font-bold text-primary">{match.score_home}</span>
+                              <span className="text-muted-foreground text-xl">×</span>
+                              <span className="text-2xl font-bold text-primary">{match.score_away}</span>
+                              <Badge className={`${teamColors[match.team_away]} text-sm px-3 py-1`}>
                                 {teamNames[match.team_away]}
                               </Badge>
                             </div>
                           </td>
-                          <td className="p-3 text-center">
+                          <td className="p-4 text-center">
                             <Badge 
-                              className={
+                              className={`${
                                 match.status === 'not_started' ? 'bg-gray-600 text-white' :
                                 match.status === 'in_progress' ? 'bg-yellow-600 text-white' :
                                 'bg-green-600 text-white'
-                              }
+                              } gap-1 text-sm px-3 py-1`}
                             >
+                              {match.status === 'not_started' && <Clock size={14} />}
+                              {match.status === 'in_progress' && <PlayCircle size={14} />}
+                              {match.status === 'finished' && <CheckCircle size={14} />}
                               {match.status === 'not_started' ? 'A Iniciar' : 
-                               match.status === 'in_progress' ? 'Em Andamento' : 'Encerrado'}
+                               match.status === 'in_progress' ? 'Ao Vivo' : 'Encerrado'}
                             </Badge>
                           </td>
-                          <td className="p-3 text-center">
-                            <div className="flex gap-2 justify-center flex-wrap">
+                          <td className="p-4 text-center">
+                            <div className="flex gap-2 justify-center">
                               {match.status === 'not_started' && (
                                 <Button
                                   size="sm"
                                   onClick={() => startMatch(match.id)}
                                   variant="default"
-                                  className="min-w-[80px]"
+                                  className="min-w-[100px] gap-2"
                                 >
+                                  <PlayCircle size={16} />
                                   Iniciar
                                 </Button>
                               )}
@@ -590,8 +691,9 @@ export default function ManageRounds() {
                                   size="sm"
                                   variant="default"
                                   onClick={() => openMatchPage(match)}
-                                  className="min-w-[80px]"
+                                  className="min-w-[100px] gap-2"
                                 >
+                                  <PlayCircle size={16} />
                                   Gerenciar
                                 </Button>
                               )}
@@ -601,8 +703,9 @@ export default function ManageRounds() {
                                   size="sm"
                                   variant="secondary"
                                   onClick={() => handleEditMatch(match.id)}
-                                  className="min-w-[80px]"
+                                  className="min-w-[100px] gap-2"
                                 >
+                                  <Edit3 size={16} />
                                   Editar
                                 </Button>
                               )}
@@ -610,9 +713,10 @@ export default function ManageRounds() {
                               <Button
                                 size="sm"
                                 variant="destructive"
-                                onClick={() => deleteMatch(match.id)}
-                                className="min-w-[80px]"
+                                onClick={() => setDeleteConfirmMatch(match)}
+                                className="min-w-[100px] gap-2"
                               >
+                                <Trash2 size={16} />
                                 Excluir
                               </Button>
                             </div>
@@ -623,84 +727,97 @@ export default function ManageRounds() {
                   </table>
                 </div>
 
-                {/* Mobile: Cards */}
+                {/* Mobile: Cards otimizados */}
                 <div className="md:hidden space-y-4">
                   {matches.map((match) => (
-                    <Card key={match.id} className="bg-muted/10">
-                      <CardContent className="p-4">
-                        <div className="text-sm text-muted-foreground mb-2">
-                          {match.scheduled_time.substring(0, 5)}
-                        </div>
-                        
-                        <div className="flex items-center justify-center gap-3 mb-3">
-                          <div className="text-center">
-                            <Badge className={`${teamColors[match.team_home]} mb-1`}>
-                              {teamNames[match.team_home]}
-                            </Badge>
-                            <div className="text-2xl font-bold">{match.score_home}</div>
+                    <Card 
+                      key={match.id} 
+                      className="bg-muted/10 border-border hover:shadow-lg hover:shadow-primary/20 transition-all"
+                    >
+                      <CardContent className="p-5">
+                        {/* Header: Horário e Status */}
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
+                            <Clock size={16} />
+                            {match.scheduled_time.substring(0, 5)}
                           </div>
-                          <span className="text-muted-foreground text-xl">×</span>
-                          <div className="text-center">
-                            <Badge className={`${teamColors[match.team_away]} mb-1`}>
-                              {teamNames[match.team_away]}
-                            </Badge>
-                            <div className="text-2xl font-bold">{match.score_away}</div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex justify-center mb-3">
                           <Badge 
-                            className={
+                            className={`${
                               match.status === 'not_started' ? 'bg-gray-600 text-white' :
                               match.status === 'in_progress' ? 'bg-yellow-600 text-white' :
                               'bg-green-600 text-white'
-                            }
+                            } gap-1`}
                           >
+                            {match.status === 'not_started' && <Clock size={14} />}
+                            {match.status === 'in_progress' && <PlayCircle size={14} />}
+                            {match.status === 'finished' && <CheckCircle size={14} />}
                             {match.status === 'not_started' ? 'A Iniciar' : 
-                             match.status === 'in_progress' ? 'Em Andamento' : 'Encerrado'}
+                             match.status === 'in_progress' ? 'Ao Vivo' : 'Encerrado'}
                           </Badge>
                         </div>
                         
-                        <div className="flex gap-2 justify-center flex-wrap">
+                        {/* Placar central com animação */}
+                        <div className="flex items-center justify-center gap-4 mb-5 py-4 bg-background/50 rounded-lg">
+                          <div className="text-center flex-1">
+                            <Badge className={`${teamColors[match.team_home]} mb-2 text-sm px-3 py-1`}>
+                              {teamNames[match.team_home]}
+                            </Badge>
+                            <div className="text-4xl font-bold text-primary">{match.score_home}</div>
+                          </div>
+                          
+                          <div className="text-2xl text-muted-foreground font-light">×</div>
+                          
+                          <div className="text-center flex-1">
+                            <Badge className={`${teamColors[match.team_away]} mb-2 text-sm px-3 py-1`}>
+                              {teamNames[match.team_away]}
+                            </Badge>
+                            <div className="text-4xl font-bold text-primary">{match.score_away}</div>
+                          </div>
+                        </div>
+                        
+                        {/* Botões de ação */}
+                        <div className="grid grid-cols-2 gap-2">
                           {match.status === 'not_started' && (
-                            <Button
-                              size="sm"
-                              onClick={() => startMatch(match.id)}
-                              variant="default"
-                              className="flex-1 min-w-[100px] min-h-[44px]"
-                            >
-                              Iniciar
-                            </Button>
+                            <>
+                              <Button
+                                onClick={() => startMatch(match.id)}
+                                variant="default"
+                                className="min-h-[48px] gap-2 col-span-2"
+                              >
+                                <PlayCircle size={18} />
+                                Iniciar Partida
+                              </Button>
+                            </>
                           )}
                           
                           {match.status === 'in_progress' && (
                             <Button
-                              size="sm"
                               variant="default"
                               onClick={() => openMatchPage(match)}
-                              className="flex-1 min-w-[100px] min-h-[44px]"
+                              className="min-h-[48px] gap-2 col-span-2"
                             >
-                              Gerenciar
+                              <PlayCircle size={18} />
+                              Gerenciar Ao Vivo
                             </Button>
                           )}
                           
                           {match.status === 'finished' && (
                             <Button
-                              size="sm"
                               variant="secondary"
                               onClick={() => handleEditMatch(match.id)}
-                              className="flex-1 min-w-[100px] min-h-[44px]"
+                              className="min-h-[48px] gap-2"
                             >
+                              <Edit3 size={18} />
                               Editar
                             </Button>
                           )}
                           
                           <Button
-                            size="sm"
                             variant="destructive"
-                            onClick={() => deleteMatch(match.id)}
-                            className="flex-1 min-w-[100px] min-h-[44px]"
+                            onClick={() => setDeleteConfirmMatch(match)}
+                            className="min-h-[48px] gap-2"
                           >
+                            <Trash2 size={18} />
                             Excluir
                           </Button>
                         </div>
@@ -714,6 +831,7 @@ export default function ManageRounds() {
         </Card>
       </main>
 
+      {/* Dialog de edição */}
       {editingMatchId && roundId && (
         <ManageMatchDialog
           matchId={editingMatchId}
@@ -730,6 +848,71 @@ export default function ManageRounds() {
           }}
         />
       )}
+
+      {/* Confirmação de exclusão de partida */}
+      <AlertDialog open={!!deleteConfirmMatch} onOpenChange={(open) => !open && setDeleteConfirmMatch(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Partida</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta partida?
+              <br /><br />
+              <strong>Gols, assistências e cartões também serão excluídos.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteConfirmMatch && deleteMatch(deleteConfirmMatch.id)}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmação de encerrar todas */}
+      <AlertDialog open={finishAllConfirm} onOpenChange={setFinishAllConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Encerrar Todas as Partidas</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja encerrar TODAS as partidas desta rodada?
+              <br /><br />
+              Esta ação irá finalizar todas as partidas que ainda não foram encerradas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={finishAllMatches}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmação de finalizar rodada */}
+      <AlertDialog open={finalizeConfirm} onOpenChange={setFinalizeConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Finalizar Rodada</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja finalizar esta rodada?
+              <br /><br />
+              <strong>Isso irá recalcular todas as estatísticas e pontuações dos jogadores.</strong>
+              <br /><br />
+              Após finalizar, será necessário reabrir a rodada para fazer edições.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={finalizeRound}>
+              Finalizar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
