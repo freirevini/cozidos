@@ -336,8 +336,13 @@ const ManageRanking = () => {
         description: "Aguarde enquanto atualizamos todos os dados.",
       });
 
-      // Aguardar 1.5s para garantir que o trigger execute
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Chamar explicitamente o recálculo para garantir que os ajustes reflitam
+      const { error: recalcError } = await supabase.rpc('recalc_all_player_rankings');
+      
+      if (recalcError) {
+        console.error("Erro ao recalcular rankings:", recalcError);
+        throw new Error("Erro ao recalcular classificação: " + recalcError.message);
+      }
 
       toast({
         title: "✅ Concluído!",
