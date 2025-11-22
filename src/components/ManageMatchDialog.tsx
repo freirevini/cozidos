@@ -6,7 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, AlertCircle, Save } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Match {
   id: string;
@@ -89,6 +91,8 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
   const [attendanceData, setAttendanceData] = useState<Record<string, string>>({});
   const [addingGoal, setAddingGoal] = useState(false);
   const [addingCard, setAddingCard] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [goalData, setGoalData] = useState({
     team: "",
     player_id: "",
@@ -311,9 +315,10 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
         
       if (!error) {
         setAttendanceData({ ...attendanceData, [playerId]: status });
+        setHasUnsavedChanges(true);
         toast({
-          title: "Status atualizado",
-          description: `${player.nickname || player.name}`,
+          title: "✅ Status alterado",
+          description: "Clique em 'Salvar Partida' para confirmar",
         });
       } else {
         toast({
@@ -392,10 +397,11 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
       if (updateError) throw updateError;
 
+      setHasUnsavedChanges(true);
       toast({
-        title: "Gol adicionado!",
+        title: "✅ Gol adicionado!",
+        description: "Clique em 'Salvar Partida' para confirmar",
       });
-      setAddingGoal(false);
       setGoalData({ team: "", player_id: "", has_assist: false, assist_player_id: "", is_own_goal: false });
       await loadMatchData();
     } catch (error: any) {
@@ -435,8 +441,10 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
       await supabase.from("matches").update(newScore).eq("id", matchId);
 
+      setHasUnsavedChanges(true);
       toast({
-        title: "Gol excluído!",
+        title: "✅ Gol excluído!",
+        description: "Clique em 'Salvar Partida' para confirmar",
       });
       await loadMatchData();
     } catch (error: any) {
@@ -479,10 +487,11 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
       if (error) throw error;
 
+      setHasUnsavedChanges(true);
       toast({
-        title: "Cartão adicionado!",
+        title: "✅ Cartão adicionado!",
+        description: "Clique em 'Salvar Partida' para confirmar",
       });
-      setAddingCard(false);
       setCardData({ team: "", player_id: "", card_type: "" });
       await loadCards();
     } catch (error: any) {
@@ -513,8 +522,10 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
       if (error) throw error;
 
+      setHasUnsavedChanges(true);
       toast({
-        title: "Cartão excluído!",
+        title: "✅ Cartão excluído!",
+        description: "Clique em 'Salvar Partida' para confirmar",
       });
       await loadCards();
     } catch (error: any) {
@@ -551,11 +562,12 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
         });
       } else {
         toast({
-          title: "✅ Partida salva!",
-          description: "Dados atualizados e pontos recalculados automaticamente.",
+          title: "✅ Partida salva com sucesso!",
+          description: "Todos os dados foram atualizados e pontos recalculados.",
         });
       }
 
+      setHasUnsavedChanges(false);
       onSaved();
       onOpenChange(false);
     } catch (error: any) {
@@ -568,16 +580,45 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     }
   };
 
+  const handleCloseDialog = () => {
+    if (hasUnsavedChanges) {
+      setShowCloseConfirm(true);
+    } else {
+      onOpenChange(false);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setHasUnsavedChanges(false);
+    setShowCloseConfirm(false);
+    onOpenChange(false);
+  };
+
+  const handleSaveAndClose = async () => {
+    setShowCloseConfirm(false);
+    await handleSaveMatch();
+  };
+
   if (!match) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-center text-2xl">
-            Editar Partida
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={handleCloseDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-center text-2xl">
+              Editar Partida
+            </DialogTitle>
+          </DialogHeader>
+
+          {hasUnsavedChanges && (
+            <Alert className="bg-yellow-500/10 border-yellow-500/50 sticky top-0 z-10">
+              <AlertCircle className="h-5 w-5 text-yellow-600" />
+              <AlertDescription className="text-yellow-600 font-medium">
+                ⚠️ Você tem alterações não salvas. Clique em "Salvar Partida" para confirmar.
+              </AlertDescription>
+            </Alert>
+          )}
 
         <Card className="bg-gradient-to-br from-primary/10 to-secondary/10 border-primary/20">
           <CardContent className="p-6">
@@ -859,10 +900,58 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
           </CardContent>
         </Card>
 
-        <Button onClick={handleSaveMatch} className="w-full bg-primary hover:bg-secondary text-lg py-6">
-          Salvar Partida
-        </Button>
-      </DialogContent>
-    </Dialog>
+          <div className="sticky bottom-0 bg-background pt-4 pb-2 border-t border-border mt-4 space-y-3">
+            <Button 
+              onClick={handleSaveMatch} 
+              className={`w-full text-lg py-6 transition-all ${
+                hasUnsavedChanges 
+                  ? 'bg-primary hover:bg-primary/90 animate-pulse shadow-lg shadow-primary/50' 
+                  : 'bg-primary hover:bg-secondary'
+              }`}
+            >
+              <Save className="h-5 w-5 mr-2" />
+              {hasUnsavedChanges ? 'Salvar Alterações' : 'Salvar Partida'}
+            </Button>
+            {hasUnsavedChanges && (
+              <p className="text-xs text-center text-muted-foreground">
+                {goals.length + cards.length} evento(s) pendente(s)
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={showCloseConfirm} onOpenChange={setShowCloseConfirm}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-yellow-600" />
+              Alterações não salvas
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base">
+              Você tem alterações pendentes que não foram salvas. O que deseja fazer?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={() => setShowCloseConfirm(false)} className="w-full sm:w-auto">
+              Continuar Editando
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDiscardChanges}
+              className="w-full sm:w-auto bg-destructive hover:bg-destructive/90"
+            >
+              Descartar Alterações
+            </AlertDialogAction>
+            <AlertDialogAction 
+              onClick={handleSaveAndClose}
+              className="w-full sm:w-auto bg-primary hover:bg-primary/90"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Salvar e Sair
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
