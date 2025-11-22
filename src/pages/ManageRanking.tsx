@@ -8,8 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
-import { Trash2, Upload, HelpCircle, RotateCcw, UserPlus, Save } from "lucide-react";
+import { Trash2, Upload, HelpCircle, RotateCcw, UserPlus, Save, AlertCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -280,12 +281,13 @@ const ManageRanking = () => {
 
     setSaving(true);
     
-    toast({
-      title: "Salvando ajustes...",
-      description: "Aplicando alterações ao banco de dados.",
-    });
-
     try {
+      // Passo 1: Aplicar ajustes individuais
+      toast({
+        title: "⏳ Passo 1/3: Aplicando ajustes...",
+        description: `Processando ${editedRankings.size} jogador(es)`,
+      });
+
       const adjustmentPromises = Array.from(editedRankings.entries()).flatMap(
         ([rankingId, fields]) => {
           const ranking = rankings.find(r => r.id === rankingId);
@@ -321,6 +323,7 @@ const ManageRanking = () => {
 
       const results = await Promise.all(adjustmentPromises);
 
+      // Verificar erros nos ajustes
       const errors = results.filter(r => {
         const data = r.data as any;
         return data?.success === false;
@@ -331,12 +334,12 @@ const ManageRanking = () => {
         throw new Error(errorData?.error || 'Erro ao aplicar ajustes');
       }
 
+      // Passo 2: Recalcular classificação
       toast({
-        title: "Recalculando classificação...",
-        description: "Aguarde enquanto atualizamos todos os dados.",
+        title: "⏳ Passo 2/3: Recalculando pontos...",
+        description: "Atualizando classificação geral com os ajustes aplicados",
       });
 
-      // Chamar explicitamente o recálculo para garantir que os ajustes reflitam
       const { error: recalcError } = await supabase.rpc('recalc_all_player_rankings');
       
       if (recalcError) {
@@ -344,16 +347,28 @@ const ManageRanking = () => {
         throw new Error("Erro ao recalcular classificação: " + recalcError.message);
       }
 
+      // Aguardar 500ms para garantir que o banco processou tudo
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Passo 3: Recarregar dados
       toast({
-        title: "✅ Concluído!",
-        description: `${editedRankings.size} jogador(es) ajustado(s). Classificação atualizada.`,
+        title: "⏳ Passo 3/3: Atualizando interface...",
+        description: "Carregando dados atualizados",
+      });
+
+      await loadRankings();
+
+      // Sucesso final
+      toast({
+        title: "✅ Alterações salvas com sucesso!",
+        description: `${editedRankings.size} jogador(es) atualizado(s). Classificação recalculada.`,
       });
 
       setEditedRankings(new Map());
-      await loadRankings();
     } catch (error: any) {
+      console.error("Erro completo:", error);
       toast({
-        title: "Erro ao salvar ajustes",
+        title: "❌ Erro ao salvar ajustes",
         description: error.message,
         variant: "destructive",
       });
@@ -751,6 +766,15 @@ const ManageRanking = () => {
           </CardHeader>
           
           <CardContent>
+            {editedRankings.size > 0 && (
+              <Alert className="mb-4 bg-yellow-500/10 border-yellow-500/50">
+                <AlertCircle className="h-5 w-5 text-yellow-600" />
+                <AlertDescription className="text-yellow-600 font-medium">
+                  ⚠️ Você tem {editedRankings.size} jogador(es) com alterações não salvas. Clique em "Salvar Alterações" para confirmar.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {loading ? (
               <div className="text-center py-8 text-muted-foreground">
                 Carregando...
