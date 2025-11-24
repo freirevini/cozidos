@@ -192,15 +192,29 @@ Deno.serve(async (req) => {
   } catch (error: unknown) {
     // Extrair detalhes completos do erro
     const err = (error && typeof error === 'object') ? (error as any) : null
-    const errorMessage = err?.message || err?.details || err?.hint || JSON.stringify(err) || 'Erro desconhecido'
+    const errorMessage = err?.message || err?.details || err?.hint || 'Erro ao processar cadastro'
     
     console.error('[link-player] ❌ ERRO GERAL:', error)
     console.error('[link-player] Detalhes:', { message: err?.message, details: err?.details, hint: err?.hint, code: err?.code })
     
-    // Retornar 200 com ok: false para evitar Runtime Error na UI
+    // Determinar status HTTP apropriado
+    let statusCode = 500
+    let userMessage = 'Erro ao processar cadastro. Tente novamente.'
+    
+    if (err?.message?.includes('auth') || err?.message?.includes('unauthorized')) {
+      statusCode = 401
+      userMessage = 'Sessão expirada. Faça login novamente.'
+    } else if (err?.message?.includes('duplicate') || err?.message?.includes('already exists')) {
+      statusCode = 409
+      userMessage = 'Já existe um cadastro com estes dados.'
+    } else if (err?.message?.includes('validation') || err?.message?.includes('invalid')) {
+      statusCode = 400
+      userMessage = 'Dados inválidos. Verifique as informações e tente novamente.'
+    }
+    
     return new Response(
-      JSON.stringify({ ok: false, error: errorMessage }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ ok: false, error: userMessage }),
+      { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })
