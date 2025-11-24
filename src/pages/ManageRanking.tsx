@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
+import { getUserFriendlyError } from "@/lib/errorHandler";
 import { Trash2, Upload, HelpCircle, RotateCcw, UserPlus, Save, AlertCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -31,6 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { z } from "zod";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 
@@ -107,7 +109,7 @@ const ManageRanking = () => {
     } catch (error: any) {
       toast({
         title: "Erro ao carregar classificação",
-        description: error.message,
+        description: getUserFriendlyError(error),
         variant: "destructive",
       });
     } finally {
@@ -256,15 +258,43 @@ const ManageRanking = () => {
     }
   };
 
+  const rankingSchema = z.object({
+    pontos_totais: z.number().int().min(0).max(999999),
+    gols: z.number().int().min(0).max(9999).optional(),
+    assistencias: z.number().int().min(0).max(9999).optional(),
+    vitorias: z.number().int().min(0).max(9999).optional(),
+    empates: z.number().int().min(0).max(9999).optional(),
+    derrotas: z.number().int().min(0).max(9999).optional(),
+    presencas: z.number().int().min(0).max(9999).optional(),
+    faltas: z.number().int().min(0).max(9999).optional(),
+    atrasos: z.number().int().min(0).max(9999).optional(),
+    punicoes: z.number().int().min(0).max(9999).optional(),
+    cartoes_amarelos: z.number().int().min(0).max(9999).optional(),
+    cartoes_azuis: z.number().int().min(0).max(9999).optional(),
+  });
+
   const updateRankingField = (id: string, field: keyof PlayerRanking, value: number | string) => {
+    const numValue = typeof value === 'string' ? parseInt(value) || 0 : value;
+    
+    // Validate the field
+    const validation = rankingSchema.partial().safeParse({ [field]: numValue });
+    if (!validation.success) {
+      toast({
+        title: "Erro de validação",
+        description: validation.error.errors[0].message,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setRankings((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
+      prev.map((r) => (r.id === id ? { ...r, [field]: numValue } : r))
     );
 
     setEditedRankings((prev) => {
       const newMap = new Map(prev);
       const existing = newMap.get(id) || {};
-      newMap.set(id, { ...existing, [field]: value });
+      newMap.set(id, { ...existing, [field]: numValue });
       return newMap;
     });
   };

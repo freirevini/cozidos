@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { X } from "lucide-react";
+import { z } from "zod";
+import { getUserFriendlyError } from "@/lib/errorHandler";
 
 interface Player {
   id: string;
@@ -70,9 +72,19 @@ export default function AttendanceRecord() {
     }
   };
 
+  const attendanceSchema = z.object({
+    player_id: z.string().uuid("Jogador inválido"),
+    status: z.enum(["atrasado", "falta"], { errorMap: () => ({ message: "Status inválido" }) }),
+  });
+
   const addRecord = () => {
-    if (!currentPlayer || !currentStatus) {
-      toast.error("Selecione um jogador e um status");
+    const validation = attendanceSchema.safeParse({
+      player_id: currentPlayer,
+      status: currentStatus,
+    });
+
+    if (!validation.success) {
+      toast.error(validation.error.errors[0].message);
       return;
     }
 
@@ -88,7 +100,7 @@ export default function AttendanceRecord() {
     setRecords([...records, {
       player_id: currentPlayer,
       player_name: player.nickname || player.name,
-      status: currentStatus,
+      status: validation.data.status,
     }]);
 
     setCurrentPlayer("");
@@ -163,7 +175,7 @@ export default function AttendanceRecord() {
       navigate("/admin/round");
     } catch (error: any) {
       console.error("Erro ao finalizar rodada:", error);
-      toast.error("Erro ao finalizar rodada: " + error.message);
+      toast.error(getUserFriendlyError(error));
     } finally {
       setLoading(false);
     }

@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Shuffle, Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { z } from "zod";
+import { getUserFriendlyError } from "@/lib/errorHandler";
 
 interface Player {
   id: string;
@@ -85,9 +87,15 @@ export default function DefineTeams() {
     setStep('select-date');
   };
 
+  const dateSchema = z.string().refine((date) => {
+    const parsed = new Date(date);
+    return !isNaN(parsed.getTime()) && parsed >= new Date(new Date().setHours(0, 0, 0, 0) - 86400000 * 7);
+  }, "Data inválida ou muito antiga (máximo 7 dias atrás)");
+
   const handleDateSelection = () => {
-    if (!scheduledDate) {
-      toast.error("Selecione a data da rodada");
+    const validation = dateSchema.safeParse(scheduledDate);
+    if (!validation.success) {
+      toast.error(validation.error.errors[0].message);
       return;
     }
 
@@ -306,7 +314,7 @@ export default function DefineTeams() {
       navigate("/admin/teams/manage");
     } catch (error: any) {
       console.error("Erro ao salvar times:", error);
-      toast.error("Erro ao salvar times: " + error.message);
+      toast.error(getUserFriendlyError(error));
     } finally {
       setLoading(false);
     }

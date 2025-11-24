@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { z } from "zod";
+import { getUserFriendlyError } from "@/lib/errorHandler";
 
 interface Player {
   id: string;
@@ -230,7 +232,7 @@ export default function EditRound() {
       navigate("/admin/teams/manage");
     } catch (error: any) {
       console.error("Erro ao salvar alterações:", error);
-      toast.error("Erro ao salvar alterações: " + error.message);
+      toast.error(getUserFriendlyError(error));
     } finally {
       setSaving(false);
     }
