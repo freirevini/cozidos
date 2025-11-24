@@ -17,7 +17,17 @@ export const getUserFriendlyError = (error: any): string => {
   
   // Foreign key constraint errors - specific case for created_by
   if (message.includes('player_ranking_adjustments_created_by_fkey')) {
-    return 'Sessão expirada. Faça login novamente para continuar.';
+    return 'Erro de autenticação. Sua sessão pode ter expirado. Faça login novamente.';
+  }
+  
+  // JWT and token errors
+  if (message.includes('jwt') || message.includes('token expired') || message.includes('invalid token')) {
+    return 'Token de autenticação inválido ou expirado. Faça login novamente.';
+  }
+  
+  // General session errors
+  if (message.includes('auth.uid()') || message.includes('session')) {
+    return 'Sessão expirada ou inválida. Faça login novamente.';
   }
   
   // Foreign key constraint errors (generic)

@@ -96,7 +96,7 @@ const ManageRanking = () => {
     }
   }, [isAdmin, navigate]);
 
-  // Restaurar alterações pendentes após re-autenticação
+  // ✅ Restaurar alterações pendentes após re-autenticação
   useEffect(() => {
     const pendingChanges = localStorage.getItem('pending_ranking_changes');
     
@@ -108,12 +108,15 @@ const ManageRanking = () => {
         setEditedRankings(restoredMap);
         localStorage.removeItem('pending_ranking_changes');
         
+        console.log("✅ Alterações restauradas:", restoredMap.size, "jogador(es)");
+        
         toast({
           title: "Alterações restauradas",
           description: `${restoredMap.size} jogador(es) com alterações pendentes foram restaurados.`,
         });
       } catch (e) {
-        console.error('Erro ao restaurar alterações:', e);
+        console.error('❌ Erro ao restaurar alterações:', e);
+        localStorage.removeItem('pending_ranking_changes');
       }
     }
   }, []);
@@ -337,23 +340,64 @@ const ManageRanking = () => {
       return;
     }
 
-    // Verificar autenticação antes de prosseguir
+    // ✅ Verificação robusta de sessão
+    console.log("🔍 Verificando sessão antes de salvar...");
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (sessionError || !session) {
+    if (sessionError) {
+      console.error("❌ Erro ao verificar sessão:", sessionError);
+      toast({
+        title: "Erro de autenticação",
+        description: "Não foi possível verificar sua sessão. Faça login novamente.",
+        variant: "destructive",
+      });
+      localStorage.setItem('pending_ranking_changes', JSON.stringify(Array.from(editedRankings.entries())));
+      navigate('/auth');
+      return;
+    }
+    
+    if (!session) {
+      console.warn("⚠️ Sessão não encontrada");
       toast({
         title: "Sessão expirada",
         description: "Sua sessão expirou. Faça login novamente para salvar as alterações.",
         variant: "destructive",
       });
-      
-      // Salvar alterações pendentes no localStorage
       localStorage.setItem('pending_ranking_changes', JSON.stringify(Array.from(editedRankings.entries())));
-      
-      // Redirecionar para login
       navigate('/auth');
       return;
     }
+    
+    // ✅ Verificar validade do token
+    const tokenExpiry = session.expires_at;
+    const now = Math.floor(Date.now() / 1000);
+    
+    if (tokenExpiry && tokenExpiry < now) {
+      console.warn("⚠️ Token JWT expirado, tentando renovar...");
+      
+      // Tentar refresh token automaticamente
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (refreshError) {
+        console.error("❌ Falha ao renovar token:", refreshError);
+        toast({
+          title: "Token expirado",
+          description: "Não foi possível renovar sua sessão. Faça login novamente.",
+          variant: "destructive",
+        });
+        localStorage.setItem('pending_ranking_changes', JSON.stringify(Array.from(editedRankings.entries())));
+        navigate('/auth');
+        return;
+      }
+      
+      console.log("✅ Token renovado com sucesso");
+    }
+    
+    // ✅ Log de debug
+    console.log("✅ Sessão válida:", {
+      userId: session.user.id,
+      expiresAt: tokenExpiry ? new Date(tokenExpiry * 1000).toLocaleString() : 'N/A',
+    });
 
     setSaving(true);
     
