@@ -51,6 +51,30 @@ export default function Statistics() {
 
   useEffect(() => {
     loadRounds();
+    
+    // Criar subscription para updates em tempo real
+    const channel = supabase
+      .channel('player_rankings_stats_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'player_rankings'
+        },
+        (payload) => {
+          console.log('📊 Estatísticas atualizadas em tempo real:', payload);
+          // Recarregar stats quando houver mudança
+          if (selectedRound === "all") {
+            loadStatistics();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
@@ -82,7 +106,8 @@ export default function Statistics() {
             *,
             profiles!inner(avatar_url)
           `)
-          .order("pontos_totais", { ascending: false });
+          .order("pontos_totais", { ascending: false })
+          .limit(1000); // Cache busting
 
         if (error) throw error;
         

@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RankingInput } from "@/components/ui/ranking-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
@@ -366,7 +367,7 @@ const ManageRanking = () => {
 
       // Passo 2: Recalcular classificação
       toast({
-        title: "⏳ Passo 2/3: Recalculando pontos...",
+        title: "⏳ Passo 2/4: Recalculando pontos...",
         description: "Atualizando classificação geral com os ajustes aplicados",
       });
 
@@ -377,16 +378,61 @@ const ManageRanking = () => {
         throw new Error("Erro ao recalcular classificação: " + recalcError.message);
       }
 
-      // Aguardar 500ms para garantir que o banco processou tudo
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Passo 3: Recarregar dados
+      // Passo 3: Aguardar processamento com retry
       toast({
-        title: "⏳ Passo 3/3: Atualizando interface...",
+        title: "⏳ Passo 3/4: Aguardando processamento...",
+        description: "Garantindo consistência dos dados",
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Passo 4: Recarregar dados com retry
+      toast({
+        title: "⏳ Passo 4/4: Atualizando interface...",
         description: "Carregando dados atualizados",
       });
 
-      await loadRankings();
+      let retries = 0;
+      const maxRetries = 3;
+      let dataUpdated = false;
+
+      while (retries < maxRetries && !dataUpdated) {
+        await loadRankings();
+        
+        // Verificar se os dados foram atualizados
+        if (editedRankings.size > 0) {
+          const firstEdit = Array.from(editedRankings.entries())[0];
+          const [rankingId, fields] = firstEdit;
+          const currentRank = rankings.find(r => r.id === rankingId);
+          
+          if (currentRank) {
+            const firstField = Object.keys(fields)[0] as keyof PlayerRanking;
+            if (currentRank[firstField] === fields[firstField]) {
+              dataUpdated = true;
+              console.log('✅ Dados atualizados com sucesso:', {
+                field: firstField,
+                value: currentRank[firstField]
+              });
+              break;
+            }
+          }
+        } else {
+          dataUpdated = true;
+          break;
+        }
+        
+        retries++;
+        if (retries < maxRetries) {
+          console.log(`🔄 Tentativa ${retries + 1}/${maxRetries}...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      if (!dataUpdated && retries >= maxRetries) {
+        console.warn('⚠️ Dados podem não ter sido atualizados completamente');
+      }
+
+      console.log('📊 Reload completo:', rankings.length, 'jogadores carregados');
 
       // Sucesso final
       toast({
@@ -843,101 +889,90 @@ const ManageRanking = () => {
                         <TableCell>{ranking.nickname}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{ranking.email}</TableCell>
                         <TableCell className="text-center">
-                          <Input
-                            type="number"
+                          <RankingInput
                             min="0"
                             value={ranking.gols}
-                            onChange={(e) => updateRankingField(ranking.id, "gols", parseInt(e.target.value) || 0)}
-                            className="w-16 text-center"
+                            onValueChange={(value) => updateRankingField(ranking.id, "gols", value)}
+                            className="w-20 sm:w-16"
                           />
                         </TableCell>
                         <TableCell className="text-center">
-                          <Input
-                            type="number"
+                          <RankingInput
                             min="0"
                             value={ranking.assistencias}
-                            onChange={(e) => updateRankingField(ranking.id, "assistencias", parseInt(e.target.value) || 0)}
-                            className="w-16 text-center"
+                            onValueChange={(value) => updateRankingField(ranking.id, "assistencias", value)}
+                            className="w-20 sm:w-16"
                           />
                         </TableCell>
                         <TableCell className="text-center">
-                          <Input
-                            type="number"
+                          <RankingInput
                             min="0"
                             value={ranking.vitorias}
-                            onChange={(e) => updateRankingField(ranking.id, "vitorias", parseInt(e.target.value) || 0)}
-                            className="w-16 text-center"
+                            onValueChange={(value) => updateRankingField(ranking.id, "vitorias", value)}
+                            className="w-20 sm:w-16"
                           />
                         </TableCell>
                         <TableCell className="text-center">
-                          <Input
-                            type="number"
+                          <RankingInput
                             min="0"
                             value={ranking.empates}
-                            onChange={(e) => updateRankingField(ranking.id, "empates", parseInt(e.target.value) || 0)}
-                            className="w-16 text-center"
+                            onValueChange={(value) => updateRankingField(ranking.id, "empates", value)}
+                            className="w-20 sm:w-16"
                           />
                         </TableCell>
                         <TableCell className="text-center">
-                          <Input
-                            type="number"
+                          <RankingInput
                             min="0"
                             value={ranking.derrotas}
-                            onChange={(e) => updateRankingField(ranking.id, "derrotas", parseInt(e.target.value) || 0)}
-                            className="w-16 text-center"
+                            onValueChange={(value) => updateRankingField(ranking.id, "derrotas", value)}
+                            className="w-20 sm:w-16"
                           />
                         </TableCell>
                         <TableCell className="text-center">
-                          <Input
-                            type="number"
+                          <RankingInput
                             min="0"
                             value={ranking.presencas}
-                            onChange={(e) => updateRankingField(ranking.id, "presencas", parseInt(e.target.value) || 0)}
-                            className="w-16 text-center"
+                            onValueChange={(value) => updateRankingField(ranking.id, "presencas", value)}
+                            className="w-20 sm:w-16"
                           />
                         </TableCell>
                         <TableCell className="text-center">
-                          <Input
-                            type="number"
+                          <RankingInput
                             min="0"
                             value={ranking.faltas}
-                            onChange={(e) => updateRankingField(ranking.id, "faltas", parseInt(e.target.value) || 0)}
-                            className="w-16 text-center"
+                            onValueChange={(value) => updateRankingField(ranking.id, "faltas", value)}
+                            className="w-20 sm:w-16"
                           />
                         </TableCell>
                         <TableCell className="text-center">
-                          <Input
-                            type="number"
+                          <RankingInput
                             min="0"
                             value={ranking.atrasos}
-                            onChange={(e) => updateRankingField(ranking.id, "atrasos", parseInt(e.target.value) || 0)}
-                            className="w-16 text-center"
+                            onValueChange={(value) => updateRankingField(ranking.id, "atrasos", value)}
+                            className="w-20 sm:w-16"
                           />
                         </TableCell>
                         <TableCell className="text-center">
-                          <Input
-                            type="number"
+                          <RankingInput
                             value={ranking.punicoes}
-                            onChange={(e) => updateRankingField(ranking.id, "punicoes", parseInt(e.target.value) || 0)}
-                            className="w-16 text-center"
+                            onValueChange={(value) => updateRankingField(ranking.id, "punicoes", value)}
+                            className="w-20 sm:w-16"
                           />
                         </TableCell>
                         <TableCell className="text-center">
-                          <Input
-                            type="number"
+                          <RankingInput
                             min="0"
                             value={ranking.cartoes_amarelos}
-                            onChange={(e) => updateRankingField(ranking.id, "cartoes_amarelos", parseInt(e.target.value) || 0)}
-                            className="w-16 text-center"
+                            onValueChange={(value) => updateRankingField(ranking.id, "cartoes_amarelos", value)}
+                            className="w-20 sm:w-16"
                           />
                         </TableCell>
                         <TableCell className="text-center">
-                          <Input
-                            type="number"
+                          <RankingInput
                             min="0"
                             value={ranking.cartoes_azuis}
-                            onChange={(e) => updateRankingField(ranking.id, "cartoes_azuis", parseInt(e.target.value) || 0)}
-                            className="w-16 text-center"
+                            onValueChange={(value) => updateRankingField(ranking.id, "cartoes_azuis", value)}
+                            className="w-20 sm:w-16"
                           />
                         </TableCell>
                         <TableCell className="text-center font-bold">

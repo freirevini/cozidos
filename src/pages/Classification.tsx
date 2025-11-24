@@ -56,6 +56,28 @@ export default function Classification() {
 
   useEffect(() => {
     loadStats();
+    
+    // Criar subscription para updates em tempo real
+    const channel = supabase
+      .channel('player_rankings_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'player_rankings'
+        },
+        (payload) => {
+          console.log('📊 Ranking atualizado em tempo real:', payload);
+          // Recarregar stats quando houver mudança
+          loadStats();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadStats = async () => {
@@ -68,7 +90,8 @@ export default function Classification() {
           *,
           profiles!inner(avatar_url)
         `)
-        .order("pontos_totais", { ascending: false });
+        .order("pontos_totais", { ascending: false })
+        .limit(1000); // Cache busting
 
       if (error) {
         console.error("Erro ao carregar rankings:", error);
