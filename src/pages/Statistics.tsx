@@ -52,6 +52,8 @@ export default function Statistics() {
   useEffect(() => {
     loadRounds();
     
+    console.log('🔌 Iniciando subscription realtime para estatísticas...');
+    
     // Criar subscription para updates em tempo real
     const channel = supabase
       .channel('player_rankings_stats_changes')
@@ -64,15 +66,30 @@ export default function Statistics() {
         },
         (payload) => {
           console.log('📊 Estatísticas atualizadas em tempo real:', payload);
+          console.log('🔄 Tipo de evento:', payload.eventType);
+          console.log('📝 Dados novos:', payload.new);
+          console.log('📝 Dados antigos:', payload.old);
           // Recarregar stats quando houver mudança
           if (selectedRound === "all") {
             loadStatistics();
           }
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Subscription realtime ativa para Estatísticas!');
+        }
+        if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Erro na subscription realtime:', err);
+        }
+        if (status === 'TIMED_OUT') {
+          console.warn('⏱️ Timeout na subscription realtime');
+        }
+        console.log('📡 Status da subscription:', status);
+      });
 
     return () => {
+      console.log('🔌 Removendo subscription realtime das Estatísticas...');
       supabase.removeChannel(channel);
     };
   }, []);

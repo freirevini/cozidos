@@ -57,6 +57,8 @@ export default function Classification() {
   useEffect(() => {
     loadStats();
     
+    console.log('🔌 Iniciando subscription realtime para player_rankings...');
+    
     // Criar subscription para updates em tempo real
     const channel = supabase
       .channel('player_rankings_changes')
@@ -69,13 +71,28 @@ export default function Classification() {
         },
         (payload) => {
           console.log('📊 Ranking atualizado em tempo real:', payload);
+          console.log('🔄 Tipo de evento:', payload.eventType);
+          console.log('📝 Dados novos:', payload.new);
+          console.log('📝 Dados antigos:', payload.old);
           // Recarregar stats quando houver mudança
           loadStats();
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Subscription realtime ativa para Classificação!');
+        }
+        if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Erro na subscription realtime:', err);
+        }
+        if (status === 'TIMED_OUT') {
+          console.warn('⏱️ Timeout na subscription realtime');
+        }
+        console.log('📡 Status da subscription:', status);
+      });
 
     return () => {
+      console.log('🔌 Removendo subscription realtime da Classificação...');
       supabase.removeChannel(channel);
     };
   }, []);
