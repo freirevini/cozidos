@@ -96,6 +96,28 @@ const ManageRanking = () => {
     }
   }, [isAdmin, navigate]);
 
+  // Restaurar alterações pendentes após re-autenticação
+  useEffect(() => {
+    const pendingChanges = localStorage.getItem('pending_ranking_changes');
+    
+    if (pendingChanges) {
+      try {
+        const parsedChanges = JSON.parse(pendingChanges);
+        const restoredMap = new Map<string, Partial<PlayerRanking>>(parsedChanges);
+        
+        setEditedRankings(restoredMap);
+        localStorage.removeItem('pending_ranking_changes');
+        
+        toast({
+          title: "Alterações restauradas",
+          description: `${restoredMap.size} jogador(es) com alterações pendentes foram restaurados.`,
+        });
+      } catch (e) {
+        console.error('Erro ao restaurar alterações:', e);
+      }
+    }
+  }, []);
+
   const fetchRankingsRaw = async (): Promise<PlayerRanking[]> => {
     const { data, error } = await supabase
       .from("player_rankings")
@@ -312,6 +334,24 @@ const ManageRanking = () => {
         description: "Não há alterações pendentes para salvar.",
         variant: "default",
       });
+      return;
+    }
+
+    // Verificar autenticação antes de prosseguir
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session) {
+      toast({
+        title: "Sessão expirada",
+        description: "Sua sessão expirou. Faça login novamente para salvar as alterações.",
+        variant: "destructive",
+      });
+      
+      // Salvar alterações pendentes no localStorage
+      localStorage.setItem('pending_ranking_changes', JSON.stringify(Array.from(editedRankings.entries())));
+      
+      // Redirecionar para login
+      navigate('/auth');
       return;
     }
 

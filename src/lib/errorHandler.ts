@@ -15,7 +15,12 @@ export const getUserFriendlyError = (error: any): string => {
     return 'Já existe um registro com estes dados.';
   }
   
-  // Foreign key constraint errors
+  // Foreign key constraint errors - specific case for created_by
+  if (message.includes('player_ranking_adjustments_created_by_fkey')) {
+    return 'Sessão expirada. Faça login novamente para continuar.';
+  }
+  
+  // Foreign key constraint errors (generic)
   if (message.includes('foreign key') || message.includes('referenced')) {
     return 'Não é possível excluir: existem dados relacionados.';
   }
