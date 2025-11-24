@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { X } from "lucide-react";
+import { z } from "zod";
+import { getUserFriendlyError } from "@/lib/errorHandler";
 
 interface Punishment {
   id: string;
@@ -77,9 +79,22 @@ export default function PunishmentDialog({ playerId, playerName, open, onOpenCha
     }
   };
 
+  const punishmentSchema = z.object({
+    round_id: z.string().uuid("Rodada inválida"),
+    points: z.number().int().min(-999, "Mínimo -999 pontos").max(999, "Máximo 999 pontos"),
+    reason: z.string().max(500, "Motivo deve ter no máximo 500 caracteres").optional(),
+  });
+
   const addPunishment = async () => {
-    if (!newPunishment.round_id || !newPunishment.points) {
-      toast.error("Preencha a rodada e os pontos");
+    // Validate input
+    const validation = punishmentSchema.safeParse({
+      round_id: newPunishment.round_id,
+      points: parseInt(newPunishment.points),
+      reason: newPunishment.reason || undefined,
+    });
+
+    if (!validation.success) {
+      toast.error(validation.error.errors[0].message);
       return;
     }
 
@@ -89,9 +104,9 @@ export default function PunishmentDialog({ playerId, playerName, open, onOpenCha
         .from("punishments")
         .insert({
           player_id: playerId,
-          round_id: newPunishment.round_id,
-          points: parseInt(newPunishment.points),
-          reason: newPunishment.reason || null,
+          round_id: validation.data.round_id,
+          points: validation.data.points,
+          reason: validation.data.reason || null,
         });
 
       if (error) throw error;
@@ -100,7 +115,7 @@ export default function PunishmentDialog({ playerId, playerName, open, onOpenCha
       setNewPunishment({ round_id: "", points: "", reason: "" });
       loadPunishments();
     } catch (error: any) {
-      toast.error("Erro ao adicionar punição: " + error.message);
+      toast.error(getUserFriendlyError(error));
     } finally {
       setLoading(false);
     }
@@ -122,7 +137,7 @@ export default function PunishmentDialog({ playerId, playerName, open, onOpenCha
       toast.success("Punição excluída");
       loadPunishments();
     } catch (error: any) {
-      toast.error("Erro ao excluir punição: " + error.message);
+      toast.error(getUserFriendlyError(error));
     }
   };
 
