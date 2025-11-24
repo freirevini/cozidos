@@ -96,16 +96,21 @@ const ManageRanking = () => {
     }
   }, [isAdmin, navigate]);
 
+  const fetchRankingsRaw = async (): Promise<PlayerRanking[]> => {
+    const { data, error } = await supabase
+      .from("player_rankings")
+      .select("*")
+      .order("pontos_totais", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  };
+
   const loadRankings = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("player_rankings")
-        .select("*")
-        .order("pontos_totais", { ascending: false });
-
-      if (error) throw error;
-      setRankings(data || []);
+      const data = await fetchRankingsRaw();
+      setRankings(data);
       setEditedRankings(new Map());
     } catch (error: any) {
       toast({
@@ -354,15 +359,23 @@ const ManageRanking = () => {
 
       const results = await Promise.all(adjustmentPromises);
 
-      // Verificar erros nos ajustes
-      const errors = results.filter(r => {
+      // Verificar erros de RPC (erro de conexão, permissão, etc.)
+      const rpcErrors = results.filter(r => r.error);
+      if (rpcErrors.length > 0) {
+        console.error("Erros de RPC nos ajustes:", rpcErrors);
+        throw new Error(rpcErrors[0].error.message || "Erro ao aplicar ajustes");
+      }
+
+      // Verificar erros nos dados retornados (success === false)
+      const dataErrors = results.filter(r => {
         const data = r.data as any;
         return data?.success === false;
       });
       
-      if (errors.length > 0) {
-        const errorData = errors[0].data as any;
-        throw new Error(errorData?.error || 'Erro ao aplicar ajustes');
+      if (dataErrors.length > 0) {
+        const errorData = dataErrors[0].data as any;
+        console.error("Erro no resultado do ajuste:", errorData);
+        throw new Error(errorData?.error || "Erro ao aplicar ajustes");
       }
 
       // Passo 2: Recalcular classificação
@@ -371,11 +384,17 @@ const ManageRanking = () => {
         description: "Atualizando classificação geral com os ajustes aplicados",
       });
 
-      const { error: recalcError } = await supabase.rpc('recalc_all_player_rankings');
+      const { data: recalcData, error: recalcError } = await supabase.rpc('recalc_all_player_rankings');
       
       if (recalcError) {
         console.error("Erro ao recalcular rankings:", recalcError);
         throw new Error("Erro ao recalcular classificação: " + recalcError.message);
+      }
+
+      const recalcResult = recalcData as any;
+      if (recalcResult?.success === false) {
+        console.error("Recalculo retornou falha:", recalcResult);
+        throw new Error(recalcResult.error || "Erro ao recalcular classificação");
       }
 
       // Passo 3: Aguardar processamento com retry
@@ -386,53 +405,47 @@ const ManageRanking = () => {
 
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Passo 4: Recarregar dados com retry
+      // Passo 4: Recarregar dados com retry usando fetch direto do backend
       toast({
-        title: "⏳ Passo 4/4: Atualizando interface...",
-        description: "Carregando dados atualizados",
+        title: "⏳ Passo 4/4: Confirmando atualização...",
+        description: "Verificando dados no backend",
       });
 
       let retries = 0;
       const maxRetries = 3;
-      let dataUpdated = false;
+      let lastData = rankings;
 
-      while (retries < maxRetries && !dataUpdated) {
-        await loadRankings();
-        
-        // Verificar se os dados foram atualizados
+      while (retries < maxRetries) {
+        lastData = await fetchRankingsRaw();
+
         if (editedRankings.size > 0) {
-          const firstEdit = Array.from(editedRankings.entries())[0];
-          const [rankingId, fields] = firstEdit;
-          const currentRank = rankings.find(r => r.id === rankingId);
-          
-          if (currentRank) {
-            const firstField = Object.keys(fields)[0] as keyof PlayerRanking;
-            if (currentRank[firstField] === fields[firstField]) {
-              dataUpdated = true;
-              console.log('✅ Dados atualizados com sucesso:', {
-                field: firstField,
-                value: currentRank[firstField]
-              });
-              break;
-            }
+          const [rankingId, fields] = Array.from(editedRankings.entries())[0];
+          const currentRank = lastData.find(r => r.id === rankingId);
+          const firstField = Object.keys(fields)[0] as keyof PlayerRanking;
+
+          if (currentRank && currentRank[firstField] === fields[firstField]) {
+            console.log("✅ Dados atualizados confirmados no backend:", {
+              id: rankingId,
+              field: firstField,
+              value: currentRank[firstField],
+            });
+            break;
           }
         } else {
-          dataUpdated = true;
           break;
         }
-        
+
         retries++;
         if (retries < maxRetries) {
-          console.log(`🔄 Tentativa ${retries + 1}/${maxRetries}...`);
+          console.log(`🔄 Tentativa ${retries + 1}/${maxRetries} de verificação no backend...`);
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
 
-      if (!dataUpdated && retries >= maxRetries) {
-        console.warn('⚠️ Dados podem não ter sido atualizados completamente');
-      }
+      // Atualizar estado local com a última versão confirmada do backend
+      setRankings(lastData);
 
-      console.log('📊 Reload completo:', rankings.length, 'jogadores carregados');
+      console.log('📊 Estado atualizado com dados confirmados:', lastData.length, 'jogadores');
 
       // Sucesso final
       toast({
