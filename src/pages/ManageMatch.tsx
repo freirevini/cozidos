@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { ArrowLeft, Play, Pause } from "lucide-react";
+import { ArrowLeft, Play, Pause, Target, User } from "lucide-react";
 
 interface Match {
   id: string;
@@ -741,20 +742,36 @@ export default function ManageMatch() {
 
                           {goalData.player_id && goalData.player_id !== "own_goal" && (
                             <>
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  checked={goalData.has_assist}
-                                  onChange={(e) => setGoalData({ ...goalData, has_assist: e.target.checked, assist_player_id: "" })}
-                                  className="h-5 w-5"
-                                  id="has-assist"
-                                />
-                                <label htmlFor="has-assist" className="text-sm font-medium">Houve assistência?</label>
-                              </div>
+                              <Card className="bg-accent/10 border-accent/30 shadow-sm">
+                                <CardContent className="p-4 space-y-3">
+                                  <div className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-2">
+                                      <Target className="h-5 w-5 text-accent" />
+                                      <label htmlFor="has-assist" className="text-base font-semibold text-foreground">
+                                        Houve assistência?
+                                      </label>
+                                    </div>
+                                    <Switch
+                                      id="has-assist"
+                                      checked={goalData.has_assist}
+                                      onCheckedChange={(checked) => 
+                                        setGoalData({ ...goalData, has_assist: checked, assist_player_id: "" })
+                                      }
+                                      className="data-[state=checked]:bg-primary"
+                                    />
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    Marque se outro jogador deu passe para o gol
+                                  </p>
+                                </CardContent>
+                              </Card>
 
                               {goalData.has_assist && (
-                                <div>
-                                  <p className="text-sm font-medium mb-2">Quem deu a assistência?</p>
+                                <div className="space-y-3">
+                                  <p className="text-sm font-semibold mb-2 flex items-center gap-2">
+                                    <User className="h-4 w-4" />
+                                    Quem deu a assistência?
+                                  </p>
                                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                                     {players[goalData.team]
                                       ?.filter(p => p.id !== goalData.player_id)
