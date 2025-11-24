@@ -19,6 +19,9 @@ interface Match {
   score_away: number;
   scheduled_time: string;
   status: string;
+  match_timer_started_at: string | null;
+  match_timer_paused_at: string | null;
+  match_timer_total_paused_seconds: number | null;
 }
 
 interface Player {
@@ -194,7 +197,6 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
           const { data: player } = await supabase
             .from("profiles")
             .select("id, name, nickname")
-            .eq("is_approved", true)
             .eq("id", goal.player_id)
             .maybeSingle();
 
@@ -208,7 +210,6 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
               const { data: assistPlayer } = await supabase
                 .from("profiles")
                 .select("id, name, nickname")
-                .eq("is_approved", true)
                 .eq("id", assist.player_id)
                 .maybeSingle();
               return { ...assist, player: assistPlayer };
@@ -240,7 +241,6 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
           const { data: player } = await supabase
             .from("profiles")
             .select("id, name, nickname")
-            .eq("is_approved", true)
             .eq("id", card.player_id)
             .maybeSingle();
           return { ...card, player };
@@ -350,7 +350,16 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     }
 
     try {
-      const currentMinute = Math.floor((Date.now() - new Date().setHours(0, 0, 0, 0)) / 60000);
+      // Calcular minuto baseado no tempo da partida
+      let currentMinute = 1;
+      if (match.match_timer_started_at) {
+        const startTime = new Date(match.match_timer_started_at).getTime();
+        const now = Date.now();
+        const elapsedSeconds = Math.floor((now - startTime) / 1000);
+        const totalPausedSeconds = match.match_timer_total_paused_seconds || 0;
+        const effectiveSeconds = elapsedSeconds - totalPausedSeconds;
+        currentMinute = Math.max(1, Math.ceil(effectiveSeconds / 60));
+      }
 
       if (currentMinute < 0 || currentMinute > 120) {
         toast({
@@ -467,7 +476,16 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     }
 
     try {
-      const currentMinute = Math.floor((Date.now() - new Date().setHours(0, 0, 0, 0)) / 60000);
+      // Calcular minuto baseado no tempo da partida
+      let currentMinute = 1;
+      if (match?.match_timer_started_at) {
+        const startTime = new Date(match.match_timer_started_at).getTime();
+        const now = Date.now();
+        const elapsedSeconds = Math.floor((now - startTime) / 1000);
+        const totalPausedSeconds = match.match_timer_total_paused_seconds || 0;
+        const effectiveSeconds = elapsedSeconds - totalPausedSeconds;
+        currentMinute = Math.max(1, Math.ceil(effectiveSeconds / 60));
+      }
 
       if (currentMinute < 0 || currentMinute > 120) {
         toast({
@@ -757,19 +775,24 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
             <div className="space-y-2">
               {goals.map((goal) => (
-                <div key={goal.id} className="flex items-center justify-between p-3 bg-muted/10 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Badge className={teamColors[goal.team_color]}>
-                      {teamNames[goal.team_color]}
-                    </Badge>
-                    <span className="font-medium">
-                      ⚽ {goal.minute}' {goal.is_own_goal ? "GC" : (goal.player?.nickname || goal.player?.name)}
-                      {goal.assists && goal.assists.length > 0 && (
+                <div key={goal.id} className="flex items-center justify-between p-3 bg-muted/10 rounded-lg hover:bg-muted/20 transition-colors">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-3">
+                      <Badge className={teamColors[goal.team_color]}>
+                        {teamNames[goal.team_color]}
+                      </Badge>
+                      <span className="font-medium">
+                        ⚽ {goal.minute}' {goal.is_own_goal ? "GC" : (goal.player?.nickname || goal.player?.name)}
+                      </span>
+                    </div>
+                    {goal.assists && goal.assists.length > 0 && goal.assists[0].player && (
+                      <div className="flex items-center gap-2 ml-2 text-sm">
+                        <span className="text-accent font-semibold">🎯</span>
                         <span className="text-muted-foreground">
-                          {" "}(Ass: {goal.assists[0].player?.nickname || goal.assists[0].player?.name})
+                          Assistência: <span className="font-medium text-foreground">{goal.assists[0].player.nickname || goal.assists[0].player.name}</span>
                         </span>
-                      )}
-                    </span>
+                      </div>
+                    )}
                   </div>
                   <Button
                     variant="ghost"
