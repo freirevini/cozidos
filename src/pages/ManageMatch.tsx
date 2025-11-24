@@ -618,8 +618,10 @@ export default function ManageMatch() {
                         <span className="ml-1">{goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}</span>
                       </div>
                       {assist?.player && (
-                        <div className="text-xs text-muted-foreground mt-1 ml-6">
-                          (Assist: {assist.player.nickname || assist.player.name})
+                        <div className="text-xs sm:text-sm text-foreground mt-1 ml-6">
+                          Assist: <span className="font-semibold">
+                            {assist.player.nickname || assist.player.name}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -649,8 +651,10 @@ export default function ManageMatch() {
                         <span className="ml-1">{goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}</span>
                       </div>
                       {assist?.player && (
-                        <div className="text-xs text-muted-foreground mt-1 ml-6">
-                          (Assist: {assist.player.nickname || assist.player.name})
+                        <div className="text-xs sm:text-sm text-foreground mt-1 ml-6">
+                          Assist: <span className="font-semibold">
+                            {assist.player.nickname || assist.player.name}
+                          </span>
                         </div>
                       )}
                     </div>
