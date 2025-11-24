@@ -762,16 +762,23 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
                     <Badge className={teamColors[goal.team_color]}>
                       {teamNames[goal.team_color]}
                     </Badge>
-                    <span>
-                      ⚽ {goal.is_own_goal ? "GC" : (goal.player?.nickname || goal.player?.name)}
+                    <span className="font-medium">
+                      ⚽ {goal.minute}' {goal.is_own_goal ? "GC" : (goal.player?.nickname || goal.player?.name)}
+                      {goal.assists && goal.assists.length > 0 && (
+                        <span className="text-muted-foreground">
+                          {" "}(Ass: {goal.assists[0].player?.nickname || goal.assists[0].player?.name})
+                        </span>
+                      )}
                     </span>
-                    {goal.assists && goal.assists.length > 0 && (
-                      <span className="text-sm text-muted-foreground">
-                        (assistência: {goal.assists[0].player?.nickname || goal.assists[0].player?.name})
-                      </span>
-                    )}
                   </div>
-                  <span className="text-sm text-muted-foreground">{goal.minute}'</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteLastGoal()}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               ))}
             </div>
