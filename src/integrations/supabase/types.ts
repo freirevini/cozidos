@@ -485,6 +485,39 @@ export type Database = {
           },
         ]
       }
+      profile_creation_logs: {
+        Row: {
+          created_at: string
+          email: string | null
+          error_details: Json | null
+          event_type: string
+          id: string
+          message: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          error_details?: Json | null
+          event_type: string
+          id?: string
+          message: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          error_details?: Json | null
+          event_type?: string
+          id?: string
+          message?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -724,6 +757,16 @@ export type Database = {
         Returns: Json
       }
       calculate_age_years: { Args: { birth_date: string }; Returns: number }
+      check_profile_sync_status: {
+        Args: never
+        Returns: {
+          last_error_message: string
+          recent_errors: number
+          total_users: number
+          users_with_profiles: number
+          users_without_profiles: number
+        }[]
+      }
       close_all_matches_by_round: {
         Args: { p_round_id: string }
         Returns: Json
@@ -738,6 +781,18 @@ export type Database = {
       generate_player_key: {
         Args: { p_birth_date: string; p_email: string }
         Returns: string
+      }
+      get_users_without_profiles: {
+        Args: never
+        Returns: {
+          email: string
+          email_confirmed_at: string
+          last_event_type: string
+          last_log_time: string
+          last_message: string
+          user_created_at: string
+          user_id: string
+        }[]
       }
       has_role: {
         Args: {
@@ -755,6 +810,7 @@ export type Database = {
         Args: { p_birth_date: string; p_player_id: string }
         Returns: Json
       }
+      sync_missing_profiles: { Args: never; Returns: Json }
     }
     Enums: {
       attendance_status: "presente" | "atrasado" | "falta"

@@ -27,6 +27,7 @@ export default function Header() {
     if (path.startsWith('/admin/teams')) return '/admin/teams';
     if (path.startsWith('/admin/players')) return '/admin/players';
     if (path.startsWith('/admin/ranking')) return '/admin/ranking';
+    if (path.startsWith('/admin/monitoring')) return '/admin/monitoring';
     
     // Verificar correspondências parciais para outras rotas
     if (path.startsWith('/times')) return '/times';
@@ -68,6 +69,7 @@ export default function Header() {
     { href: "/admin/round", label: "Gerenciar Rodada" },
     { href: "/admin/players", label: "Gerenciar Jogadores" },
     { href: "/admin/ranking", label: "Gerenciar Classificação Geral" },
+    { href: "/admin/monitoring", label: "Monitoramento" },
   ];
 
   const userLinks = isPlayer 
