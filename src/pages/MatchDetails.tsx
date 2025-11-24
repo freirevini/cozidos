@@ -448,10 +448,12 @@ const MatchDetails = () => {
                             <div key={event.id} className="flex items-center gap-2 text-sm bg-muted/10 p-2 rounded">
                               <span className="text-lg">{getEventIcon(event)}</span>
                               <span className="flex-1 truncate font-medium">
-                                {event.player?.nickname || event.player?.name}
-                              </span>
-                              <span className="text-xs text-primary font-bold">
-                                {event.minute > 12 ? `12'+${event.minute - 12}` : `${event.minute}'`}
+                                {event.minute > 12 ? `12'+${event.minute - 12}` : `${event.minute}'`} {event.player?.nickname || event.player?.name}
+                                {event.type === 'goal' && event.assist && (
+                                  <span className="text-muted-foreground text-xs">
+                                    {" "}(Ass: {event.assist.nickname || event.assist.name})
+                                  </span>
+                                )}
                               </span>
                             </div>
                           ))
@@ -486,10 +488,12 @@ const MatchDetails = () => {
                             <div key={event.id} className="flex items-center gap-2 text-sm bg-muted/10 p-2 rounded">
                               <span className="text-lg">{getEventIcon(event)}</span>
                               <span className="flex-1 truncate font-medium">
-                                {event.player?.nickname || event.player?.name}
-                              </span>
-                              <span className="text-xs text-primary font-bold">
-                                {event.minute > 12 ? `12'+${event.minute - 12}` : `${event.minute}'`}
+                                {event.minute > 12 ? `12'+${event.minute - 12}` : `${event.minute}'`} {event.player?.nickname || event.player?.name}
+                                {event.type === 'goal' && event.assist && (
+                                  <span className="text-muted-foreground text-xs">
+                                    {" "}(Ass: {event.assist.nickname || event.assist.name})
+                                  </span>
+                                )}
                               </span>
                             </div>
                           ))
