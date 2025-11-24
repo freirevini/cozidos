@@ -14,9 +14,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Trash2, Search, Filter, UserCheck, UserX, AlertTriangle, UserPlus, RefreshCw, Upload } from "lucide-react";
 import { AlertDialogIcon } from "@/components/ui/alert-dialog-icon";
 import { toast as sonnerToast } from "sonner";
+import * as XLSX from 'xlsx';
+import Papa from 'papaparse';
+import { z } from 'zod';
+import { getUserFriendlyError } from "@/lib/errorHandler";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import * as XLSX from "xlsx";
-import Papa from "papaparse";
 import {
   Dialog,
   DialogContent,
@@ -202,9 +204,25 @@ export default function ManagePlayers() {
 
   const updatePlayer = async (playerId: string, field: string, value: any) => {
     try {
+      // Input validation schema
+      const playerUpdateSchema = z.object({
+        nickname: z.string().trim().min(1, "Nome não pode estar vazio").max(50, "Nome deve ter no máximo 50 caracteres").optional(),
+        level: z.enum(['A', 'B', 'C', 'D', 'E'], { errorMap: () => ({ message: "Nível inválido" }) }).optional(),
+        position: z.enum(['goleiro', 'defensor', 'meio-campista', 'atacante'], { errorMap: () => ({ message: "Posição inválida" }) }).optional(),
+        status: z.enum(['pendente', 'aprovado', 'congelado', 'rejeitado'], { errorMap: () => ({ message: "Status inválido" }) }).optional(),
+        player_type_detail: z.enum(['mensal', 'avulso', 'avulso_fixo'], { errorMap: () => ({ message: "Tipo de jogador inválido" }) }).optional(),
+      });
+
+      // Validate input
+      const validation = playerUpdateSchema.safeParse({ [field]: value });
+      if (!validation.success) {
+        sonnerToast.error(validation.error.errors[0].message);
+        return;
+      }
+
       const { error } = await supabase
         .from("profiles")
-        .update({ [field]: value })
+        .update({ [field]: validation.data[field as keyof typeof validation.data] })
         .eq("id", playerId);
 
       if (error) throw error;
@@ -215,7 +233,7 @@ export default function ManagePlayers() {
 
       sonnerToast.success("Jogador atualizado com sucesso!");
     } catch (error: any) {
-      sonnerToast.error("Erro ao atualizar: " + error.message);
+      sonnerToast.error(getUserFriendlyError(error));
     }
   };
 
@@ -408,7 +426,7 @@ export default function ManagePlayers() {
 
                 setPlayers(players.filter((p) => p.id !== playerId));
               } catch (error: any) {
-                sonnerToast.error("Erro ao remover jogador: " + error.message);
+                sonnerToast.error(getUserFriendlyError(error));
               }
             }}
             onCancel={() => {

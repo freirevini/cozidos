@@ -11,6 +11,7 @@ import novoLogo from "@/assets/novo-logo.png";
 import { z } from "zod";
 import { BouncingBalls } from "@/components/ui/bouncing-balls";
 import Footer from "@/components/Footer";
+import { getUserFriendlyError } from "@/lib/errorHandler";
 
 const loginSchema = z.object({
   email: z.string().trim().email({ message: "E-mail inválido" }).max(255, { message: "E-mail muito longo" }),
@@ -72,7 +73,7 @@ export default function Auth() {
         navigate("/");
       }
     } catch (error: any) {
-      toast.error(error.message || "Erro ao fazer login");
+      toast.error(getUserFriendlyError(error));
     } finally {
       setLoading(false);
     }
