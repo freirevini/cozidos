@@ -350,24 +350,22 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     }
 
     try {
-      // Calcular minuto baseado no tempo da partida
-      let currentMinute = 1;
-      if (match.match_timer_started_at) {
+      // Padrão: minuto 12' (final da partida de 12 minutos)
+      let currentMinute = 12;
+      
+      // Só calcula tempo real se a partida está em andamento
+      if (match.status === 'in_progress' && match.match_timer_started_at) {
         const startTime = new Date(match.match_timer_started_at).getTime();
         const now = Date.now();
         const elapsedSeconds = Math.floor((now - startTime) / 1000);
         const totalPausedSeconds = match.match_timer_total_paused_seconds || 0;
         const effectiveSeconds = elapsedSeconds - totalPausedSeconds;
-        currentMinute = Math.max(1, Math.ceil(effectiveSeconds / 60));
-      }
-
-      if (currentMinute < 0 || currentMinute > 120) {
-        toast({
-          title: "Minuto inválido",
-          description: "Deve estar entre 0 e 120.",
-          variant: "destructive",
-        });
-        return;
+        const calculatedMinute = Math.ceil(effectiveSeconds / 60);
+        
+        // Usa o valor calculado (permite acréscimos além de 12')
+        if (calculatedMinute >= 1) {
+          currentMinute = calculatedMinute;
+        }
       }
       
       const { data: goalInserted, error: goalError } = await supabase
@@ -476,24 +474,22 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     }
 
     try {
-      // Calcular minuto baseado no tempo da partida
-      let currentMinute = 1;
-      if (match?.match_timer_started_at) {
+      // Padrão: minuto 12' (final da partida de 12 minutos)
+      let currentMinute = 12;
+      
+      // Só calcula tempo real se a partida está em andamento
+      if (match?.status === 'in_progress' && match.match_timer_started_at) {
         const startTime = new Date(match.match_timer_started_at).getTime();
         const now = Date.now();
         const elapsedSeconds = Math.floor((now - startTime) / 1000);
         const totalPausedSeconds = match.match_timer_total_paused_seconds || 0;
         const effectiveSeconds = elapsedSeconds - totalPausedSeconds;
-        currentMinute = Math.max(1, Math.ceil(effectiveSeconds / 60));
-      }
-
-      if (currentMinute < 0 || currentMinute > 120) {
-        toast({
-          title: "Minuto inválido",
-          description: "Deve estar entre 0 e 120.",
-          variant: "destructive",
-        });
-        return;
+        const calculatedMinute = Math.ceil(effectiveSeconds / 60);
+        
+        // Usa o valor calculado (permite acréscimos além de 12')
+        if (calculatedMinute >= 1) {
+          currentMinute = calculatedMinute;
+        }
       }
 
       const { error } = await supabase.from("cards").insert([{
