@@ -424,6 +424,12 @@ export default function ManagePlayers() {
                   sonnerToast.success("Jogador removido com sucesso!");
                 }
 
+                // Recalcular classificação após exclusão
+                const { error: recalcError } = await supabase.rpc('recalc_all_player_rankings');
+                if (recalcError) {
+                  console.error('Erro ao recalcular classificação:', recalcError);
+                }
+
                 setPlayers(players.filter((p) => p.id !== playerId));
               } catch (error: any) {
                 sonnerToast.error(getUserFriendlyError(error));
