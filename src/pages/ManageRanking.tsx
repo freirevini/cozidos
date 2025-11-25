@@ -552,33 +552,24 @@ const ManageRanking = () => {
 
   const resetOnly = async () => {
     setResetting(true);
-    const success = await resetRankings();
-    if (success) {
-      toast({
-        title: "Classificação resetada",
-        description: "Todos os dados foram removidos. Classificação está vazia.",
-      });
-    }
-  };
-
-  const resetRankings = async (): Promise<boolean> => {
     try {
-      const { data, error } = await supabase.rpc('reset_player_rankings');
-      
+      const { data, error } = await supabase.rpc('reset_full_classification');
       if (error) throw error;
       
-      const result = data as { success: boolean; error?: string; message?: string };
-      if (result?.success === false) throw new Error(result.error);
+      const result = data as { success: boolean; error?: string };
+      if (!result.success) throw new Error(result.error);
       
       await loadRankings();
-      return true;
+      toast({
+        title: "Classificação resetada completamente",
+        description: "Todos os dados de classificação foram removidos.",
+      });
     } catch (error: any) {
       toast({
-        title: "Erro ao resetar classificação",
+        title: "Erro ao resetar",
         description: error.message,
         variant: "destructive",
       });
-      return false;
     } finally {
       setResetting(false);
     }
@@ -587,36 +578,49 @@ const ManageRanking = () => {
   const resetAndRecalculate = async () => {
     setResetting(true);
     
-    const resetSuccess = await resetRankings();
-    if (!resetSuccess) return;
-    
-    toast({
-      title: "Classificação resetada",
-      description: "Iniciando recálculo automático...",
-    });
-    
-    setRecalculating(true);
     try {
-      const { data, error } = await supabase.rpc('recalc_all_player_rankings');
+      // Passo 1: Reset completo
+      const { data: resetData, error: resetError } = await supabase.rpc('reset_full_classification');
+      if (resetError) throw resetError;
       
-      if (error) throw error;
+      const resetResult = resetData as { success: boolean; error?: string };
+      if (!resetResult.success) throw new Error(resetResult.error);
       
-      const result = data as { success: boolean; error?: string; message?: string };
-      if (result?.success === false) throw new Error(result.error);
+      toast({
+        title: "Reset concluído",
+        description: "Iniciando recálculo...",
+      });
+      
+      // Passo 2: Recalcular agregados de CADA rodada finalizada
+      const { data: rounds } = await supabase
+        .from('rounds')
+        .select('id')
+        .eq('status', 'finalizada');
+      
+      for (const round of rounds || []) {
+        await supabase.rpc('recalc_round_aggregates', { p_round_id: round.id });
+      }
+      
+      // Passo 3: Recalcular rankings globais (sem ajustes, pois foram removidos)
+      const { data: recalcData, error: recalcError } = await supabase.rpc('recalc_all_player_rankings');
+      if (recalcError) throw recalcError;
+      
+      const recalcResult = recalcData as { success: boolean; error?: string };
+      if (recalcResult && !recalcResult.success) throw new Error(recalcResult.error);
       
       await loadRankings();
-      
       toast({
         title: "Concluído!",
         description: "Classificação resetada e recalculada com sucesso.",
       });
     } catch (error: any) {
       toast({
-        title: "Erro ao recalcular pontos",
+        title: "Erro ao processar",
         description: error.message,
         variant: "destructive",
       });
     } finally {
+      setResetting(false);
       setRecalculating(false);
     }
   };
