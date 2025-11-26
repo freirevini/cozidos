@@ -125,6 +125,10 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
   const loadMatchData = async () => {
     try {
+      // 1. Primeiro recalcular placar baseado nos gols existentes
+      await recalculateMatchScore();
+      
+      // 2. Depois carregar partida com placar já atualizado
       const { data: matchData, error } = await supabase
         .from("matches")
         .select("*")
@@ -134,11 +138,12 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
       if (error) throw error;
       setMatch(matchData);
 
+      // 3. Carregar eventos
       await loadGoals();
       await loadCards();
       
-      // Sincronizar placar com gols reais ao abrir dialog
-      await recalculateMatchScore();
+      // 4. Resetar flag de alterações ao abrir
+      setHasUnsavedChanges(false);
     } catch (error: any) {
       console.error("Erro ao carregar partida:", error);
       toast({
@@ -302,13 +307,13 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
   const recalculateMatchScore = async () => {
     try {
-      // Buscar todos os gols da partida
-      const { data: allGoals } = await supabase
-        .from("goals")
-        .select("team_color, is_own_goal")
-        .eq("match_id", matchId);
+      // Buscar dados atualizados da partida e gols diretamente do banco
+      const [{ data: matchData }, { data: allGoals }] = await Promise.all([
+        supabase.from("matches").select("team_home, team_away").eq("id", matchId).single(),
+        supabase.from("goals").select("team_color, is_own_goal").eq("match_id", matchId)
+      ]);
       
-      if (!match) return;
+      if (!matchData) return;
       
       let scoreHome = 0;
       let scoreAway = 0;
@@ -316,11 +321,11 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
       allGoals?.forEach(goal => {
         if (goal.is_own_goal) {
           // Gol contra conta para o time adversário
-          if (goal.team_color === match.team_home) scoreAway++;
+          if (goal.team_color === matchData.team_home) scoreAway++;
           else scoreHome++;
         } else {
           // Gol normal
-          if (goal.team_color === match.team_home) scoreHome++;
+          if (goal.team_color === matchData.team_home) scoreHome++;
           else scoreAway++;
         }
       });
@@ -331,8 +336,10 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
         .update({ score_home: scoreHome, score_away: scoreAway })
         .eq("id", matchId);
       
-      // Atualizar estado local
-      setMatch({ ...match, score_home: scoreHome, score_away: scoreAway });
+      // Atualizar estado local COM os dados frescos do banco
+      if (match) {
+        setMatch({ ...match, score_home: scoreHome, score_away: scoreAway });
+      }
     } catch (error) {
       console.error("Erro ao recalcular placar:", error);
     }
@@ -629,17 +636,27 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     }
   };
 
-  const handleCloseDialog = () => {
+  const handleCloseDialog = async () => {
+    // Sempre recalcular ao fechar, pois eventos podem ter sido adicionados
+    try {
+      await supabase.rpc('recalc_round_aggregates', { p_round_id: roundId });
+      await supabase.rpc('recalc_all_player_rankings');
+    } catch (error) {
+      console.error("Erro ao recalcular ao fechar:", error);
+    }
+    
     if (hasUnsavedChanges) {
       setShowCloseConfirm(true);
     } else {
+      onSaved(); // Notificar parent para refresh
       onOpenChange(false);
     }
   };
 
-  const handleDiscardChanges = () => {
+  const handleDiscardChanges = async () => {
     setHasUnsavedChanges(false);
     setShowCloseConfirm(false);
+    onSaved(); // Notificar parent para refresh
     onOpenChange(false);
   };
 
@@ -967,15 +984,16 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
           <div className="sticky bottom-0 bg-background pt-4 pb-2 border-t border-border mt-4 space-y-3">
             <Button 
-              onClick={handleSaveMatch} 
+              onClick={handleSaveMatch}
+              disabled={!hasUnsavedChanges}
               className={`w-full text-lg py-6 transition-all ${
                 hasUnsavedChanges 
                   ? 'bg-primary hover:bg-primary/90 animate-pulse shadow-lg shadow-primary/50' 
-                  : 'bg-primary hover:bg-secondary'
+                  : 'bg-muted text-muted-foreground cursor-not-allowed'
               }`}
             >
               <Save className="h-5 w-5 mr-2" />
-              {hasUnsavedChanges ? 'Salvar Alterações' : 'Salvar Partida'}
+              Salvar Partida {hasUnsavedChanges && '(alterações pendentes)'}
             </Button>
             {hasUnsavedChanges && (
               <p className="text-xs text-center text-muted-foreground">
