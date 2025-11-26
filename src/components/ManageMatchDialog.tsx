@@ -136,6 +136,9 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
       await loadGoals();
       await loadCards();
+      
+      // Sincronizar placar com gols reais ao abrir dialog
+      await recalculateMatchScore();
     } catch (error: any) {
       console.error("Erro ao carregar partida:", error);
       toast({
@@ -297,6 +300,44 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     }
   };
 
+  const recalculateMatchScore = async () => {
+    try {
+      // Buscar todos os gols da partida
+      const { data: allGoals } = await supabase
+        .from("goals")
+        .select("team_color, is_own_goal")
+        .eq("match_id", matchId);
+      
+      if (!match) return;
+      
+      let scoreHome = 0;
+      let scoreAway = 0;
+      
+      allGoals?.forEach(goal => {
+        if (goal.is_own_goal) {
+          // Gol contra conta para o time adversário
+          if (goal.team_color === match.team_home) scoreAway++;
+          else scoreHome++;
+        } else {
+          // Gol normal
+          if (goal.team_color === match.team_home) scoreHome++;
+          else scoreAway++;
+        }
+      });
+      
+      // Atualizar placar na tabela matches
+      await supabase
+        .from("matches")
+        .update({ score_home: scoreHome, score_away: scoreAway })
+        .eq("id", matchId);
+      
+      // Atualizar estado local
+      setMatch({ ...match, score_home: scoreHome, score_away: scoreAway });
+    } catch (error) {
+      console.error("Erro ao recalcular placar:", error);
+    }
+  };
+
   const updateAttendance = async (playerId: string, status: string) => {
     const player = roundPlayers.find(p => p.id === playerId);
     if (!player) return;
@@ -393,16 +434,8 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
         if (assistError) throw assistError;
       }
 
-      const newScore = goalData.team === match.team_home 
-        ? { score_home: match.score_home + 1 } 
-        : { score_away: match.score_away + 1 };
-
-      const { error: updateError } = await supabase
-        .from("matches")
-        .update(newScore)
-        .eq("id", matchId);
-
-      if (updateError) throw updateError;
+      // Recalcular placar baseado nos gols reais
+      await recalculateMatchScore();
 
       setHasUnsavedChanges(true);
       toast({
@@ -420,34 +453,22 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     }
   };
 
-  const handleDeleteLastGoal = async () => {
-    if (goals.length === 0) {
-      toast({
-        title: "Sem gols",
-        description: "Não há gols para excluir",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleDeleteGoal = async (goalId: string) => {
     try {
-      const lastGoal = goals[goals.length - 1];
-
-      await supabase.from("assists").delete().eq("goal_id", lastGoal.id);
-
+      // 1. Deletar assistências associadas
+      await supabase.from("assists").delete().eq("goal_id", goalId);
+      
+      // 2. Deletar o gol específico
       const { error } = await supabase
         .from("goals")
         .delete()
-        .eq("id", lastGoal.id);
-
+        .eq("id", goalId);
+      
       if (error) throw error;
-
-      const newScore = lastGoal.team_color === match?.team_home 
-        ? { score_home: (match?.score_home || 1) - 1 } 
-        : { score_away: (match?.score_away || 1) - 1 };
-
-      await supabase.from("matches").update(newScore).eq("id", matchId);
-
+      
+      // 3. Recalcular placar baseado nos gols restantes
+      await recalculateMatchScore();
+      
       setHasUnsavedChanges(true);
       toast({
         title: "✅ Gol excluído!",
@@ -461,6 +482,20 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
         variant: "destructive",
       });
     }
+  };
+
+  const handleDeleteLastGoal = async () => {
+    if (goals.length === 0) {
+      toast({
+        title: "Sem gols",
+        description: "Não há gols para excluir",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const lastGoal = goals[goals.length - 1];
+    await handleDeleteGoal(lastGoal.id);
   };
 
   const handleAddCard = async () => {
@@ -793,7 +828,11 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleDeleteLastGoal()}
+                    onClick={() => {
+                      if (confirm(`Excluir gol de ${goal.is_own_goal ? "gol contra" : (goal.player?.nickname || goal.player?.name)}?`)) {
+                        handleDeleteGoal(goal.id);
+                      }
+                    }}
                     className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
