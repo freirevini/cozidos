@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { ArrowLeft } from "lucide-react";
+import { EVENT_ICONS, EventCard, EventIcon, formatMinute, type EventType } from "@/components/ui/event-item";
 
 interface Match {
   id: string;
@@ -287,20 +288,7 @@ const MatchDetails = () => {
   };
 
   const getEventIcon = (event: Event) => {
-    switch (event.type) {
-      case 'match_start':
-        return <span className="text-2xl">🔵</span>;
-      case 'match_end':
-        return <span className="text-2xl">🔵</span>;
-      case 'goal':
-        return <span className="text-2xl">⚽</span>;
-      case 'amarelo':
-        return <span className="text-2xl">🟨</span>;
-      case 'azul':
-        return <span className="text-2xl">🟦</span>;
-      default:
-        return null;
-    }
+    return <EventIcon type={event.type as EventType} size="lg" />;
   };
 
   const getEventText = (event: Event) => {
@@ -409,7 +397,7 @@ const MatchDetails = () => {
                       className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2"
                       style={{ left: `${(event.minute / 12) * 100}%` }}
                     >
-                      <span className="text-lg">{getEventIcon(event)}</span>
+                      <EventIcon type={event.type as EventType} size="md" />
                     </div>
                   ))}
                 </div>
@@ -445,17 +433,13 @@ const MatchDetails = () => {
                             event.team_color === match.team_home
                           )
                           .map((event) => (
-                            <div key={event.id} className="flex items-center gap-2 text-sm bg-muted/10 p-2 rounded">
-                              <span className="text-lg">{getEventIcon(event)}</span>
-                              <span className="flex-1 truncate font-medium">
-                                {event.minute > 12 ? `12'+${event.minute - 12}` : `${event.minute}'`} {event.player?.nickname || event.player?.name}
-                                {event.type === 'goal' && event.assist && (
-                                  <span className="text-muted-foreground text-xs">
-                                    {" "}(Ass: {event.assist.nickname || event.assist.name})
-                                  </span>
-                                )}
-                              </span>
-                            </div>
+                            <EventCard
+                              key={event.id}
+                              type={event.type as EventType}
+                              minute={event.minute}
+                              playerName={event.player?.nickname || event.player?.name}
+                              assistName={event.assist?.nickname || event.assist?.name}
+                            />
                           ))
                       )}
                   </div>
@@ -485,17 +469,13 @@ const MatchDetails = () => {
                             event.team_color === match.team_away
                           )
                           .map((event) => (
-                            <div key={event.id} className="flex items-center gap-2 text-sm bg-muted/10 p-2 rounded">
-                              <span className="text-lg">{getEventIcon(event)}</span>
-                              <span className="flex-1 truncate font-medium">
-                                {event.minute > 12 ? `12'+${event.minute - 12}` : `${event.minute}'`} {event.player?.nickname || event.player?.name}
-                                {event.type === 'goal' && event.assist && (
-                                  <span className="text-muted-foreground text-xs">
-                                    {" "}(Ass: {event.assist.nickname || event.assist.name})
-                                  </span>
-                                )}
-                              </span>
-                            </div>
+                            <EventCard
+                              key={event.id}
+                              type={event.type as EventType}
+                              minute={event.minute}
+                              playerName={event.player?.nickname || event.player?.name}
+                              assistName={event.assist?.nickname || event.assist?.name}
+                            />
                           ))
                       )}
                   </div>
