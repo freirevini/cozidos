@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { ArrowLeft, Play, Pause, Target, User } from "lucide-react";
+import { EVENT_ICONS, formatMinute } from "@/components/ui/event-item";
 
 interface Match {
   id: string;
@@ -614,8 +615,8 @@ export default function ManageMatch() {
                   return (
                     <div key={idx} className="mb-3 p-2 bg-muted/10 rounded">
                       <div className="text-sm font-medium flex items-center gap-1">
-                        <span>⚽</span>
-                        <span>{goal.minute}'</span>
+                        <span>{EVENT_ICONS.goal}</span>
+                        <span>{formatMinute(goal.minute)}</span>
                         <span className="ml-1">{goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}</span>
                       </div>
                       {assist?.player && (
@@ -647,8 +648,8 @@ export default function ManageMatch() {
                   return (
                     <div key={idx} className="mb-3 p-2 bg-muted/10 rounded">
                       <div className="text-sm font-medium flex items-center gap-1">
-                        <span>⚽</span>
-                        <span>{goal.minute}'</span>
+                        <span>{EVENT_ICONS.goal}</span>
+                        <span>{formatMinute(goal.minute)}</span>
                         <span className="ml-1">{goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}</span>
                       </div>
                       {assist?.player && (
@@ -838,8 +839,8 @@ export default function ManageMatch() {
                             <SelectValue placeholder="Tipo de cartão" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="amarelo">🟨 Amarelo</SelectItem>
-                            <SelectItem value="azul">🟦 Azul</SelectItem>
+                            <SelectItem value="amarelo">{EVENT_ICONS.amarelo} Amarelo</SelectItem>
+                            <SelectItem value="azul">{EVENT_ICONS.azul} Azul</SelectItem>
                           </SelectContent>
                         </Select>
                       )}
@@ -858,8 +859,8 @@ export default function ManageMatch() {
                       <div className="space-y-2">
                         {cards.map((card) => (
                           <div key={card.id} className="text-sm flex items-center gap-2">
-                            {card.card_type === "amarelo" ? "🟨" : "🟦"} {card.player?.nickname || card.player?.name || "Desconhecido"}
-                            <span className="text-muted-foreground ml-auto">{card.minute}'</span>
+                            {EVENT_ICONS[card.card_type as 'amarelo' | 'azul']} {card.player?.nickname || card.player?.name || "Desconhecido"}
+                            <span className="text-muted-foreground ml-auto">{formatMinute(card.minute)}</span>
                           </div>
                         ))}
                       </div>
@@ -882,8 +883,8 @@ export default function ManageMatch() {
                       <div className="space-y-2">
                         {cards.map((card) => (
                           <div key={card.id} className="text-sm flex items-center gap-2">
-                            {card.card_type === "amarelo" ? "🟨" : "🟦"} {card.player?.nickname || card.player?.name || "Desconhecido"}
-                            <span className="text-muted-foreground ml-auto">{card.minute}'</span>
+                            {EVENT_ICONS[card.card_type as 'amarelo' | 'azul']} {card.player?.nickname || card.player?.name || "Desconhecido"}
+                            <span className="text-muted-foreground ml-auto">{formatMinute(card.minute)}</span>
                           </div>
                         ))}
                       </div>

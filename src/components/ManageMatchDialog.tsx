@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Trash2, Plus, AlertCircle, Save } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { EVENT_ICONS, formatMinute } from "@/components/ui/event-item";
 
 interface Match {
   id: string;
@@ -897,14 +898,13 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
                         {teamNames[goal.team_color]}
                       </Badge>
                       <span className="font-medium">
-                        ⚽ {goal.minute}' {goal.is_own_goal ? "GC" : (goal.player?.nickname || goal.player?.name)}
+                        {EVENT_ICONS.goal} {formatMinute(goal.minute)} {goal.is_own_goal ? "GC" : (goal.player?.nickname || goal.player?.name)}
                       </span>
                     </div>
                     {goal.assists && goal.assists.length > 0 && goal.assists[0].player && (
                       <div className="flex items-center gap-2 ml-2 text-sm">
-                        <span className="text-accent font-semibold">🎯</span>
                         <span className="text-muted-foreground">
-                          Assistência: <span className="font-medium text-foreground">{goal.assists[0].player.nickname || goal.assists[0].player.name}</span>
+                          Assist: <span className="font-medium text-foreground">{goal.assists[0].player.nickname || goal.assists[0].player.name}</span>
                         </span>
                       </div>
                     )}
@@ -994,8 +994,8 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
                     <SelectValue placeholder="Tipo de cartão" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="amarelo">🟨 Amarelo</SelectItem>
-                    <SelectItem value="azul">🟦 Azul</SelectItem>
+                    <SelectItem value="amarelo">{EVENT_ICONS.amarelo} Amarelo</SelectItem>
+                    <SelectItem value="azul">{EVENT_ICONS.azul} Azul</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -1009,9 +1009,9 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
               {cards.map((card) => (
                 <div key={card.id} className="flex items-center justify-between p-3 bg-muted/10 rounded-lg">
                   <span>
-                    {card.card_type === "amarelo" ? "🟨" : "🟦"} {card.player?.nickname || card.player?.name}
+                    {EVENT_ICONS[card.card_type as 'amarelo' | 'azul']} {card.player?.nickname || card.player?.name}
                   </span>
-                  <span className="text-sm text-muted-foreground">{card.minute}'</span>
+                  <span className="text-sm text-muted-foreground">{formatMinute(card.minute)}</span>
                 </div>
               ))}
             </div>

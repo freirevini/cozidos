@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
-
+import { EventItem } from "@/components/ui/event-item";
 interface Match {
   id: string;
   match_number: number;
@@ -344,19 +344,14 @@ export default function Matches() {
                               .filter(goal => goal.team_color === match.team_home)
                               .sort((a, b) => a.minute - b.minute)
                               .map((goal, idx) => (
-                                <div key={`home-${idx}`} className="flex items-start gap-1.5 text-xs">
-                                  <span className="text-base">⚽</span>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-medium truncate">
-                                      {goal.minute}' {goal.player?.nickname || goal.player?.name}
-                                    </div>
-                                    {goal.assist?.player && (
-                                      <div className="text-[10px] text-muted-foreground truncate">
-                                        Assist: {goal.assist.player.nickname || goal.assist.player.name}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
+                                <EventItem
+                                  key={`home-${idx}`}
+                                  type="goal"
+                                  minute={goal.minute}
+                                  playerName={goal.player?.nickname || goal.player?.name}
+                                  assistName={goal.assist?.player?.nickname || goal.assist?.player?.name}
+                                  size="sm"
+                                />
                               ))}
                             {match.goals.filter(g => g.team_color === match.team_home).length === 0 && (
                               <div className="text-xs text-muted-foreground italic text-center">-</div>
@@ -369,19 +364,14 @@ export default function Matches() {
                               .filter(goal => goal.team_color === match.team_away)
                               .sort((a, b) => a.minute - b.minute)
                               .map((goal, idx) => (
-                                <div key={`away-${idx}`} className="flex items-start gap-1.5 text-xs">
-                                  <span className="text-base">⚽</span>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-medium truncate">
-                                      {goal.minute}' {goal.player?.nickname || goal.player?.name}
-                                    </div>
-                                    {goal.assist?.player && (
-                                      <div className="text-[10px] text-muted-foreground truncate">
-                                        Assist: {goal.assist.player.nickname || goal.assist.player.name}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
+                                <EventItem
+                                  key={`away-${idx}`}
+                                  type="goal"
+                                  minute={goal.minute}
+                                  playerName={goal.player?.nickname || goal.player?.name}
+                                  assistName={goal.assist?.player?.nickname || goal.assist?.player?.name}
+                                  size="sm"
+                                />
                               ))}
                             {match.goals.filter(g => g.team_color === match.team_away).length === 0 && (
                               <div className="text-xs text-muted-foreground italic text-center">-</div>
