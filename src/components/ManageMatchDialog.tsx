@@ -305,41 +305,77 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     }
   };
 
+  // Função para calcular placar esperado baseado nos gols
+  const calculateExpectedScore = (goalsData: Goal[], teamHome: string, teamAway: string) => {
+    let scoreHome = 0;
+    let scoreAway = 0;
+    
+    goalsData.forEach(goal => {
+      if (goal.is_own_goal) {
+        if (goal.team_color === teamHome) scoreAway++;
+        else scoreHome++;
+      } else {
+        if (goal.team_color === teamHome) scoreHome++;
+        else scoreAway++;
+      }
+    });
+    
+    return { scoreHome, scoreAway };
+  };
+
+  // Validar se placar está consistente com gols registrados
+  const validateScoreConsistency = () => {
+    if (!match || !goals) return { isValid: true, message: '' };
+    
+    const expected = calculateExpectedScore(goals, match.team_home, match.team_away);
+    const isValid = match.score_home === expected.scoreHome && match.score_away === expected.scoreAway;
+    
+    if (!isValid) {
+      return {
+        isValid: false,
+        message: `Placar inconsistente! Esperado: ${expected.scoreHome}x${expected.scoreAway}, Exibido: ${match.score_home}x${match.score_away}`,
+        expected
+      };
+    }
+    
+    return { isValid: true, message: '' };
+  };
+
   const recalculateMatchScore = async () => {
     try {
       // Buscar dados atualizados da partida e gols diretamente do banco
       const [{ data: matchData }, { data: allGoals }] = await Promise.all([
-        supabase.from("matches").select("team_home, team_away").eq("id", matchId).single(),
+        supabase.from("matches").select("team_home, team_away, score_home, score_away").eq("id", matchId).single(),
         supabase.from("goals").select("team_color, is_own_goal").eq("match_id", matchId)
       ]);
       
       if (!matchData) return;
       
-      let scoreHome = 0;
-      let scoreAway = 0;
+      const expected = calculateExpectedScore(
+        allGoals?.map(g => ({ ...g, id: '', match_id: matchId, player_id: null, minute: 0, created_at: '' })) || [],
+        matchData.team_home,
+        matchData.team_away
+      );
       
-      allGoals?.forEach(goal => {
-        if (goal.is_own_goal) {
-          // Gol contra conta para o time adversário
-          if (goal.team_color === matchData.team_home) scoreAway++;
-          else scoreHome++;
-        } else {
-          // Gol normal
-          if (goal.team_color === matchData.team_home) scoreHome++;
-          else scoreAway++;
-        }
-      });
+      // Verificar se há inconsistência antes de corrigir
+      const wasInconsistent = matchData.score_home !== expected.scoreHome || matchData.score_away !== expected.scoreAway;
+      
+      if (wasInconsistent) {
+        console.warn(`Placar inconsistente detectado e corrigido: ${matchData.score_home}x${matchData.score_away} → ${expected.scoreHome}x${expected.scoreAway}`);
+      }
       
       // Atualizar placar na tabela matches
       await supabase
         .from("matches")
-        .update({ score_home: scoreHome, score_away: scoreAway })
+        .update({ score_home: expected.scoreHome, score_away: expected.scoreAway })
         .eq("id", matchId);
       
       // Atualizar estado local COM os dados frescos do banco
       if (match) {
-        setMatch({ ...match, score_home: scoreHome, score_away: scoreAway });
+        setMatch({ ...match, score_home: expected.scoreHome, score_away: expected.scoreAway });
       }
+      
+      return { wasInconsistent, expected };
     } catch (error) {
       console.error("Erro ao recalcular placar:", error);
     }
@@ -686,6 +722,32 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
             </Alert>
           )}
 
+          {(() => {
+            const validation = validateScoreConsistency();
+            if (!validation.isValid) {
+              return (
+                <Alert className="bg-destructive/10 border-destructive/50">
+                  <AlertCircle className="h-5 w-5 text-destructive" />
+                  <AlertDescription className="text-destructive font-medium">
+                    ⚠️ {validation.message}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="ml-3"
+                      onClick={async () => {
+                        await recalculateMatchScore();
+                        toast({ title: "✅ Placar corrigido automaticamente" });
+                      }}
+                    >
+                      Corrigir Agora
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              );
+            }
+            return null;
+          })()}
+
         <Card className="bg-gradient-to-br from-primary/10 to-secondary/10 border-primary/20">
           <CardContent className="p-6">
             <div className="flex items-center justify-center gap-8">
@@ -708,6 +770,11 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
                   {match.score_away}
                 </span>
               </div>
+            </div>
+            
+            {/* Indicador visual de placar válido */}
+            <div className="text-center mt-3 text-xs text-muted-foreground">
+              {goals.length} gol(is) registrado(s) ✓
             </div>
           </CardContent>
         </Card>
