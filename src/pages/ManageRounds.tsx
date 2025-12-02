@@ -12,6 +12,7 @@ import ManageMatchDialog from "@/components/ManageMatchDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { Skeleton } from "@/components/ui/skeleton";
+import EventsFilterPanel from "@/components/EventsFilterPanel";
 
 
 interface Match {
@@ -829,6 +830,16 @@ export default function ManageRounds() {
             )}
           </CardContent>
         </Card>
+
+        {/* Painel de Filtros de Eventos */}
+        {matches.length > 0 && (
+          <div className="mt-4">
+            <EventsFilterPanel 
+              roundId={roundId} 
+              onEventClick={(matchId) => handleEditMatch(matchId)}
+            />
+          </div>
+        )}
       </main>
 
       {/* Dialog de edição */}
