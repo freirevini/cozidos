@@ -6,8 +6,10 @@ import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import PlayerPerformanceChart from "@/components/PlayerPerformanceChart";
 
 interface UserProfile {
+  id: string;
   name: string;
   nickname: string | null;
   birth_date: string | null;
@@ -15,6 +17,7 @@ interface UserProfile {
   level: string | null;
   is_approved: boolean;
   status: string | null;
+  email: string | null;
 }
 
 interface PlayerStats {
@@ -90,7 +93,7 @@ export default function Profile() {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("name, nickname, birth_date, position, level, is_approved, status, is_player")
+        .select("id, name, nickname, birth_date, position, level, is_approved, status, is_player, email")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -271,6 +274,16 @@ export default function Profile() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Gráficos de Evolução */}
+        {profile && (profile.status === 'aprovado' || profile.is_approved) && (
+          <div className="max-w-2xl mx-auto mt-6">
+            <PlayerPerformanceChart 
+              playerId={profile.id} 
+              playerEmail={profile.email || undefined}
+            />
+          </div>
         )}
       </main>
       <Footer />
