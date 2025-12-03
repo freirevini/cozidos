@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { RefreshCw, Trophy, Target, Award, Equal, TrendingDown } from "lucide-react";
 import { toast } from "sonner";
+import PlayerComparisonChart from "@/components/PlayerComparisonChart";
 
 interface PlayerRanking {
   id: string;
@@ -337,6 +338,11 @@ export default function Statistics() {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Comparação de Jogadores */}
+        {!loading && rankings.length >= 2 && (
+          <PlayerComparisonChart players={rankings} />
+        )}
 
         <Card className="card-glow bg-card border-border">
           <CardHeader>
