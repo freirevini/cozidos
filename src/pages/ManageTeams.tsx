@@ -5,43 +5,71 @@ import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Eye, Edit, Trash2 } from "lucide-react";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+
+interface RoundWithTeams {
+  id: string;
+  round_number: number;
+  scheduled_date: string;
+  status: string;
+  teamsCount: number;
+}
 
 export default function ManageTeams() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [rounds, setRounds] = useState<any[]>([]);
+  const [rounds, setRounds] = useState<RoundWithTeams[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedRound, setSelectedRound] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAdmin) {
       toast.error("Acesso não autorizado");
       navigate("/");
     } else {
-      loadPendingRounds();
+      loadRoundsWithTeams();
     }
   }, [isAdmin, navigate]);
 
-  const loadPendingRounds = async () => {
+  const loadRoundsWithTeams = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Buscar todas as rodadas (sem filtro de status)
+      const { data: roundsData, error: roundsError } = await supabase
         .from("rounds")
         .select("*")
-        .eq("status", "a_iniciar")
         .order("scheduled_date", { ascending: false })
         .order("round_number", { ascending: false });
 
-      if (error) throw error;
-      setRounds(data || []);
+      if (roundsError) throw roundsError;
+
+      // Buscar contagem de times por rodada
+      const { data: teamsData, error: teamsError } = await supabase
+        .from("round_teams")
+        .select("round_id, team_color");
+
+      if (teamsError) throw teamsError;
+
+      // Combinar dados - contar times por rodada
+      const roundsWithTeams: RoundWithTeams[] = (roundsData || []).map(round => {
+        const teamsCount = teamsData?.filter(t => t.round_id === round.id).length || 0;
+        return {
+          ...round,
+          teamsCount
+        };
+      });
+
+      // Filtrar apenas rodadas que têm times gerados
+      const roundsWithGeneratedTeams = roundsWithTeams.filter(r => r.teamsCount > 0);
+      
+      setRounds(roundsWithGeneratedTeams);
     } catch (error) {
       console.error("Erro ao carregar rodadas:", error);
-      toast.error("Erro ao carregar rodadas pendentes");
+      toast.error("Erro ao carregar histórico de times");
     } finally {
       setLoading(false);
     }
@@ -49,11 +77,27 @@ export default function ManageTeams() {
 
   const { isRefreshing, pullDistance } = usePullToRefresh({
     onRefresh: async () => {
-      await loadPendingRounds();
-      toast.success("Times atualizados!");
+      await loadRoundsWithTeams();
+      toast.success("Dados atualizados!");
     },
     enabled: true,
   });
+
+  const canEdit = (status: string) => status !== 'finalizada';
+  const canDelete = (status: string) => status === 'a_iniciar';
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'a_iniciar':
+        return <Badge className="bg-gray-600 text-white hover:bg-gray-600">A Iniciar</Badge>;
+      case 'em_andamento':
+        return <Badge className="bg-yellow-600 text-white hover:bg-yellow-600">Em Andamento</Badge>;
+      case 'finalizada':
+        return <Badge className="bg-green-600 text-white hover:bg-green-600">Finalizada</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
 
   const deleteRound = async (roundId: string, roundNumber: number) => {
     try {
@@ -88,7 +132,7 @@ export default function ManageTeams() {
       if (error) throw error;
       
       toast.success("Rodada e dados associados excluídos com sucesso!");
-      loadPendingRounds();
+      loadRoundsWithTeams();
     } catch (error: any) {
       console.error("Erro ao excluir rodada:", error);
       toast.error("Erro ao excluir rodada: " + error.message);
@@ -125,11 +169,29 @@ export default function ManageTeams() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="text-center py-8">Carregando...</div>
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Card key={i} className="border-border">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-5 w-32" />
+                        </div>
+                        <Skeleton className="h-6 w-20" />
+                      </div>
+                      <div className="flex gap-2">
+                        <Skeleton className="h-10 w-24" />
+                        <Skeleton className="h-10 w-24" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             ) : rounds.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground mb-4">
-                  Nenhuma rodada pendente encontrada
+                  Nenhum time gerado ainda
                 </p>
                 <Button onClick={() => navigate("/admin/teams")} variant="outline"> 
                   Voltar para Times
@@ -143,41 +205,64 @@ export default function ManageTeams() {
                     <TableHeader>
                       <TableRow className="border-border">
                         <TableHead>Data</TableHead>
+                        <TableHead>Times</TableHead>
                         <TableHead>Rodada</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead className="text-center">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {rounds.map((round) => (
                         <TableRow key={round.id} className="border-border hover:bg-muted/30">
-                          <TableCell>{new Date(round.scheduled_date).toLocaleDateString('pt-BR')}</TableCell>
-                          <TableCell className="font-bold text-primary">Rodada {round.round_number}</TableCell>
+                          <TableCell>
+                            {new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-primary font-medium">{round.teamsCount} times</span>
+                          </TableCell>
+                          <TableCell>
+                            <Button 
+                              variant="link" 
+                              className="p-0 h-auto text-primary"
+                              onClick={() => navigate(`/admin/round/manage?round=${round.id}`)}
+                            >
+                              Rodada {round.round_number}
+                            </Button>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(round.status)}</TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-2 justify-center">
                               <Button 
                                 onClick={() => navigate(`/admin/round/${round.id}/view`)}
                                 variant="outline"
                                 size="sm"
-                                className="min-w-[100px]"
+                                className="min-w-[90px]"
                               >
-                                Ver Times
+                                <Eye className="h-4 w-4 mr-1" />
+                                Ver
                               </Button>
-                              <Button 
-                                onClick={() => navigate(`/admin/round/${round.id}/edit`)}
-                                variant="outline"
-                                size="sm"
-                                className="min-w-[100px]"
-                              >
-                                Editar Times
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => deleteRound(round.id, round.round_number)}
-                                className="min-w-[100px]"
-                              >
-                                Excluir
-                              </Button>
+                              {canEdit(round.status) && (
+                                <Button 
+                                  onClick={() => navigate(`/admin/round/${round.id}/edit`)}
+                                  variant="outline"
+                                  size="sm"
+                                  className="min-w-[90px]"
+                                >
+                                  <Edit className="h-4 w-4 mr-1" />
+                                  Editar
+                                </Button>
+                              )}
+                              {canDelete(round.status) && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => deleteRound(round.id, round.round_number)}
+                                  className="min-w-[90px]"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-1" />
+                                  Excluir
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -188,63 +273,62 @@ export default function ManageTeams() {
 
                 {/* Mobile: Cards */}
                 <div className="md:hidden space-y-3">
-                  {loading ? (
-                    // Skeleton Loading
-                    Array.from({ length: 3 }).map((_, i) => (
-                      <Card key={i} className="border-border">
-                        <CardContent className="p-4">
-                          <div className="mb-3 space-y-2">
-                            <Skeleton className="h-4 w-24" />
-                            <Skeleton className="h-5 w-32" />
-                          </div>
-                          <div className="flex flex-col gap-2">
-                            <Skeleton className="h-11 w-full" />
-                            <Skeleton className="h-11 w-full" />
-                            <Skeleton className="h-11 w-full" />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  ) : (
-                    rounds.map((round) => (
+                  {rounds.map((round) => (
                     <Card key={round.id} className="border-border">
                       <CardContent className="p-4">
-                        <div className="mb-3">
-                          <p className="text-sm text-muted-foreground">Rodada {round.round_number}</p>
-                          <p className="font-medium">{new Date(round.scheduled_date).toLocaleDateString('pt-BR')}</p>
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Rodada {round.round_number}</p>
+                            <p className="font-medium">
+                              {new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
+                            </p>
+                            <p className="text-sm text-primary font-medium mt-1">
+                              {round.teamsCount} times
+                            </p>
+                          </div>
+                          {getStatusBadge(round.status)}
                         </div>
+                        
                         <div className="flex flex-col gap-2">
                           <Button 
                             onClick={() => navigate(`/admin/round/${round.id}/view`)}
                             variant="outline"
-                            size="sm"
                             className="w-full min-h-[44px]"
                           >
+                            <Eye className="h-4 w-4 mr-2" />
                             Ver Times
                           </Button>
-                          <Button 
-                            onClick={() => navigate(`/admin/round/${round.id}/edit`)}
-                            variant="outline"
-                            size="sm"
-                            className="w-full min-h-[44px]"
-                          >
-                            Editar Times
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => deleteRound(round.id, round.round_number)}
-                            className="w-full min-h-[44px]"
-                          >
-                            Excluir
-                          </Button>
+                          {canEdit(round.status) && (
+                            <Button 
+                              onClick={() => navigate(`/admin/round/${round.id}/edit`)}
+                              variant="outline"
+                              className="w-full min-h-[44px]"
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Editar Times
+                            </Button>
+                          )}
+                          {canDelete(round.status) && (
+                            <Button
+                              variant="destructive"
+                              className="w-full min-h-[44px]"
+                              onClick={() => deleteRound(round.id, round.round_number)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Excluir
+                            </Button>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
-                    ))
-                  )}
+                  ))}
                 </div>
-                <Button onClick={() => navigate("/admin/teams")} variant="outline" className="w-full mt-4 min-h-[44px]">
+
+                <Button 
+                  onClick={() => navigate("/admin/teams")} 
+                  variant="outline" 
+                  className="w-full mt-4 min-h-[44px]"
+                >
                   Voltar para Times
                 </Button>
               </div>
