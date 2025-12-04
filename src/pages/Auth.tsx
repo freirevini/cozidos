@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,23 +20,86 @@ const loginSchema = z.object({
 
 const signUpSchema = z.object({
   email: z.string().trim().email({ message: "E-mail inválido" }).max(255, { message: "E-mail muito longo" }),
+  emailConfirm: z.string().trim().email({ message: "E-mail de confirmação inválido" }),
   password: z.string().min(6, { message: "Senha deve ter no mínimo 6 caracteres" }),
-  first_name: z.string().trim().min(1, { message: "Primeiro nome é obrigatório" }).max(100, { message: "Nome muito longo" }),
+  first_name: z.string().trim().min(1, { message: "Nome é obrigatório" }).max(100, { message: "Nome muito longo" }),
   last_name: z.string().trim().min(1, { message: "Sobrenome é obrigatório" }).max(100, { message: "Sobrenome muito longo" }),
-  birthDate: z.string().optional(),
+  birthDate: z.string().min(1, { message: "Data de nascimento é obrigatória" }),
+}).refine((data) => data.email.toLowerCase() === data.emailConfirm.toLowerCase(), {
+  message: "Os e-mails não coincidem",
+  path: ["emailConfirm"],
 });
 
+// Função para formatar data no formato dd/mm/yyyy
+const formatBirthDateInput = (value: string): string => {
+  // Remove tudo que não é número
+  const numbers = value.replace(/\D/g, '');
+  
+  // Aplica a máscara dd/mm/yyyy
+  if (numbers.length <= 2) {
+    return numbers;
+  } else if (numbers.length <= 4) {
+    return `${numbers.slice(0, 2)}/${numbers.slice(2)}`;
+  } else {
+    return `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4, 8)}`;
+  }
+};
+
+// Função para validar e converter data dd/mm/yyyy para ISO
+const parseBirthDate = (dateStr: string): { valid: boolean; iso: string | null; error?: string } => {
+  const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+  const match = dateStr.match(regex);
+  
+  if (!match) {
+    return { valid: false, iso: null, error: "Data deve estar no formato dd/mm/yyyy" };
+  }
+  
+  const day = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+  const year = parseInt(match[3], 10);
+  
+  // Validações básicas
+  if (month < 1 || month > 12) {
+    return { valid: false, iso: null, error: "Mês inválido" };
+  }
+  
+  if (day < 1 || day > 31) {
+    return { valid: false, iso: null, error: "Dia inválido" };
+  }
+  
+  // Criar data e validar
+  const date = new Date(year, month - 1, day);
+  
+  // Verificar se a data é válida (ex: 31/02 seria inválido)
+  if (date.getDate() !== day || date.getMonth() !== month - 1 || date.getFullYear() !== year) {
+    return { valid: false, iso: null, error: "Data inválida" };
+  }
+  
+  const today = new Date();
+  if (date > today) {
+    return { valid: false, iso: null, error: "Data de nascimento não pode ser no futuro" };
+  }
+  
+  if (year < 1900) {
+    return { valid: false, iso: null, error: "Data de nascimento inválida" };
+  }
+  
+  // Converter para ISO (YYYY-MM-DD)
+  const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  return { valid: true, iso };
+};
 
 export default function Auth() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
+  const [emailConfirm, setEmailConfirm] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [birthDate, setBirthDate] = useState("");
-  const [isPlayer, setIsPlayer] = useState("nao");
+  const [isPlayer, setIsPlayer] = useState("sim");
 
   useEffect(() => {
     checkUser();
@@ -52,7 +115,6 @@ export default function Auth() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validação de entrada
     const validation = loginSchema.safeParse({ email, password });
     if (!validation.success) {
       toast.error(validation.error.errors[0].message);
@@ -82,13 +144,21 @@ export default function Auth() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validação básica de entrada
+    // Validar formato da data
+    const dateResult = parseBirthDate(birthDate);
+    if (!dateResult.valid) {
+      toast.error(dateResult.error || "Data de nascimento inválida");
+      return;
+    }
+    
+    // Validação do schema
     const validation = signUpSchema.safeParse({ 
       email, 
+      emailConfirm,
       password, 
       first_name: firstName, 
       last_name: lastName,
-      birthDate: isPlayer === "sim" ? birthDate : undefined
+      birthDate
     });
     
     if (!validation.success) {
@@ -96,34 +166,11 @@ export default function Auth() {
       return;
     }
 
-    // Validação específica para jogadores
-    if (isPlayer === "sim") {
-      if (!birthDate) {
-        toast.error("Data de nascimento é obrigatória para jogadores");
-        return;
-      }
-
-      // Validação de data de nascimento
-      const birthDateObj = new Date(birthDate);
-      const today = new Date();
-      if (birthDateObj > today) {
-        toast.error("Data de nascimento não pode ser no futuro");
-        return;
-      }
-      if (birthDateObj < new Date('1900-01-01')) {
-        toast.error("Data de nascimento inválida");
-        return;
-      }
-    }
-
     try {
       setLoading(true);
       
-      // Garantir metadados completos para o trigger handle_new_user
       const fullName = `${validation.data.first_name} ${validation.data.last_name}`.trim();
-      
-      // Normalizar data de nascimento no formato ISO (YYYY-MM-DD)
-      const birthIso = birthDate ? new Date(birthDate).toISOString().slice(0, 10) : null;
+      const birthIso = dateResult.iso;
       
       const { data, error } = await supabase.auth.signUp({
         email: validation.data.email,
@@ -166,17 +213,16 @@ export default function Auth() {
 
           console.log('[Auth] Link-player retornou:', linkResult);
           
-          // Tratar resposta ok: false de forma suave (evita bloqueio)
           if (linkResult && linkResult.ok === false) {
             console.warn('[Auth] Link-player retornou ok: false:', linkResult.error);
-            toast.success("Cadastro criado! Estamos processando seus dados. Se necessário, recarregue a página em alguns segundos.", {
+            toast.success("Cadastro criado! Estamos processando seus dados.", {
               duration: 5000,
             });
           } else {
             toast.success(linkResult?.message || "Cadastro realizado com sucesso!");
           }
         } else {
-          toast.success("Conta criada com sucesso! Você pode acessar as informações do sistema.");
+          toast.success("Conta criada com sucesso!");
         }
         
         navigate("/");
@@ -187,6 +233,11 @@ export default function Auth() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBirthDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatBirthDateInput(e.target.value);
+    setBirthDate(formatted);
   };
 
   return (
@@ -205,106 +256,125 @@ export default function Auth() {
       </div>
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-md card-glow bg-card border-border">
-        <CardHeader className="text-center space-y-4">
-          <div className="flex justify-center mb-6">
-            <img src={novoLogo} alt="Logo" className="h-48 w-auto object-contain" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
-            {isSignUp && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">Primeiro Nome</Label>
-                  <Input
-                    id="firstName"
-                    type="text"
-                    placeholder="Seu primeiro nome"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Sobrenome</Label>
-                  <Input
-                    id="lastName"
-                    type="text"
-                    placeholder="Seu sobrenome"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="isPlayer">Você é jogador?</Label>
-                  <Select value={isPlayer} onValueChange={setIsPlayer}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sim">Sim</SelectItem>
-                      <SelectItem value="nao">Não</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {isPlayer === "sim" && (
+          <CardHeader className="text-center space-y-4">
+            <div className="flex justify-center mb-2">
+              <img src={novoLogo} alt="Logo" className="h-32 w-auto object-contain" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
+              {isSignUp && (
+                <>
                   <div className="space-y-2">
-                    <Label htmlFor="birthDate">Data de Nascimento</Label>
+                    <Label htmlFor="firstName">Nome *</Label>
                     <Input
-                      id="birthDate"
-                      type="date"
-                      value={birthDate}
-                      onChange={(e) => setBirthDate(e.target.value)}
+                      id="firstName"
+                      type="text"
+                      placeholder="Seu nome"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
                       required
+                      className="h-12"
                     />
                   </div>
-                )}
-              </>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary hover:bg-secondary text-primary-foreground font-bold"
-              size="lg"
-            >
-              {loading ? "Carregando..." : isSignUp ? "Cadastrar" : "Entrar"}
-            </Button>
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="text-primary hover:underline text-sm"
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Sobrenome *</Label>
+                    <Input
+                      id="lastName"
+                      type="text"
+                      placeholder="Seu sobrenome"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      required
+                      className="h-12"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="birthDate">Data de Nascimento *</Label>
+                    <Input
+                      id="birthDate"
+                      type="text"
+                      placeholder="dd/mm/yyyy"
+                      value={birthDate}
+                      onChange={handleBirthDateChange}
+                      maxLength={10}
+                      required
+                      className="h-12"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="isPlayer">Você é jogador?</Label>
+                    <Select value={isPlayer} onValueChange={setIsPlayer}>
+                      <SelectTrigger className="h-12">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sim">Sim</SelectItem>
+                        <SelectItem value="nao">Não</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="email">E-mail *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="h-12"
+                />
+              </div>
+              {isSignUp && (
+                <div className="space-y-2">
+                  <Label htmlFor="emailConfirm">Confirmar E-mail *</Label>
+                  <Input
+                    id="emailConfirm"
+                    type="email"
+                    placeholder="Digite novamente seu e-mail"
+                    value={emailConfirm}
+                    onChange={(e) => setEmailConfirm(e.target.value)}
+                    required
+                    className="h-12"
+                  />
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="h-12"
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-primary hover:bg-secondary text-primary-foreground font-bold h-12"
+                size="lg"
               >
-                {isSignUp ? "Já tem conta? Entrar" : "Criar conta"}
-              </button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+                {loading ? "Carregando..." : isSignUp ? "Cadastrar" : "Entrar"}
+              </Button>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setIsSignUp(!isSignUp)}
+                  className="text-primary hover:underline text-sm"
+                >
+                  {isSignUp ? "Já tem conta? Entrar" : "Criar conta"}
+                </button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       </div>
       <Footer />
     </div>
