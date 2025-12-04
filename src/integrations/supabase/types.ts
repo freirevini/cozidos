@@ -47,6 +47,42 @@ export type Database = {
           },
         ]
       }
+      audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          source_profile_id: string | null
+          target_profile_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          source_profile_id?: string | null
+          target_profile_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          source_profile_id?: string | null
+          target_profile_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       cards: {
         Row: {
           card_type: Database["public"]["Enums"]["card_type"]
@@ -778,6 +814,24 @@ export type Database = {
       }
       delete_player_by_id: { Args: { profile_id: string }; Returns: undefined }
       delete_player_complete: { Args: { p_profile_id: string }; Returns: Json }
+      find_matching_profiles: {
+        Args: {
+          p_birth_date?: string
+          p_email: string
+          p_first_name?: string
+          p_last_name?: string
+        }
+        Returns: {
+          birth_date: string
+          email: string
+          match_reason: string
+          match_score: number
+          name: string
+          player_id: string
+          profile_id: string
+          user_id: string
+        }[]
+      }
       generate_player_key: {
         Args: { p_birth_date: string; p_email: string }
         Returns: string
@@ -802,6 +856,14 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { user_id: string }; Returns: boolean }
+      link_player_to_user: {
+        Args: { p_actor_id?: string; p_profile_id: string; p_user_id: string }
+        Returns: Json
+      }
+      merge_players: {
+        Args: { p_actor_id?: string; p_source_id: string; p_target_id: string }
+        Returns: Json
+      }
       recalc_all_player_rankings: { Args: never; Returns: Json }
       recalc_round_aggregates: { Args: { p_round_id: string }; Returns: Json }
       reset_all_data: { Args: never; Returns: undefined }
