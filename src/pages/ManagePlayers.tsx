@@ -202,6 +202,12 @@ export default function ManagePlayers() {
     return age;
   };
 
+  const formatBirthDate = (birthDate: string | null) => {
+    if (!birthDate) return "-";
+    const [year, month, day] = birthDate.split('-');
+    return `${day}/${month}/${year}`;
+  };
+
   const updatePlayer = async (playerId: string, field: string, value: any) => {
     try {
       // Input validation schema
@@ -1097,6 +1103,7 @@ export default function ManagePlayers() {
                     <TableHead>Apelido</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Idade</TableHead>
+                    <TableHead>Data Nasc.</TableHead>
                     <TableHead>Nível</TableHead>
                     <TableHead>Posição</TableHead>
                     <TableHead>Status</TableHead>
@@ -1106,13 +1113,13 @@ export default function ManagePlayers() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
+                      <TableCell colSpan={9} className="text-center py-8">
                         Carregando...
                       </TableCell>
                     </TableRow>
                   ) : filteredPlayers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                         Nenhum jogador encontrado
                       </TableCell>
                     </TableRow>
@@ -1164,6 +1171,11 @@ export default function ManagePlayers() {
 
                         {/* Idade */}
                         <TableCell>{calculateAge(player.birth_date)}</TableCell>
+
+                        {/* Data de Nascimento */}
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatBirthDate(player.birth_date)}
+                        </TableCell>
 
                         {/* Nível (editável) */}
                         <TableCell>
@@ -1321,10 +1333,14 @@ export default function ManagePlayers() {
                               <span className="font-medium">{calculateAge(player.birth_date)}</span>
                             </div>
                             <div>
+                              <span className="text-muted-foreground">Nasc.:</span>{" "}
+                              <span className="font-medium">{formatBirthDate(player.birth_date)}</span>
+                            </div>
+                            <div>
                               <span className="text-muted-foreground">Nível:</span>{" "}
                               <span className="font-medium">{player.level || "-"}</span>
                             </div>
-                            <div className="col-span-2">
+                            <div>
                               <span className="text-muted-foreground">Posição:</span>{" "}
                               <span className="font-medium">{positionLabels[player.position || ""] || "-"}</span>
                             </div>
