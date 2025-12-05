@@ -868,8 +868,13 @@ export default function ManageMatch() {
                   </Card>
                 )}
 
-                <Button onClick={finishMatch} variant="secondary" className="w-full">
-                  Encerrar Partida
+                <Button 
+                  onClick={finishMatch} 
+                  variant="secondary" 
+                  className="w-full min-h-[44px] mt-4"
+                  disabled={loading}
+                >
+                  {loading ? "Encerrando..." : "Encerrar Partida"}
                 </Button>
               </>
             )}
