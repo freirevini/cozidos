@@ -4,31 +4,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Info, RefreshCw, Trophy, Target } from "lucide-react";
 import { toast } from "sonner";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 interface PlayerStats {
   player_id: string;
   nickname: string;
@@ -46,82 +29,74 @@ interface PlayerStats {
   assistencias: number;
   pontos_totais: number;
 }
-
 export default function Classification() {
-  const { isAdmin, isPlayer } = useAuth();
+  const {
+    isAdmin,
+    isPlayer
+  } = useAuth();
   const [stats, setStats] = useState<PlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRules, setShowRules] = useState(false);
   const [filterType, setFilterType] = useState<"all" | "top" | "goals">("all");
-
   useEffect(() => {
     loadStats();
-    
     console.log('🔌 Iniciando subscription realtime para player_rankings...');
-    
-    // Criar subscription para updates em tempo real
-    const channel = supabase
-      .channel('player_rankings_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'player_rankings'
-        },
-        (payload) => {
-          console.log('📊 Ranking atualizado em tempo real:', payload);
-          console.log('🔄 Tipo de evento:', payload.eventType);
-          console.log('📝 Dados novos:', payload.new);
-          console.log('📝 Dados antigos:', payload.old);
-          // Recarregar stats quando houver mudança
-          loadStats();
-        }
-      )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Subscription realtime ativa para Classificação!');
-        }
-        if (status === 'CHANNEL_ERROR') {
-          console.error('❌ Erro na subscription realtime:', err);
-        }
-        if (status === 'TIMED_OUT') {
-          console.warn('⏱️ Timeout na subscription realtime');
-        }
-        console.log('📡 Status da subscription:', status);
-      });
 
+    // Criar subscription para updates em tempo real
+    const channel = supabase.channel('player_rankings_changes').on('postgres_changes', {
+      event: '*',
+      // INSERT, UPDATE, DELETE
+      schema: 'public',
+      table: 'player_rankings'
+    }, payload => {
+      console.log('📊 Ranking atualizado em tempo real:', payload);
+      console.log('🔄 Tipo de evento:', payload.eventType);
+      console.log('📝 Dados novos:', payload.new);
+      console.log('📝 Dados antigos:', payload.old);
+      // Recarregar stats quando houver mudança
+      loadStats();
+    }).subscribe((status, err) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('✅ Subscription realtime ativa para Classificação!');
+      }
+      if (status === 'CHANNEL_ERROR') {
+        console.error('❌ Erro na subscription realtime:', err);
+      }
+      if (status === 'TIMED_OUT') {
+        console.warn('⏱️ Timeout na subscription realtime');
+      }
+      console.log('📡 Status da subscription:', status);
+    });
     return () => {
       console.log('🔌 Removendo subscription realtime da Classificação...');
       supabase.removeChannel(channel);
     };
   }, []);
-
   const loadStats = async () => {
     setLoading(true);
     try {
       // Fetch directly from player_rankings table with avatar
-      const { data: rankings, error } = await supabase
-        .from("player_rankings")
-        .select(`
+      const {
+        data: rankings,
+        error
+      } = await supabase.from("player_rankings").select(`
           *,
           profiles!inner(avatar_url)
-        `)
-        .order("pontos_totais", { ascending: false })
-        .limit(1000); // Cache busting
+        `).order("pontos_totais", {
+        ascending: false
+      }).limit(1000); // Cache busting
 
       if (error) {
         console.error("Erro ao carregar rankings:", error);
         return;
       }
-
       if (!rankings) {
         setStats([]);
         return;
       }
 
       // Map to PlayerStats interface
-      const mappedStats: PlayerStats[] = rankings.map((rank) => ({
+      const mappedStats: PlayerStats[] = rankings.map(rank => ({
         player_id: rank.player_id,
         nickname: rank.nickname,
         avatar_url: rank.profiles?.avatar_url || null,
@@ -136,9 +111,8 @@ export default function Classification() {
         cartoes_azuis: rank.cartoes_azuis,
         gols: rank.gols,
         assistencias: rank.assistencias,
-        pontos_totais: rank.pontos_totais,
+        pontos_totais: rank.pontos_totais
       }));
-
       setStats(mappedStats);
     } catch (error) {
       console.error("Erro ao carregar estatísticas:", error);
@@ -146,15 +120,16 @@ export default function Classification() {
       setLoading(false);
     }
   };
-
-  const { isRefreshing, pullDistance } = usePullToRefresh({
+  const {
+    isRefreshing,
+    pullDistance
+  } = usePullToRefresh({
     onRefresh: async () => {
       await loadStats();
       toast.success("Classificação atualizada!");
     },
-    enabled: true,
+    enabled: true
   });
-
   const getFilteredStats = () => {
     switch (filterType) {
       case "top":
@@ -165,28 +140,20 @@ export default function Classification() {
         return stats;
     }
   };
-
   const filteredStats = getFilteredStats();
-
-  return (
-    <div className="min-h-screen bg-background flex flex-col">
+  return <div className="min-h-screen bg-background flex flex-col">
       {/* Pull to Refresh Indicator */}
-      {(pullDistance > 0 || isRefreshing) && (
-        <div 
-          className="fixed top-0 left-0 right-0 flex justify-center items-center z-50 transition-all"
-          style={{ 
-            transform: `translateY(${Math.min(pullDistance, 60)}px)`,
-            opacity: Math.min(pullDistance / 60, 1)
-          }}
-        >
+      {(pullDistance > 0 || isRefreshing) && <div className="fixed top-0 left-0 right-0 flex justify-center items-center z-50 transition-all" style={{
+      transform: `translateY(${Math.min(pullDistance, 60)}px)`,
+      opacity: Math.min(pullDistance / 60, 1)
+    }}>
           <div className="bg-primary/90 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span className="text-sm font-medium">
               {isRefreshing ? 'Atualizando...' : 'Solte para atualizar'}
             </span>
           </div>
-        </div>
-      )}
+        </div>}
 
       <Header />
       <main className="container mx-auto px-4 py-8 flex-1">
@@ -246,47 +213,29 @@ export default function Classification() {
             {/* Quick Filters - Mobile Only */}
             <div className="lg:hidden mb-4">
               <div className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth pb-2">
-                <Button
-                  variant={filterType === "all" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilterType("all")}
-                  className="whitespace-nowrap flex items-center gap-1"
-                >
+                <Button variant={filterType === "all" ? "default" : "outline"} size="sm" onClick={() => setFilterType("all")} className="whitespace-nowrap flex items-center gap-1">
                   <Trophy className="h-4 w-4" />
                   Todos
                 </Button>
-                <Button
-                  variant={filterType === "top" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilterType("top")}
-                  className="whitespace-nowrap flex items-center gap-1"
-                >
+                <Button variant={filterType === "top" ? "default" : "outline"} size="sm" onClick={() => setFilterType("top")} className="whitespace-nowrap flex items-center gap-1">
                   🏆 Top 10
                 </Button>
-                <Button
-                  variant={filterType === "goals" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilterType("goals")}
-                  className="whitespace-nowrap flex items-center gap-1"
-                >
+                <Button variant={filterType === "goals" ? "default" : "outline"} size="sm" onClick={() => setFilterType("goals")} className="whitespace-nowrap flex items-center gap-1">
                   <Target className="h-4 w-4" />
                   Artilheiros
                 </Button>
               </div>
             </div>
 
-            {loading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 bg-muted/10 rounded-lg">
+            {loading ? <div className="space-y-3">
+                {Array.from({
+              length: 5
+            }).map((_, i) => <div key={i} className="flex items-center gap-3 p-3 bg-muted/10 rounded-lg">
                     <Skeleton className="h-8 w-8 rounded-full" />
                     <Skeleton className="h-5 flex-1" />
                     <Skeleton className="h-6 w-16" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <>
+                  </div>)}
+              </div> : <>
                 {/* Desktop: Tabela completa */}
                 <div className="hidden lg:block overflow-x-auto w-full scroll-smooth">
                   <Table>
@@ -309,8 +258,7 @@ export default function Classification() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredStats.map((stat, index) => (
-                        <TableRow key={stat.player_id} className="border-border hover:bg-muted/30">
+                      {filteredStats.map((stat, index) => <TableRow key={stat.player_id} className="border-border hover:bg-muted/30">
                           <TableCell className="font-bold text-primary">{index + 1}</TableCell>
                           <TableCell className="font-medium">{stat.nickname}</TableCell>
                           <TableCell className="text-center">{stat.presencas}</TableCell>
@@ -327,8 +275,7 @@ export default function Classification() {
                           <TableCell className="text-center font-bold text-primary">
                             {stat.pontos_totais}
                           </TableCell>
-                        </TableRow>
-                      ))}
+                        </TableRow>)}
                     </TableBody>
                   </Table>
                 </div>
@@ -348,21 +295,20 @@ export default function Classification() {
                             <TableRow className="border-border">
                               <TableHead className="text-primary font-bold">Pos</TableHead>
                               <TableHead className="text-primary font-bold min-w-[120px]">Jogador</TableHead>
-                              <TableHead className="text-primary font-bold text-center">Pres.</TableHead>
+                              <TableHead className="text-primary font-bold text-center">Presença
+                          </TableHead>
                               <TableHead className="text-primary font-bold text-center">Pontos</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {filteredStats.map((stat, index) => (
-                              <TableRow key={stat.player_id} className="border-border">
+                            {filteredStats.map((stat, index) => <TableRow key={stat.player_id} className="border-border">
                                 <TableCell className="font-bold text-primary">{index + 1}</TableCell>
                                 <TableCell className="font-medium">{stat.nickname}</TableCell>
                                 <TableCell className="text-center">{stat.presencas}</TableCell>
                                 <TableCell className="text-center font-bold text-primary">
                                   {stat.pontos_totais}
                                 </TableCell>
-                              </TableRow>
-                            ))}
+                              </TableRow>)}
                           </TableBody>
                         </Table>
                       </div>
@@ -382,28 +328,24 @@ export default function Classification() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {filteredStats.map((stat) => (
-                              <TableRow key={stat.player_id} className="border-border">
+                            {filteredStats.map(stat => <TableRow key={stat.player_id} className="border-border">
                                 <TableCell className="font-medium min-w-[120px]">{stat.nickname}</TableCell>
                                 <TableCell className="text-center">{stat.gols}</TableCell>
                                 <TableCell className="text-center">{stat.assistencias}</TableCell>
                                 <TableCell className="text-center">{stat.cartoes_amarelos}</TableCell>
                                 <TableCell className="text-center">{stat.cartoes_azuis}</TableCell>
                                 <TableCell className="text-center">{stat.vitorias}</TableCell>
-                              </TableRow>
-                            ))}
+                              </TableRow>)}
                           </TableBody>
                         </Table>
                       </div>
                     </TabsContent>
                   </Tabs>
                 </div>
-              </>
-            )}
+              </>}
           </CardContent>
         </Card>
       </main>
       <Footer />
-    </div>
-  );
+    </div>;
 }
