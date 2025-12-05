@@ -293,7 +293,7 @@ export default function Classification() {
                         <Table>
                           <TableHeader>
                             <TableRow className="border-border">
-                              <TableHead className="text-primary font-bold">Pos</TableHead>
+                              <TableHead className="text-primary font-bold">Ranking</TableHead>
                               <TableHead className="text-primary font-bold min-w-[120px]">Jogador</TableHead>
                               <TableHead className="text-primary font-bold text-center">Presença
                           </TableHead>
