@@ -453,45 +453,40 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
         }
       }
       
-      const { data: goalInserted, error: goalError } = await supabase
-        .from("goals")
-        .insert([{
-          match_id: matchId,
-          player_id: goalData.is_own_goal ? null : goalData.player_id,
-          team_color: goalData.team as "azul" | "branco" | "laranja" | "vermelho",
-          minute: currentMinute,
-          is_own_goal: goalData.is_own_goal,
-        }])
-        .select()
-        .single();
+      // BLOCO C: Usar RPC atômica para garantir consistência gol + assistência
+      const { data: result, error: rpcError } = await supabase.rpc('record_goal_with_assist', {
+        p_match_id: matchId,
+        p_team_color: goalData.team,
+        p_scorer_profile_id: goalData.is_own_goal ? null : goalData.player_id,
+        p_minute: currentMinute,
+        p_is_own_goal: goalData.is_own_goal,
+        p_assist_profile_id: goalData.has_assist && goalData.assist_player_id && !goalData.is_own_goal 
+          ? goalData.assist_player_id 
+          : null,
+      });
 
-      if (goalError) throw goalError;
+      if (rpcError) throw rpcError;
 
-      if (goalData.has_assist && goalData.assist_player_id && !goalData.is_own_goal) {
-        const { error: assistError } = await supabase
-          .from("assists")
-          .insert({
-            goal_id: goalInserted.id,
-            player_id: goalData.assist_player_id,
-          });
-
-        if (assistError) throw assistError;
+      const rpcResult = result as { success: boolean; error?: string; goal_id?: string; assist_id?: string };
+      
+      if (!rpcResult.success) {
+        throw new Error(rpcResult.error || 'Erro ao registrar gol');
       }
 
-      // Recalcular placar baseado nos gols reais
-      await recalculateMatchScore();
-
       setHasUnsavedChanges(true);
+      const assistMsg = rpcResult.assist_id ? ' (com assistência)' : '';
       toast({
-        title: "✅ Gol adicionado!",
+        title: `✅ Gol adicionado${assistMsg}!`,
         description: "Clique em 'Salvar Partida' para confirmar",
       });
       setGoalData({ team: "", player_id: "", has_assist: false, assist_player_id: "", is_own_goal: false });
+      setAddingGoal(false);
       await loadMatchData();
     } catch (error: any) {
       console.error("Erro ao adicionar gol:", error);
       toast({
         title: "Erro ao adicionar gol",
+        description: error.message,
         variant: "destructive",
       });
     }
