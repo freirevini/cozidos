@@ -866,6 +866,17 @@ export type Database = {
       }
       recalc_all_player_rankings: { Args: never; Returns: Json }
       recalc_round_aggregates: { Args: { p_round_id: string }; Returns: Json }
+      record_goal_with_assist: {
+        Args: {
+          p_assist_profile_id?: string
+          p_is_own_goal?: boolean
+          p_match_id: string
+          p_minute: number
+          p_scorer_profile_id: string
+          p_team_color: string
+        }
+        Returns: Json
+      }
       reset_all_data: { Args: never; Returns: undefined }
       reset_full_classification: { Args: never; Returns: Json }
       reset_player_rankings: { Args: never; Returns: Json }

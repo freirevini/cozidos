@@ -329,43 +329,26 @@ export default function ManageMatch() {
       // Se for gol contra, usar player_id null
       const isOwnGoal = goalData.player_id === "own_goal";
       
-      const { data: goalRecord, error: goalError } = await supabase
-        .from("goals")
-        .insert([{
-          match_id: match.id,
-          player_id: isOwnGoal ? null : goalData.player_id,
-          team_color: goalData.team as "branco" | "vermelho" | "azul" | "laranja",
-          minute: currentMinute,
-          is_own_goal: isOwnGoal,
-        }])
-        .select()
-        .single();
+      // BLOCO C: Usar RPC atômica para garantir consistência gol + assistência
+      const { data: result, error: rpcError } = await supabase.rpc('record_goal_with_assist', {
+        p_match_id: match.id,
+        p_team_color: goalData.team,
+        p_scorer_profile_id: isOwnGoal ? null : goalData.player_id,
+        p_minute: currentMinute,
+        p_is_own_goal: isOwnGoal,
+        p_assist_profile_id: goalData.has_assist && goalData.assist_player_id ? goalData.assist_player_id : null,
+      });
 
-      if (goalError) throw goalError;
+      if (rpcError) throw rpcError;
 
-      if (goalData.has_assist && goalData.assist_player_id) {
-        const { error: assistError } = await supabase
-          .from("assists")
-          .insert({
-            goal_id: goalRecord.id,
-            player_id: goalData.assist_player_id,
-          });
-
-        if (assistError) throw assistError;
+      const rpcResult = result as { success: boolean; error?: string; goal_id?: string; assist_id?: string };
+      
+      if (!rpcResult.success) {
+        throw new Error(rpcResult.error || 'Erro ao registrar gol');
       }
 
-      // Atualizar placar
-      const newScoreHome = goalData.team === match.team_home ? match.score_home + 1 : match.score_home;
-      const newScoreAway = goalData.team === match.team_away ? match.score_away + 1 : match.score_away;
-
-      const { error: updateError } = await supabase
-        .from("matches")
-        .update({ score_home: newScoreHome, score_away: newScoreAway })
-        .eq("id", match.id);
-
-      if (updateError) throw updateError;
-
-      toast.success(`Gol registrado no minuto ${currentMinute}!`);
+      const assistMsg = rpcResult.assist_id ? ' (com assistência)' : '';
+      toast.success(`Gol registrado no minuto ${currentMinute}${assistMsg}!`);
       setAddingGoal(false);
       setGoalData({ team: "", player_id: "", has_assist: false, assist_player_id: "" });
       loadMatchData();
