@@ -16,22 +16,50 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { auth_user_id, email, birth_date, first_name, last_name, position } = await req.json()
+    const { auth_user_id, email, birth_date, first_name, last_name, position, claim_token } = await req.json()
 
     // Validar dados obrigatórios
-    if (!auth_user_id || !email || !birth_date) {
-      throw new Error('Dados incompletos: auth_user_id, email e birth_date são obrigatórios')
+    if (!auth_user_id || !email) {
+      throw new Error('Dados incompletos: auth_user_id e email são obrigatórios')
     }
 
-    console.log('[link-player] Recebido:', { auth_user_id, email, birth_date, first_name, last_name, position })
+    console.log('[link-player] Recebido:', { auth_user_id, email, birth_date, first_name, last_name, position, claim_token })
 
     const normalizedEmail = email.toLowerCase().trim()
+
+    // 0. Se veio com claim_token, tentar reivindicar via RPC primeiro
+    if (claim_token && claim_token.trim()) {
+      console.log('[link-player] Tentando claim com token:', claim_token)
+      
+      const { data: claimResult, error: claimError } = await supabaseAdmin
+        .rpc('claim_profile_with_token', {
+          p_token: claim_token.trim(),
+          p_user_id: auth_user_id
+        })
+
+      if (!claimError && claimResult?.success) {
+        console.log('[link-player] ✅ Token válido, perfil reivindicado:', claimResult)
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            linked: true,
+            created: false,
+            claimed_via_token: true,
+            message: claimResult.message || 'Perfil vinculado com sucesso via token!'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      } else {
+        console.log('[link-player] Token inválido ou erro:', claimError, claimResult)
+        // Continua para fluxo normal de matching
+      }
+    }
 
     // 1. Usar a função RPC find_matching_profiles para busca heurística completa
     const { data: matchingProfiles, error: matchError } = await supabaseAdmin
       .rpc('find_matching_profiles', {
         p_email: normalizedEmail,
-        p_birth_date: birth_date,
+        p_birth_date: birth_date || null,
         p_first_name: first_name || null,
         p_last_name: last_name || null
       })
@@ -54,11 +82,13 @@ Deno.serve(async (req) => {
     }
 
     // Gerar player_id determinístico para fallback
-    const sanitizedEmail = normalizedEmail.replace(/[^a-z0-9]/g, '')
-    const [yyyy, mm, dd] = birth_date.split('-')
-    const player_id = `${dd}${mm}${yyyy}${sanitizedEmail}`
-
-    console.log('[link-player] player_id gerado:', player_id)
+    let player_id: string | null = null
+    if (birth_date) {
+      const sanitizedEmail = normalizedEmail.replace(/[^a-z0-9]/g, '')
+      const [yyyy, mm, dd] = birth_date.split('-')
+      player_id = `${dd}${mm}${yyyy}${sanitizedEmail}`
+      console.log('[link-player] player_id gerado:', player_id)
+    }
 
     // 3. Analisar resultados do matching
     const bestMatch = matchingProfiles && matchingProfiles.length > 0 ? matchingProfiles[0] : null
@@ -125,7 +155,8 @@ Deno.serve(async (req) => {
             player_id,
             position,
             status: 'pendente',
-            is_approved: false
+            is_approved: false,
+            is_player: true
           })
           .eq('id', tempProfile.id)
 
@@ -162,8 +193,8 @@ Deno.serve(async (req) => {
       )
 
     } else {
-      // SEM MATCH: Criar/atualizar perfil novo
-      console.log('[link-player] ❌ Nenhum match encontrado. Criando perfil novo.')
+      // SEM MATCH: Criar/atualizar perfil novo como PENDENTE
+      console.log('[link-player] ❌ Nenhum match encontrado. Criando perfil pendente.')
       
       if (tempProfile) {
         await supabaseAdmin
@@ -172,7 +203,8 @@ Deno.serve(async (req) => {
             player_id,
             position,
             status: 'pendente',
-            is_approved: false
+            is_approved: false,
+            is_player: true
           })
           .eq('id', tempProfile.id)
 

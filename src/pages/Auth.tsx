@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import novoLogo from "@/assets/novo-logo.png";
 import { z } from "zod";
@@ -22,9 +22,8 @@ const signUpSchema = z.object({
   email: z.string().trim().email({ message: "E-mail inválido" }).max(255, { message: "E-mail muito longo" }),
   emailConfirm: z.string().trim().email({ message: "E-mail de confirmação inválido" }),
   password: z.string().min(6, { message: "Senha deve ter no mínimo 6 caracteres" }),
-  first_name: z.string().trim().min(1, { message: "Nome é obrigatório" }).max(100, { message: "Nome muito longo" }),
-  last_name: z.string().trim().min(1, { message: "Sobrenome é obrigatório" }).max(100, { message: "Sobrenome muito longo" }),
-  birthDate: z.string().min(1, { message: "Data de nascimento é obrigatória" }),
+  fullName: z.string().trim().min(2, { message: "Nome é obrigatório" }).max(100, { message: "Nome muito longo" }),
+  birthDate: z.string().optional(),
 }).refine((data) => data.email.toLowerCase() === data.emailConfirm.toLowerCase(), {
   message: "Os e-mails não coincidem",
   path: ["emailConfirm"],
@@ -32,10 +31,7 @@ const signUpSchema = z.object({
 
 // Função para formatar data no formato dd/mm/yyyy
 const formatBirthDateInput = (value: string): string => {
-  // Remove tudo que não é número
   const numbers = value.replace(/\D/g, '');
-  
-  // Aplica a máscara dd/mm/yyyy
   if (numbers.length <= 2) {
     return numbers;
   } else if (numbers.length <= 4) {
@@ -47,6 +43,10 @@ const formatBirthDateInput = (value: string): string => {
 
 // Função para validar e converter data dd/mm/yyyy para ISO
 const parseBirthDate = (dateStr: string): { valid: boolean; iso: string | null; error?: string } => {
+  if (!dateStr || dateStr.trim() === '') {
+    return { valid: false, iso: null, error: "Data de nascimento é obrigatória para jogadores" };
+  }
+  
   const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
   const match = dateStr.match(regex);
   
@@ -58,7 +58,6 @@ const parseBirthDate = (dateStr: string): { valid: boolean; iso: string | null; 
   const month = parseInt(match[2], 10);
   const year = parseInt(match[3], 10);
   
-  // Validações básicas
   if (month < 1 || month > 12) {
     return { valid: false, iso: null, error: "Mês inválido" };
   }
@@ -67,10 +66,8 @@ const parseBirthDate = (dateStr: string): { valid: boolean; iso: string | null; 
     return { valid: false, iso: null, error: "Dia inválido" };
   }
   
-  // Criar data e validar
   const date = new Date(year, month - 1, day);
   
-  // Verificar se a data é válida (ex: 31/02 seria inválido)
   if (date.getDate() !== day || date.getMonth() !== month - 1 || date.getFullYear() !== year) {
     return { valid: false, iso: null, error: "Data inválida" };
   }
@@ -84,26 +81,33 @@ const parseBirthDate = (dateStr: string): { valid: boolean; iso: string | null; 
     return { valid: false, iso: null, error: "Data de nascimento inválida" };
   }
   
-  // Converter para ISO (YYYY-MM-DD)
   const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   return { valid: true, iso };
 };
 
 export default function Auth() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [emailConfirm, setEmailConfirm] = useState("");
   const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [birthDate, setBirthDate] = useState("");
-  const [isPlayer, setIsPlayer] = useState("sim");
+  const [accountType, setAccountType] = useState<"player" | "observer">("player");
+  const [claimToken, setClaimToken] = useState("");
 
   useEffect(() => {
     checkUser();
-  }, []);
+    // Preencher token se vier na URL
+    const tokenFromUrl = searchParams.get("token");
+    if (tokenFromUrl) {
+      setClaimToken(tokenFromUrl);
+      setIsSignUp(true);
+      setAccountType("player");
+    }
+  }, [searchParams]);
 
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -144,21 +148,29 @@ export default function Auth() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validar formato da data
-    const dateResult = parseBirthDate(birthDate);
-    if (!dateResult.valid) {
-      toast.error(dateResult.error || "Data de nascimento inválida");
-      return;
+    // Para jogadores, validar data de nascimento
+    let birthIso: string | null = null;
+    if (accountType === "player") {
+      const dateResult = parseBirthDate(birthDate);
+      if (!dateResult.valid) {
+        toast.error(dateResult.error || "Data de nascimento inválida");
+        return;
+      }
+      birthIso = dateResult.iso;
     }
+    
+    // Separar nome completo em first_name e last_name
+    const nameParts = fullName.trim().split(/\s+/);
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.slice(1).join(" ") || "";
     
     // Validação do schema
     const validation = signUpSchema.safeParse({ 
       email, 
       emailConfirm,
       password, 
-      first_name: firstName, 
-      last_name: lastName,
-      birthDate
+      fullName,
+      birthDate: accountType === "player" ? birthDate : undefined,
     });
     
     if (!validation.success) {
@@ -169,8 +181,7 @@ export default function Auth() {
     try {
       setLoading(true);
       
-      const fullName = `${validation.data.first_name} ${validation.data.last_name}`.trim();
-      const birthIso = dateResult.iso;
+      const isPlayer = accountType === "player";
       
       const { data, error } = await supabase.auth.signUp({
         email: validation.data.email,
@@ -178,11 +189,11 @@ export default function Auth() {
         options: {
           data: {
             name: fullName || 'Usuário',
-            first_name: validation.data.first_name,
-            last_name: validation.data.last_name,
-            nickname: validation.data.first_name || validation.data.email,
+            first_name: firstName,
+            last_name: lastName,
+            nickname: firstName || validation.data.email,
             birth_date: birthIso,
-            is_player: isPlayer === "sim",
+            is_player: isPlayer,
           },
           emailRedirectTo: `${window.location.origin}/`,
         },
@@ -191,8 +202,33 @@ export default function Auth() {
       if (error) throw error;
       
       if (data.user) {
-        // Se for jogador, chamar Edge Function para vincular/criar player_id
-        if (isPlayer === "sim") {
+        // Se jogador COM token, tentar reivindicar perfil via RPC
+        if (isPlayer && claimToken.trim()) {
+          console.log('[Auth] Tentando reivindicar perfil com token:', claimToken);
+          
+          const { data: claimResult, error: claimError } = await supabase.rpc('claim_profile_with_token', {
+            p_token: claimToken.trim(),
+            p_user_id: data.user.id,
+          });
+
+          if (claimError) {
+            console.error("[Auth] Erro ao reivindicar token:", claimError);
+            // Continua para link-player como fallback
+          } else {
+            const result = claimResult as { success: boolean; message?: string; error?: string };
+            if (result.success) {
+              toast.success(result.message || "Perfil vinculado com sucesso!");
+              navigate("/");
+              return;
+            } else {
+              toast.error(result.error || "Token inválido");
+              // Continua para link-player como fallback
+            }
+          }
+        }
+        
+        // Se for jogador (sem token ou token falhou), chamar Edge Function
+        if (isPlayer) {
           console.log('[Auth] Invocando link-player para:', data.user.id);
           
           const { data: linkResult, error: linkError } = await supabase.functions.invoke('link-player', {
@@ -200,28 +236,25 @@ export default function Auth() {
               auth_user_id: data.user.id,
               email: validation.data.email,
               birth_date: birthIso,
-              first_name: validation.data.first_name,
-              last_name: validation.data.last_name,
+              first_name: firstName,
+              last_name: lastName,
             }
           });
 
           if (linkError) {
             console.error("[Auth] Erro ao vincular jogador:", linkError);
-            toast.error("Erro ao processar cadastro de jogador. Tente novamente.");
-            return;
-          }
-
-          console.log('[Auth] Link-player retornou:', linkResult);
-          
-          if (linkResult && linkResult.ok === false) {
-            console.warn('[Auth] Link-player retornou ok: false:', linkResult.error);
-            toast.success("Cadastro criado! Estamos processando seus dados.", {
-              duration: 5000,
-            });
+            toast.warning("Cadastro criado! Aguardando processamento.", { duration: 5000 });
           } else {
-            toast.success(linkResult?.message || "Cadastro realizado com sucesso!");
+            console.log('[Auth] Link-player retornou:', linkResult);
+            
+            if (linkResult?.linked) {
+              toast.success(linkResult.message || "Cadastro vinculado com sucesso!");
+            } else {
+              toast.success(linkResult?.message || "Cadastro realizado! Aguarde aprovação do administrador.");
+            }
           }
         } else {
+          // Não-jogador: já aprovado automaticamente
           toast.success("Conta criada com sucesso!");
         }
         
@@ -266,54 +299,74 @@ export default function Auth() {
               {isSignUp && (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="firstName">Nome *</Label>
+                    <Label htmlFor="fullName">Nome completo *</Label>
                     <Input
-                      id="firstName"
+                      id="fullName"
                       type="text"
-                      placeholder="Seu nome"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Seu nome completo"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
                       required
                       className="h-12"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Sobrenome *</Label>
-                    <Input
-                      id="lastName"
-                      type="text"
-                      placeholder="Seu sobrenome"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      required
-                      className="h-12"
-                    />
+                  
+                  <div className="space-y-3">
+                    <Label>Tipo de conta *</Label>
+                    <RadioGroup
+                      value={accountType}
+                      onValueChange={(value) => setAccountType(value as "player" | "observer")}
+                      className="flex flex-col space-y-2"
+                    >
+                      <div className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-muted/10 cursor-pointer">
+                        <RadioGroupItem value="player" id="player" />
+                        <Label htmlFor="player" className="cursor-pointer flex-1">
+                          <span className="font-medium">Sou jogador</span>
+                          <p className="text-xs text-muted-foreground">Quero participar dos times e partidas</p>
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-muted/10 cursor-pointer">
+                        <RadioGroupItem value="observer" id="observer" />
+                        <Label htmlFor="observer" className="cursor-pointer flex-1">
+                          <span className="font-medium">Não sou jogador</span>
+                          <p className="text-xs text-muted-foreground">Apenas acompanhar rodadas e estatísticas</p>
+                        </Label>
+                      </div>
+                    </RadioGroup>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="birthDate">Data de Nascimento *</Label>
-                    <Input
-                      id="birthDate"
-                      type="text"
-                      placeholder="dd/mm/yyyy"
-                      value={birthDate}
-                      onChange={handleBirthDateChange}
-                      maxLength={10}
-                      required
-                      className="h-12"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="isPlayer">Você é jogador?</Label>
-                    <Select value={isPlayer} onValueChange={setIsPlayer}>
-                      <SelectTrigger className="h-12">
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sim">Sim</SelectItem>
-                        <SelectItem value="nao">Não</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  
+                  {accountType === "player" && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="birthDate">Data de Nascimento *</Label>
+                        <Input
+                          id="birthDate"
+                          type="text"
+                          placeholder="dd/mm/yyyy"
+                          value={birthDate}
+                          onChange={handleBirthDateChange}
+                          maxLength={10}
+                          required
+                          className="h-12"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="claimToken">Token do jogador (opcional)</Label>
+                        <Input
+                          id="claimToken"
+                          type="text"
+                          placeholder="Ex: ABC12345"
+                          value={claimToken}
+                          onChange={(e) => setClaimToken(e.target.value.toUpperCase())}
+                          maxLength={8}
+                          className="h-12 uppercase"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Se você recebeu um código do administrador, insira aqui para vincular seu histórico.
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
               <div className="space-y-2">
