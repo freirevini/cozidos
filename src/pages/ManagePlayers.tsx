@@ -11,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Filter, UserCheck, UserX, AlertTriangle, UserPlus, RefreshCw, Upload } from "lucide-react";
+import { Trash2, Search, Filter, UserCheck, UserX, AlertTriangle, UserPlus, RefreshCw, Upload, Copy, Link2 } from "lucide-react";
+import { LinkPendingPlayerModal } from "@/components/LinkPendingPlayerModal";
 import { AlertDialogIcon } from "@/components/ui/alert-dialog-icon";
 import { toast as sonnerToast } from "sonner";
 import * as XLSX from 'xlsx';
@@ -44,6 +45,9 @@ interface Player {
   status: string | null;
   user_id: string | null;
   avatar_url: string | null;
+  claim_token: string | null;
+  created_by_admin_simple: boolean | null;
+  player_type_detail: string | null;
 }
 
 const statusLabels: Record<string, string> = {
@@ -89,17 +93,21 @@ export default function ManagePlayers() {
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
   const [editingPlayerData, setEditingPlayerData] = useState<Player | null>(null);
 
-  // Estados para dialog de cadastro
+  // Estados para dialog de cadastro simplificado
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
-    first_name: "",
-    last_name: "",
     nickname: "",
-    email: "",
-    birth_date: "",
     level: "",
     position: "",
+    player_type_detail: "mensal" as "mensal" | "avulso" | "avulso_fixo",
   });
+  
+  // Estados para modal de vinculação de pendentes
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [selectedPendingPlayer, setSelectedPendingPlayer] = useState<Player | null>(null);
+  
+  // Estado para exibir token gerado
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null);
 
   useEffect(() => {
     checkAdmin();
@@ -140,7 +148,7 @@ export default function ManagePlayers() {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, name, first_name, last_name, nickname, email, birth_date, is_player, level, position, status, user_id, avatar_url")
+        .select("id, name, first_name, last_name, nickname, email, birth_date, is_player, level, position, status, user_id, avatar_url, claim_token, created_by_admin_simple, player_type_detail")
         .eq("is_player", true)
         .order("created_at", { ascending: false });
 
@@ -462,81 +470,99 @@ export default function ManagePlayers() {
   };
 
   const handleCreatePlayer = async () => {
-    // Validações
-    if (!formData.first_name || !formData.last_name || !formData.email || !formData.birth_date || !formData.level || !formData.position) {
-      sonnerToast.error("Preencha todos os campos obrigatórios");
-      return;
-    }
-
-    // Validar email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      sonnerToast.error("E-mail inválido");
-      return;
-    }
-
-    // Validar data de nascimento
-    const birthDate = new Date(formData.birth_date);
-    const today = new Date();
-    if (birthDate > today) {
-      sonnerToast.error("Data de nascimento não pode ser no futuro");
-      return;
-    }
-    if (birthDate < new Date("1900-01-01")) {
-      sonnerToast.error("Data de nascimento inválida");
+    // Validações simplificadas - apenas campos obrigatórios do formulário admin
+    if (!formData.nickname || !formData.level || !formData.position) {
+      sonnerToast.error("Preencha todos os campos obrigatórios (Apelido, Nível e Posição)");
       return;
     }
 
     try {
-      // Normalizar email
-      const normalizedEmail = formData.email.toLowerCase().trim();
-
-      // Verificar duplicidade de email
-      const { data: existing } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", normalizedEmail)
-        .maybeSingle();
-
-      if (existing) {
-        sonnerToast.error("Já existe um jogador com este e-mail");
-        return;
-      }
-
-      // Inserir novo perfil
-      const { error } = await supabase
+      // Inserir novo perfil simplificado
+      const { data: newProfile, error } = await supabase
         .from("profiles")
         .insert([{
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          nickname: formData.nickname || formData.first_name,
-          name: `${formData.first_name} ${formData.last_name}`,
-          email: normalizedEmail,
-          birth_date: formData.birth_date,
+          nickname: formData.nickname.trim(),
+          name: formData.nickname.trim(), // Usar apelido como name também
           level: formData.level as "A" | "B" | "C" | "D" | "E",
           position: formData.position as "goleiro" | "defensor" | "meio-campista" | "atacante",
+          player_type_detail: formData.player_type_detail as "mensal" | "avulso" | "avulso_fixo",
           is_player: true,
           status: "aprovado" as "aprovado",
           user_id: null,
-        }]);
+          created_by_admin_simple: true,
+        }])
+        .select("id")
+        .single();
 
       if (error) throw error;
+
+      // Gerar token de reivindicação para o novo jogador
+      const { data: token, error: tokenError } = await supabase.rpc('generate_claim_token', {
+        p_profile_id: newProfile.id
+      });
+
+      if (tokenError) {
+        console.error("Erro ao gerar token:", tokenError);
+        sonnerToast.warning("Jogador cadastrado, mas houve erro ao gerar token de convite.");
+      } else {
+        setGeneratedToken(token);
+      }
 
       sonnerToast.success("Jogador cadastrado com sucesso!");
       setAddDialogOpen(false);
       setFormData({
-        first_name: "",
-        last_name: "",
         nickname: "",
-        email: "",
-        birth_date: "",
         level: "",
         position: "",
+        player_type_detail: "mensal",
       });
       loadPlayers();
     } catch (error: any) {
       sonnerToast.error("Erro ao cadastrar jogador: " + error.message);
     }
+  };
+  
+  const generateTokenForPlayer = async (playerId: string) => {
+    try {
+      const { data: token, error } = await supabase.rpc('generate_claim_token', {
+        p_profile_id: playerId
+      });
+
+      if (error) throw error;
+
+      // Atualizar lista de jogadores
+      setPlayers(players.map(p => p.id === playerId ? { ...p, claim_token: token } : p));
+      
+      // Copiar para clipboard
+      await navigator.clipboard.writeText(token);
+      sonnerToast.success(`Token gerado: ${token} (copiado para área de transferência)`);
+    } catch (error: any) {
+      sonnerToast.error("Erro ao gerar token: " + error.message);
+    }
+  };
+  
+  const copyToken = async (token: string) => {
+    try {
+      await navigator.clipboard.writeText(token);
+      sonnerToast.success("Token copiado!");
+    } catch (error) {
+      sonnerToast.error("Erro ao copiar token");
+    }
+  };
+  
+  const copyInviteLink = async (token: string) => {
+    try {
+      const link = `${window.location.origin}/auth?token=${token}`;
+      await navigator.clipboard.writeText(link);
+      sonnerToast.success("Link de convite copiado!");
+    } catch (error) {
+      sonnerToast.error("Erro ao copiar link");
+    }
+  };
+  
+  const handleOpenLinkModal = (player: Player) => {
+    setSelectedPendingPlayer(player);
+    setLinkModalOpen(true);
   };
 
   // Funções para edição inline mobile
@@ -1510,131 +1536,92 @@ export default function ManagePlayers() {
           </CardContent>
         </Card>
 
-        {/* Dialog de Cadastro */}
+        {/* Dialog de Cadastro Simplificado */}
         <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl font-bold text-primary">
                 Cadastrar Novo Jogador
               </DialogTitle>
               <DialogDescription>
-                Preencha os dados do jogador. Ele será cadastrado como aprovado e poderá ser escalado imediatamente.
+                Cadastro simplificado. O jogador será aprovado e poderá ser escalado imediatamente.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Nome */}
-                <div className="space-y-2">
-                  <Label htmlFor="first_name">
-                    Nome <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="first_name"
-                    placeholder="Ex: João"
-                    value={formData.first_name}
-                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                    className="h-12 text-base"
-                  />
-                </div>
+              {/* Apelido */}
+              <div className="space-y-2">
+                <Label htmlFor="nickname">
+                  Apelido <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="nickname"
+                  placeholder="Ex: Joãozinho"
+                  value={formData.nickname}
+                  onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+                  className="h-12 text-base"
+                />
+              </div>
 
-                {/* Sobrenome */}
-                <div className="space-y-2">
-                  <Label htmlFor="last_name">
-                    Sobrenome <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="last_name"
-                    placeholder="Ex: Silva"
-                    value={formData.last_name}
-                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                    className="h-12 text-base"
-                  />
-                </div>
+              {/* Posição */}
+              <div className="space-y-2">
+                <Label htmlFor="position">
+                  Posição <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={formData.position}
+                  onValueChange={(value) => setFormData({ ...formData, position: value })}
+                >
+                  <SelectTrigger id="position" className="h-12 text-base">
+                    <SelectValue placeholder="Selecione a posição" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="goleiro">Goleiro</SelectItem>
+                    <SelectItem value="defensor">Defensor</SelectItem>
+                    <SelectItem value="meio-campista">Meio-Campista</SelectItem>
+                    <SelectItem value="atacante">Atacante</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-                {/* Apelido */}
-                <div className="space-y-2">
-                  <Label htmlFor="nickname">Apelido</Label>
-                  <Input
-                    id="nickname"
-                    placeholder="Ex: João (opcional)"
-                    value={formData.nickname}
-                    onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
-                    className="h-12 text-base"
-                  />
-                </div>
+              {/* Nível */}
+              <div className="space-y-2">
+                <Label htmlFor="level">
+                  Nível <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={formData.level}
+                  onValueChange={(value) => setFormData({ ...formData, level: value })}
+                >
+                  <SelectTrigger id="level" className="h-12 text-base">
+                    <SelectValue placeholder="Selecione o nível" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A">A</SelectItem>
+                    <SelectItem value="B">B</SelectItem>
+                    <SelectItem value="C">C</SelectItem>
+                    <SelectItem value="D">D</SelectItem>
+                    <SelectItem value="E">E</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-                {/* Email */}
-                <div className="space-y-2">
-                  <Label htmlFor="email">
-                    E-mail <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Ex: joao@email.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="h-12 text-base"
-                  />
-                </div>
-
-                {/* Data de Nascimento */}
-                <div className="space-y-2">
-                  <Label htmlFor="birth_date">
-                    Data de Nascimento <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="birth_date"
-                    type="date"
-                    value={formData.birth_date}
-                    onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
-                    className="h-12 text-base"
-                  />
-                </div>
-
-                {/* Nível */}
-                <div className="space-y-2">
-                  <Label htmlFor="level">
-                    Nível <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={formData.level}
-                    onValueChange={(value) => setFormData({ ...formData, level: value })}
-                  >
-                    <SelectTrigger id="level" className="h-12 text-base">
-                      <SelectValue placeholder="Selecione o nível" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="A">A</SelectItem>
-                      <SelectItem value="B">B</SelectItem>
-                      <SelectItem value="C">C</SelectItem>
-                      <SelectItem value="D">D</SelectItem>
-                      <SelectItem value="E">E</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Posição */}
-                <div className="space-y-2">
-                  <Label htmlFor="position">
-                    Posição <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={formData.position}
-                    onValueChange={(value) => setFormData({ ...formData, position: value })}
-                  >
-                    <SelectTrigger id="position" className="h-12 text-base">
-                      <SelectValue placeholder="Selecione a posição" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="goleiro">Goleiro</SelectItem>
-                      <SelectItem value="defensor">Defensor</SelectItem>
-                      <SelectItem value="meio-campista">Meio-Campista</SelectItem>
-                      <SelectItem value="atacante">Atacante</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Tipo */}
+              <div className="space-y-2">
+                <Label htmlFor="player_type">Tipo</Label>
+                <Select
+                  value={formData.player_type_detail}
+                  onValueChange={(value) => setFormData({ ...formData, player_type_detail: value as "mensal" | "avulso" | "avulso_fixo" })}
+                >
+                  <SelectTrigger id="player_type" className="h-12 text-base">
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mensal">Mensalista</SelectItem>
+                    <SelectItem value="avulso">Avulso</SelectItem>
+                    <SelectItem value="avulso_fixo">Avulso Fixo</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -1643,15 +1630,7 @@ export default function ManagePlayers() {
                 variant="outline"
                 onClick={() => {
                   setAddDialogOpen(false);
-                  setFormData({
-                    first_name: "",
-                    last_name: "",
-                    nickname: "",
-                    email: "",
-                    birth_date: "",
-                    level: "",
-                    position: "",
-                  });
+                  setFormData({ nickname: "", level: "", position: "", player_type_detail: "mensal" });
                 }}
                 className="h-12 text-base w-full sm:w-auto"
               >
@@ -1663,6 +1642,48 @@ export default function ManagePlayers() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        
+        {/* Dialog de Token Gerado */}
+        <Dialog open={!!generatedToken} onOpenChange={() => setGeneratedToken(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Link2 className="h-5 w-5 text-primary" />
+                Token de Convite Gerado
+              </DialogTitle>
+              <DialogDescription>
+                Envie este token ou link para o jogador vincular sua conta.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="flex items-center gap-2">
+                <Input value={generatedToken || ""} readOnly className="font-mono text-lg" />
+                <Button size="icon" onClick={() => generatedToken && copyToken(generatedToken)}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                onClick={() => generatedToken && copyInviteLink(generatedToken)}
+              >
+                <Link2 className="h-4 w-4 mr-2" />
+                Copiar Link de Convite
+              </Button>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setGeneratedToken(null)}>Fechar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Modal de Vinculação de Pendentes */}
+        <LinkPendingPlayerModal
+          open={linkModalOpen}
+          onOpenChange={setLinkModalOpen}
+          pendingProfile={selectedPendingPlayer}
+          onLinked={() => loadPlayers()}
+        />
 
         {/* Dialog de Ajuda para Importação Excel */}
         <Dialog open={showImportHelp} onOpenChange={setShowImportHelp}>

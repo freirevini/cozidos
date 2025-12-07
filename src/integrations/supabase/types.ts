@@ -558,7 +558,10 @@ export type Database = {
         Row: {
           avatar_url: string | null
           birth_date: string | null
+          claim_token: string | null
+          claim_token_used_at: string | null
           created_at: string
+          created_by_admin_simple: boolean | null
           email: string | null
           first_name: string | null
           id: string
@@ -580,7 +583,10 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           birth_date?: string | null
+          claim_token?: string | null
+          claim_token_used_at?: string | null
           created_at?: string
+          created_by_admin_simple?: boolean | null
           email?: string | null
           first_name?: string | null
           id?: string
@@ -602,7 +608,10 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           birth_date?: string | null
+          claim_token?: string | null
+          claim_token_used_at?: string | null
           created_at?: string
+          created_by_admin_simple?: boolean | null
           email?: string | null
           first_name?: string | null
           id?: string
@@ -783,6 +792,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_link_pending_to_profile: {
+        Args: {
+          p_admin_user_id: string
+          p_pending_profile_id: string
+          p_target_profile_id: string
+        }
+        Returns: Json
+      }
       apply_ranking_adjustment: {
         Args: {
           p_adjustment_type: string
@@ -802,6 +819,10 @@ export type Database = {
           users_with_profiles: number
           users_without_profiles: number
         }[]
+      }
+      claim_profile_with_token: {
+        Args: { p_token: string; p_user_id: string }
+        Returns: Json
       }
       close_all_matches_by_round: {
         Args: { p_round_id: string }
@@ -832,6 +853,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      generate_claim_token: { Args: { p_profile_id: string }; Returns: string }
       generate_player_key: {
         Args: { p_birth_date: string; p_email: string }
         Returns: string
