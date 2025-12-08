@@ -1260,30 +1260,79 @@ export default function ManagePlayers() {
 
                         {/* Ações */}
                         <TableCell>
-                          <div className="flex items-center justify-center gap-2">
-                            {player.status === "pendente" && (
+                          <div className="flex items-center justify-center gap-2 flex-wrap">
+                            {/* Jogador pendente: aprovar/rejeitar/vincular */}
+                            {player.status === "pendente" && player.user_id && (
                               <>
                                 <Button
                                   size="sm"
                                   variant="default"
                                   onClick={() => approvePlayer(player.id, player.name)}
                                   className="bg-green-600 hover:bg-green-700"
+                                  title="Aprovar"
                                 >
                                   <UserCheck className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   size="sm"
+                                  variant="outline"
+                                  onClick={() => handleOpenLinkModal(player)}
+                                  title="Vincular a jogador existente"
+                                >
+                                  <Link2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
                                   variant="destructive"
                                   onClick={() => rejectPlayer(player.id, player.name)}
+                                  title="Rejeitar"
                                 >
                                   <UserX className="h-4 w-4" />
                                 </Button>
                               </>
                             )}
+                            
+                            {/* Jogador admin-simple sem conta: gerar/copiar token */}
+                            {player.created_by_admin_simple && !player.user_id && (
+                              <>
+                                {player.claim_token ? (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => player.claim_token && copyToken(player.claim_token)}
+                                      title="Copiar Token"
+                                    >
+                                      <Copy className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => player.claim_token && copyInviteLink(player.claim_token)}
+                                      title="Copiar Link de Convite"
+                                    >
+                                      <Link2 className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => generateTokenForPlayer(player.id)}
+                                    title="Gerar Token"
+                                  >
+                                    <Link2 className="h-4 w-4 mr-1" />
+                                    Token
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                            
                             <Button
                               size="sm"
                               variant="destructive"
                               onClick={() => deletePlayer(player.id, player.name, player.email)}
+                              title="Excluir"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1343,6 +1392,10 @@ export default function ManagePlayers() {
                             <p className="text-sm text-muted-foreground truncate">
                               {player.email || "-"}
                             </p>
+                            {/* Indicador de jogador admin-simple sem conta */}
+                            {player.created_by_admin_simple && !player.user_id && (
+                              <p className="text-xs text-yellow-600 mt-1">⚙ Criado pelo admin (sem conta)</p>
+                            )}
                           </div>
                           {!isEditing && (
                             <Badge className={statusColors[player.status || "pendente"]}>
@@ -1466,7 +1519,8 @@ export default function ManagePlayers() {
                         <div className="flex gap-2 flex-wrap">
                           {!isEditing ? (
                             <>
-                              {player.status === "pendente" && (
+                              {/* Pendente com conta de usuário: aprovar/vincular/rejeitar */}
+                              {player.status === "pendente" && player.user_id && (
                                 <>
                                   <Button
                                     size="sm"
@@ -1479,6 +1533,15 @@ export default function ManagePlayers() {
                                   </Button>
                                   <Button
                                     size="sm"
+                                    variant="outline"
+                                    onClick={() => handleOpenLinkModal(player)}
+                                    className="flex-1 min-h-[44px]"
+                                  >
+                                    <Link2 className="h-4 w-4 mr-1" />
+                                    Vincular
+                                  </Button>
+                                  <Button
+                                    size="sm"
                                     variant="destructive"
                                     onClick={() => rejectPlayer(player.id, player.name)}
                                     className="flex-1 min-h-[44px]"
@@ -1488,11 +1551,50 @@ export default function ManagePlayers() {
                                   </Button>
                                 </>
                               )}
+                              
+                              {/* Admin-simple sem conta: botões de token */}
+                              {player.created_by_admin_simple && !player.user_id && (
+                                <div className="w-full flex gap-2 mb-2">
+                                  {player.claim_token ? (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => player.claim_token && copyToken(player.claim_token)}
+                                        className="flex-1 min-h-[44px]"
+                                      >
+                                        <Copy className="h-4 w-4 mr-1" />
+                                        Token
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => player.claim_token && copyInviteLink(player.claim_token)}
+                                        className="flex-1 min-h-[44px]"
+                                      >
+                                        <Link2 className="h-4 w-4 mr-1" />
+                                        Link
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => generateTokenForPlayer(player.id)}
+                                      className="w-full min-h-[44px]"
+                                    >
+                                      <Link2 className="h-4 w-4 mr-1" />
+                                      Gerar Token
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                              
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleEditPlayer(player)}
-                                className={`min-h-[44px] ${player.status === "pendente" ? "w-full" : "flex-1"}`}
+                                className={`min-h-[44px] ${player.status === "pendente" && player.user_id ? "w-full" : "flex-1"}`}
                               >
                                 Editar
                               </Button>
@@ -1500,7 +1602,7 @@ export default function ManagePlayers() {
                                 size="sm"
                                 variant="destructive"
                                 onClick={() => deletePlayer(player.id, player.name, player.email)}
-                                className={`min-h-[44px] ${player.status === "pendente" ? "w-full" : "flex-1"}`}
+                                className={`min-h-[44px] ${player.status === "pendente" && player.user_id ? "w-full" : "flex-1"}`}
                               >
                                 <Trash2 className="h-4 w-4 mr-1" />
                                 Excluir
