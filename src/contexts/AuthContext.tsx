@@ -2,10 +2,19 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
+interface ProfileData {
+  is_player: boolean;
+  status: string | null;
+  nickname: string | null;
+  name: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   isAdmin: boolean;
   isPlayer: boolean;
+  isPending: boolean;
+  profileData: ProfileData | null;
   loading: boolean;
   refreshAuth: () => Promise<void>;
 }
@@ -14,6 +23,8 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   isAdmin: false,
   isPlayer: false,
+  isPending: false,
+  profileData: null,
   loading: true,
   refreshAuth: async () => {},
 });
@@ -34,6 +45,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isPlayer, setIsPlayer] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadUserData = async () => {
@@ -43,8 +56,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setUser(user);
 
       if (user) {
-        // Buscar role e is_player em paralelo
-        const [roleData, profileData] = await Promise.all([
+        // Buscar role e profile em paralelo
+        const [roleData, profileResult] = await Promise.all([
           supabase
             .from("user_roles")
             .select("role")
@@ -52,22 +65,35 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             .maybeSingle(),
           supabase
             .from("profiles")
-            .select("is_player")
+            .select("is_player, status, nickname, name")
             .eq("user_id", user.id)
             .maybeSingle()
         ]);
 
         setIsAdmin(roleData.data?.role === "admin");
-        setIsPlayer(profileData.data?.is_player || false);
+        
+        const profile = profileResult.data;
+        setProfileData(profile);
+        setIsPlayer(profile?.is_player || false);
+        
+        // Jogador pendente: is_player=true E status='pendente'
+        setIsPending(
+          profile?.is_player === true && 
+          profile?.status === 'pendente'
+        );
       } else {
         setIsAdmin(false);
         setIsPlayer(false);
+        setIsPending(false);
+        setProfileData(null);
       }
     } catch (error) {
       console.error("Error loading user data:", error);
       setUser(null);
       setIsAdmin(false);
       setIsPlayer(false);
+      setIsPending(false);
+      setProfileData(null);
     } finally {
       setLoading(false);
     }
@@ -88,6 +114,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser(null);
         setIsAdmin(false);
         setIsPlayer(false);
+        setIsPending(false);
+        setProfileData(null);
         setLoading(false);
       }
     });
@@ -98,7 +126,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, isPlayer, loading, refreshAuth: loadUserData }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      isAdmin, 
+      isPlayer, 
+      isPending, 
+      profileData, 
+      loading, 
+      refreshAuth: loadUserData 
+    }}>
       {children}
     </AuthContext.Provider>
   );
