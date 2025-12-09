@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 export type TimelineEventType = "goal" | "assist" | "amarelo" | "azul" | "match_start" | "match_end" | "substitution";
 
-interface TimelineEvent {
+export interface TimelineEvent {
   id: string;
   type: TimelineEventType;
   minute: number;

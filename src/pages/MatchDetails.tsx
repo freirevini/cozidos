@@ -10,7 +10,6 @@ import { ArrowLeft } from "lucide-react";
 import { MatchHeader } from "@/components/match/MatchHeader";
 import { MatchTimeline, TimelineEvent } from "@/components/match/MatchTimeline";
 import { MatchLineups } from "@/components/match/MatchLineups";
-import { formatMinute } from "@/components/ui/event-item";
 
 interface Match {
   id: string;
@@ -35,7 +34,7 @@ interface Player {
   id: string;
   name: string;
   nickname: string | null;
-  position: "goleiro" | "defensor" | "meio-campista" | "atacante";
+  position: "goleiro" | "defensor" | "meio-campista" | "atacante" | null;
   level?: string;
 }
 
@@ -46,12 +45,6 @@ const MatchDetails = () => {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [homePlayers, setHomePlayers] = useState<Player[]>([]);
   const [awayPlayers, setAwayPlayers] = useState<Player[]>([]);
-  const [substitutions, setSubstitutions] = useState<Array<{
-    minute: number;
-    team_color: string;
-    in: Player;
-    out: Player;
-  }>>([]);
   const [currentMinute, setCurrentMinute] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"partida" | "times">("partida");
@@ -74,10 +67,7 @@ const MatchDetails = () => {
     try {
       const { data, error } = await supabase
         .from("matches")
-        .select(`
-          *,
-          round:rounds(round_number, scheduled_date)
-        `)
+        .select(`*, round:rounds(round_number, scheduled_date)`)
         .eq("id", matchId)
         .single();
 
@@ -102,82 +92,38 @@ const MatchDetails = () => {
     if (!matchId || !match) return;
 
     try {
-      // Buscar gols
       const { data: goalsData } = await supabase
         .from("goals")
-        .select(`
-          *,
-          player:profiles!goals_player_id_fkey(id, name, nickname),
-          assists(
-            player:profiles!assists_player_id_fkey(id, name, nickname)
-          )
-        `)
+        .select(`*, player:profiles!goals_player_id_fkey(id, name, nickname), assists(player:profiles!assists_player_id_fkey(id, name, nickname))`)
         .eq("match_id", matchId);
 
-      // Buscar cartões
       const { data: cardsData } = await supabase
         .from("cards")
-        .select(`
-          *,
-          player:profiles!cards_player_id_fkey(id, name, nickname)
-        `)
-        .eq("match_id", matchId);
-
-      // Buscar substituições
-      const { data: substitutionsData } = await supabase
-        .from("substitutions")
-        .select(`
-          *,
-          player_in:profiles!substitutions_player_in_id_fkey(id, name, nickname),
-          player_out:profiles!substitutions_player_out_id_fkey(id, name, nickname)
-        `)
+        .select(`*, player:profiles!cards_player_id_fkey(id, name, nickname)`)
         .eq("match_id", matchId);
 
       const allEvents: TimelineEvent[] = [];
 
-      // Adicionar evento de início
       if (match.started_at) {
-        allEvents.push({
-          id: `start-${match.id}`,
-          type: "match_start",
-          minute: 0,
-        });
+        allEvents.push({ id: `start-${match.id}`, type: "match_start", minute: 0 });
       }
 
-      // Adicionar gols
       if (goalsData) {
         goalsData.forEach((goal: any) => {
-          const assistData = goal.assists
-            ? Array.isArray(goal.assists)
-              ? goal.assists[0]
-              : goal.assists
-            : null;
-
+          const assistData = goal.assists ? (Array.isArray(goal.assists) ? goal.assists[0] : goal.assists) : null;
           allEvents.push({
             id: goal.id,
             type: "goal",
             minute: goal.minute,
             team_color: goal.team_color,
-            player: goal.player
-              ? {
-                  name: goal.player.name,
-                  nickname: goal.player.nickname,
-                }
-              : undefined,
-            assist: assistData?.player
-              ? {
-                  name: assistData.player.name,
-                  nickname: assistData.player.nickname,
-                }
-              : undefined,
+            player: goal.player ? { name: goal.player.name, nickname: goal.player.nickname } : undefined,
+            assist: assistData?.player ? { name: assistData.player.name, nickname: assistData.player.nickname } : undefined,
           });
         });
       }
 
-      // Adicionar cartões
       if (cardsData) {
         for (const card of cardsData) {
-          // Buscar time do jogador
           const { data: teamData } = await supabase
             .from("round_team_players")
             .select("team_color")
@@ -190,51 +136,18 @@ const MatchDetails = () => {
             type: card.card_type === "amarelo" ? "amarelo" : "azul",
             minute: card.minute,
             team_color: teamData?.team_color,
-            player: card.player
-              ? {
-                  name: card.player.name,
-                  nickname: card.player.nickname,
-                }
-              : undefined,
+            player: card.player ? { name: card.player.name, nickname: card.player.nickname } : undefined,
           });
         }
       }
 
-      // Adicionar substituições
-      if (substitutionsData) {
-        substitutionsData.forEach((sub: any) => {
-          allEvents.push({
-            id: sub.id,
-            type: "substitution",
-            minute: sub.minute,
-            team_color: sub.team_color,
-            substitution: {
-              in: {
-                name: sub.player_in.name,
-                nickname: sub.player_in.nickname,
-              },
-              out: {
-                name: sub.player_out.name,
-                nickname: sub.player_out.nickname,
-              },
-            },
-          });
-        });
-      }
-
-      // Adicionar evento de fim
       if (match.status === "finished" && match.finished_at) {
         const endMinute = getCurrentMatchMinute();
         if (endMinute !== null) {
-          allEvents.push({
-            id: `end-${match.id}`,
-            type: "match_end",
-            minute: endMinute,
-          });
+          allEvents.push({ id: `end-${match.id}`, type: "match_end", minute: endMinute });
         }
       }
 
-      // Ordenar por minuto
       allEvents.sort((a, b) => a.minute - b.minute);
       setEvents(allEvents);
     } catch (error) {
@@ -246,20 +159,9 @@ const MatchDetails = () => {
     if (!match) return;
 
     try {
-      // Buscar jogadores escalados na rodada
       const { data: teamPlayers } = await supabase
         .from("round_team_players")
-        .select(`
-          player_id,
-          team_color,
-          profiles:player_id (
-            id,
-            name,
-            nickname,
-            position,
-            level
-          )
-        `)
+        .select(`player_id, team_color, profiles:player_id (id, name, nickname, position, level)`)
         .eq("round_id", match.round_id);
 
       if (teamPlayers) {
@@ -275,45 +177,13 @@ const MatchDetails = () => {
             level: tp.profiles.level,
           };
 
-          if (tp.team_color === match.team_home) {
-            home.push(player);
-          } else if (tp.team_color === match.team_away) {
-            away.push(player);
-          }
+          if (tp.team_color === match.team_home) home.push(player);
+          else if (tp.team_color === match.team_away) away.push(player);
         });
 
         setHomePlayers(home);
         setAwayPlayers(away);
       }
-
-      // Buscar substituições
-      const { data: substitutionsData } = await supabase
-        .from("substitutions")
-        .select(`
-          minute,
-          team_color,
-          player_in:profiles!substitutions_player_in_id_fkey(id, name, nickname),
-          player_out:profiles!substitutions_player_out_id_fkey(id, name, nickname)
-        `)
-        .eq("match_id", match.id)
-        .order("minute", { ascending: true });
-
-      const subs = (substitutionsData || []).map((sub: any) => ({
-        minute: sub.minute,
-        team_color: sub.team_color,
-        in: {
-          id: sub.player_in.id,
-          name: sub.player_in.name,
-          nickname: sub.player_in.nickname,
-        },
-        out: {
-          id: sub.player_out.id,
-          name: sub.player_out.name,
-          nickname: sub.player_out.nickname,
-        },
-      }));
-
-      setSubstitutions(subs);
     } catch (error) {
       console.error("Erro ao carregar jogadores:", error);
     }
@@ -326,12 +196,10 @@ const MatchDetails = () => {
       const startTime = new Date(match.match_timer_started_at).getTime();
       const now = Date.now();
       let pausedSeconds = match.match_timer_total_paused_seconds || 0;
-
       if (match.match_timer_paused_at) {
         const pausedAt = new Date(match.match_timer_paused_at).getTime();
         pausedSeconds += Math.floor((now - pausedAt) / 1000);
       }
-
       const elapsedSeconds = Math.max(0, Math.floor((now - startTime) / 1000) - pausedSeconds);
       return Math.floor(elapsedSeconds / 60);
     }
@@ -339,97 +207,34 @@ const MatchDetails = () => {
     if (match.status === "finished" && match.started_at && match.finished_at) {
       const startTime = new Date(match.started_at).getTime();
       const endTime = new Date(match.finished_at).getTime();
-      const elapsedSeconds =
-        Math.floor((endTime - startTime) / 1000) - (match.match_timer_total_paused_seconds || 0);
+      const elapsedSeconds = Math.floor((endTime - startTime) / 1000) - (match.match_timer_total_paused_seconds || 0);
       return Math.max(0, Math.floor(elapsedSeconds / 60));
     }
 
     return null;
   };
 
-  // Atualizar cronômetro em tempo real
   useEffect(() => {
     if (match?.status === "in_progress") {
-      const interval = setInterval(() => {
-        setCurrentMinute(getCurrentMatchMinute());
-      }, 1000);
-
+      const interval = setInterval(() => setCurrentMinute(getCurrentMatchMinute()), 1000);
       return () => clearInterval(interval);
     } else {
       setCurrentMinute(getCurrentMatchMinute());
     }
   }, [match]);
 
-  // Realtime: Sincronizar atualizações
   useEffect(() => {
     if (!matchId) return;
 
     const channel = supabase
       .channel("match-details-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "matches",
-          filter: `id=eq.${matchId}`,
-        },
-        () => {
-          loadMatchData();
-          loadEvents();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "goals",
-        },
-        () => {
-          loadEvents();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "cards",
-        },
-        () => {
-          loadEvents();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "assists",
-        },
-        () => {
-          loadEvents();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "substitutions",
-          filter: `match_id=eq.${matchId}`,
-        },
-        () => {
-          loadEvents();
-          loadPlayers();
-        }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "matches", filter: `id=eq.${matchId}` }, () => { loadMatchData(); loadEvents(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "goals" }, () => loadEvents())
+      .on("postgres_changes", { event: "*", schema: "public", table: "cards" }, () => loadEvents())
+      .on("postgres_changes", { event: "*", schema: "public", table: "assists" }, () => loadEvents())
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [matchId]);
 
   if (loading || !match) {
@@ -447,18 +252,13 @@ const MatchDetails = () => {
       <Header />
 
       <main className="flex-1 container mx-auto px-4 py-6 max-w-4xl">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/matches")}
-          className="mb-6 hover:bg-primary/10"
-        >
+        <Button variant="ghost" onClick={() => navigate("/matches")} className="mb-6 hover:bg-primary/10">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar para Rodadas
         </Button>
 
         <Card className="overflow-hidden border-border">
           <CardContent className="p-4 sm:p-6">
-            {/* Cabeçalho da Partida */}
             <MatchHeader
               teamHome={match.team_home}
               teamAway={match.team_away}
@@ -470,47 +270,25 @@ const MatchDetails = () => {
               className="mb-6"
             />
 
-            {/* Abas */}
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="partida" className="min-h-[44px]">
-                  Partida
-                </TabsTrigger>
-                <TabsTrigger value="times" className="min-h-[44px]">
-                  Times
-                </TabsTrigger>
+                <TabsTrigger value="partida" className="min-h-[44px]">Partida</TabsTrigger>
+                <TabsTrigger value="times" className="min-h-[44px]">Times</TabsTrigger>
               </TabsList>
 
-              {/* Aba Partida */}
               <TabsContent value="partida" className="space-y-6">
                 {match.status !== "not_started" ? (
-                  <MatchTimeline
-                    events={events}
-                    teamHome={match.team_home}
-                    teamAway={match.team_away}
-                    maxMinute={maxMinute}
-                  />
+                  <MatchTimeline events={events} teamHome={match.team_home} teamAway={match.team_away} maxMinute={maxMinute} />
                 ) : (
-                  <div className="text-center py-12 text-muted-foreground">
-                    A partida ainda não foi iniciada
-                  </div>
+                  <div className="text-center py-12 text-muted-foreground">A partida ainda não foi iniciada</div>
                 )}
               </TabsContent>
 
-              {/* Aba Times */}
               <TabsContent value="times" className="space-y-6">
                 {homePlayers.length > 0 || awayPlayers.length > 0 ? (
-                  <MatchLineups
-                    teamHome={match.team_home}
-                    teamAway={match.team_away}
-                    homePlayers={homePlayers}
-                    awayPlayers={awayPlayers}
-                    substitutions={substitutions}
-                  />
+                  <MatchLineups teamHome={match.team_home} teamAway={match.team_away} homePlayers={homePlayers} awayPlayers={awayPlayers} />
                 ) : (
-                  <div className="text-center py-12 text-muted-foreground">
-                    Escalações não disponíveis
-                  </div>
+                  <div className="text-center py-12 text-muted-foreground">Escalações não disponíveis</div>
                 )}
               </TabsContent>
             </Tabs>

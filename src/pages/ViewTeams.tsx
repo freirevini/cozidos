@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { TeamLogo } from "@/components/match/TeamLogo";
 
 interface Round {
   id: string;
@@ -30,9 +31,7 @@ const teamColorMap: Record<string, string> = {
   vermelho: "Vermelho",
   azul: "Azul",
   branco: "Branco",
-  preto: "Preto",
-  verde: "Verde",
-  amarelo: "Amarelo",
+  laranja: "Laranja",
 };
 
 const positionMap: Record<string, string> = {
@@ -183,20 +182,14 @@ export default function ViewTeams() {
                     {Object.entries(teamsByColor).map(([color, players]) => (
                       <Card key={color} className="border-2">
                         <CardHeader>
-                          <CardTitle className="text-xl font-bold text-center">
-                            <Badge
-                              className={`
-                                ${color === "vermelho" ? "bg-red-600" : ""}
-                                ${color === "azul" ? "bg-blue-600" : ""}
-                                ${color === "branco" ? "bg-white text-black border border-gray-300" : ""}
-                                ${color === "preto" ? "bg-black" : ""}
-                                ${color === "verde" ? "bg-green-600" : ""}
-                                ${color === "amarelo" ? "bg-yellow-500 text-black" : ""}
-                                text-lg px-4 py-2
-                              `}
-                            >
+                          <CardTitle className="flex flex-col items-center gap-3">
+                            <TeamLogo 
+                              teamColor={color as "branco" | "vermelho" | "azul" | "laranja"} 
+                              size="lg" 
+                            />
+                            <span className="text-xl font-bold uppercase">
                               {teamColorMap[color] || color}
-                            </Badge>
+                            </span>
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
