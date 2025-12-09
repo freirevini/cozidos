@@ -91,17 +91,29 @@ export default function Profile() {
 
       setUserId(user.id);
 
-      const { data, error } = await supabase
+      // Buscar todos os perfis do usuário (pode haver múltiplos em casos raros)
+      const { data: profiles, error } = await supabase
         .from("profiles")
-        .select("id, name, nickname, birth_date, position, level, is_approved, status, is_player, email")
+        .select("id, name, nickname, birth_date, position, level, is_approved, status, is_player, email, created_at")
         .eq("user_id", user.id)
-        .maybeSingle();
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       
-      if (data) {
-        setProfile(data);
-        setIsPlayer(data.is_player || false);
+      if (profiles && profiles.length > 0) {
+        // Se houver múltiplos perfis, priorizar:
+        // 1. Perfil aprovado
+        // 2. Perfil mais recente
+        let selectedProfile = profiles.find(p => p.status === 'aprovado' || p.is_approved) 
+          || profiles[0];
+        
+        setProfile(selectedProfile);
+        setIsPlayer(selectedProfile.is_player || false);
+        
+        // Se houver múltiplos perfis, logar para debug (mas não mostrar erro ao usuário)
+        if (profiles.length > 1) {
+          console.warn(`[Profile] Múltiplos perfis encontrados para user_id ${user.id}. Usando perfil: ${selectedProfile.id}`);
+        }
       } else {
         // Perfil será criado automaticamente pelo trigger handle_new_user
         toast({
@@ -111,9 +123,10 @@ export default function Profile() {
         });
       }
     } catch (error: any) {
+      console.error("Erro ao carregar perfil:", error);
       toast({
         title: "Erro ao carregar perfil",
-        description: error.message,
+        description: error.message || "Ocorreu um erro ao carregar seu perfil. Tente recarregar a página.",
         variant: "destructive",
       });
     } finally {

@@ -73,8 +73,16 @@ export default function ManageMatch() {
   const [players, setPlayers] = useState<Record<string, Player[]>>({});
   const [goals, setGoals] = useState<Goal[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
+  const [substitutions, setSubstitutions] = useState<Array<{
+    id: string;
+    team_color: string;
+    minute: number;
+    player_in: Player;
+    player_out: Player;
+  }>>([]);
   const [addingGoal, setAddingGoal] = useState(false);
   const [addingCard, setAddingCard] = useState(false);
+  const [addingSubstitution, setAddingSubstitution] = useState(false);
   const [timer, setTimer] = useState(720); // 12 minutos em segundos
   const [timerRunning, setTimerRunning] = useState(false);
   const [goalData, setGoalData] = useState({
@@ -88,6 +96,11 @@ export default function ManageMatch() {
     player_id: "",
     card_type: "",
   });
+  const [substitutionData, setSubstitutionData] = useState({
+    team: "",
+    player_out_id: "",
+    player_in_id: "",
+  });
 
   useEffect(() => {
     checkAdmin();
@@ -99,6 +112,66 @@ export default function ManageMatch() {
       loadPlayers();
     }
   }, [match, roundId]);
+
+  useEffect(() => {
+    if (!matchId) return;
+
+    // Subscription para atualizar em tempo real quando gols/cartões forem adicionados
+    const channel = supabase
+      .channel(`match-${matchId}-events`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'goals',
+          filter: `match_id=eq.${matchId}`,
+        },
+        () => {
+          loadMatchData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'assists',
+        },
+        () => {
+          loadMatchData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'cards',
+          filter: `match_id=eq.${matchId}`,
+        },
+        () => {
+          loadMatchData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'substitutions',
+          filter: `match_id=eq.${matchId}`,
+        },
+        () => {
+          loadMatchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [matchId]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -154,31 +227,38 @@ export default function ManageMatch() {
       // Carregar gols e cartões
       const { data: goalsData } = await supabase
         .from("goals")
-        .select("*, assists(player_id)")
+        .select(`
+          *,
+          player:profiles!goals_player_id_fkey(id, name, nickname),
+          assists(
+            id,
+            player_id,
+            player:profiles!assists_player_id_fkey(id, name, nickname)
+          )
+        `)
         .eq("match_id", matchId);
 
-      const goalsWithPlayers = await Promise.all(
-        (goalsData || []).map(async (goal: any) => {
-          const { data: player } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", goal.player_id)
-            .maybeSingle();
-
-          let assists = [];
-          if (goal.assists && goal.assists.length > 0) {
-            const { data: assistPlayer } = await supabase
-              .from("profiles")
-              .select("*")
-              .eq("id", goal.assists[0].player_id)
-              .maybeSingle();
-            
-            assists = [{ player_id: goal.assists[0].player_id, player: assistPlayer }];
+      const goalsWithPlayers = (goalsData || []).map((goal: any) => {
+        // A constraint UNIQUE em goal_id garante que cada gol tem no máximo uma assistência
+        // Mas o Supabase pode retornar como array ou objeto único dependendo da query
+        let assists = [];
+        if (goal.assists) {
+          // Se for array, pegar o primeiro elemento
+          const assistData = Array.isArray(goal.assists) ? goal.assists[0] : goal.assists;
+          if (assistData && assistData.player_id) {
+            assists = [{
+              player_id: assistData.player_id,
+              player: assistData.player
+            }];
           }
+        }
 
-          return { ...goal, player, assists };
-        })
-      );
+        return {
+          ...goal,
+          player: goal.player,
+          assists
+        };
+      });
 
       setGoals(goalsWithPlayers);
 
@@ -200,6 +280,29 @@ export default function ManageMatch() {
       );
 
       setCards(cardsWithPlayers);
+
+      // Carregar substituições
+      const { data: substitutionsData } = await supabase
+        .from("substitutions")
+        .select(`
+          id,
+          team_color,
+          minute,
+          player_in:profiles!substitutions_player_in_id_fkey(id, name, nickname),
+          player_out:profiles!substitutions_player_out_id_fkey(id, name, nickname)
+        `)
+        .eq("match_id", matchId)
+        .order("minute", { ascending: true });
+
+      const substitutionsWithPlayers = (substitutionsData || []).map((sub: any) => ({
+        id: sub.id,
+        team_color: sub.team_color,
+        minute: sub.minute,
+        player_in: sub.player_in,
+        player_out: sub.player_out,
+      }));
+
+      setSubstitutions(substitutionsWithPlayers);
     } catch (error) {
       console.error("Erro ao carregar partida:", error);
       toast.error("Erro ao carregar dados da partida");
@@ -393,6 +496,55 @@ export default function ManageMatch() {
       loadMatchData();
     } catch (error: any) {
       toast.error("Erro ao registrar cartão: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addSubstitution = async () => {
+    if (!substitutionData.team || !substitutionData.player_out_id || !substitutionData.player_in_id || !match) {
+      toast.error("Preencha todos os campos obrigatórios");
+      return;
+    }
+
+    if (substitutionData.player_out_id === substitutionData.player_in_id) {
+      toast.error("O jogador que entra e o que sai devem ser diferentes");
+      return;
+    }
+
+    // Calcular minuto atual baseado no cronômetro
+    const currentMinute = Math.ceil((720 - timer) / 60);
+
+    // Validar minuto (0-120)
+    if (currentMinute < 0 || currentMinute > 120) {
+      toast.error("Minuto inválido. Deve estar entre 0 e 120.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data: result, error: rpcError } = await supabase.rpc('record_substitution', {
+        p_match_id: match.id,
+        p_team_color: substitutionData.team,
+        p_player_in_id: substitutionData.player_in_id,
+        p_player_out_id: substitutionData.player_out_id,
+        p_minute: currentMinute,
+      });
+
+      if (rpcError) throw rpcError;
+
+      const rpcResult = result as { success: boolean; error?: string; substitution_id?: string };
+      
+      if (!rpcResult.success) {
+        throw new Error(rpcResult.error || 'Erro ao registrar substituição');
+      }
+
+      toast.success(`Substituição registrada no minuto ${currentMinute}!`);
+      setAddingSubstitution(false);
+      setSubstitutionData({ team: "", player_out_id: "", player_in_id: "" });
+      loadMatchData();
+    } catch (error: any) {
+      toast.error("Erro ao registrar substituição: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -659,7 +811,7 @@ export default function ManageMatch() {
 
             {match.status === 'in_progress' && (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <Button
                     onClick={() => setAddingGoal(!addingGoal)}
                     variant={addingGoal ? "secondary" : "default"}
@@ -674,6 +826,14 @@ export default function ManageMatch() {
                     className={`min-h-[44px] ${addingCard ? "bg-red-600 hover:bg-red-700 text-white" : ""}`}
                   >
                     {addingCard ? "Cancelar Cartão" : "Registrar Cartão"}
+                  </Button>
+
+                  <Button
+                    onClick={() => setAddingSubstitution(!addingSubstitution)}
+                    variant={addingSubstitution ? "secondary" : "default"}
+                    className={`min-h-[44px] ${addingSubstitution ? "bg-red-600 hover:bg-red-700 text-white" : ""}`}
+                  >
+                    {addingSubstitution ? "Cancelar Subst." : "Registrar Subst."}
                   </Button>
 
                   <Button
@@ -835,6 +995,77 @@ export default function ManageMatch() {
                   </Card>
                 )}
 
+                {addingSubstitution && (
+                  <Card className="bg-muted/20 border-border">
+                    <CardContent className="pt-6 space-y-4">
+                      <Select 
+                        value={substitutionData.team} 
+                        onValueChange={(v) => setSubstitutionData({ ...substitutionData, team: v, player_out_id: "", player_in_id: "" })}
+                      >
+                        <SelectTrigger className="h-12">
+                          <SelectValue placeholder="Selecione o time" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={match.team_home}>{teamNames[match.team_home]}</SelectItem>
+                          <SelectItem value={match.team_away}>{teamNames[match.team_away]}</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      {substitutionData.team && (
+                        <>
+                          <div>
+                            <p className="text-sm font-medium mb-2">Jogador que SAI:</p>
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                              {players[substitutionData.team]?.map((player) => (
+                                <Button
+                                  key={player.id}
+                                  variant={substitutionData.player_out_id === player.id ? "default" : "outline"}
+                                  className="h-auto py-3 px-2 text-xs min-h-[44px]"
+                                  onClick={() => setSubstitutionData({ 
+                                    ...substitutionData, 
+                                    player_out_id: player.id,
+                                    player_in_id: substitutionData.player_in_id === player.id ? "" : substitutionData.player_in_id
+                                  })}
+                                >
+                                  {player.nickname || player.name}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {substitutionData.player_out_id && (
+                            <div>
+                              <p className="text-sm font-medium mb-2">Jogador que ENTRA:</p>
+                              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                {players[substitutionData.team]
+                                  ?.filter(p => p.id !== substitutionData.player_out_id)
+                                  .map((player) => (
+                                    <Button
+                                      key={player.id}
+                                      variant={substitutionData.player_in_id === player.id ? "default" : "outline"}
+                                      className="h-auto py-3 px-2 text-xs min-h-[44px]"
+                                      onClick={() => setSubstitutionData({ ...substitutionData, player_in_id: player.id })}
+                                    >
+                                      {player.nickname || player.name}
+                                    </Button>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <Button 
+                            onClick={addSubstitution} 
+                            className="w-full min-h-[44px]" 
+                            disabled={loading || !substitutionData.team || !substitutionData.player_out_id || !substitutionData.player_in_id}
+                          >
+                            Confirmar Substituição (Minuto: {Math.ceil((720 - timer) / 60)})
+                          </Button>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
                 {cards.length > 0 && (
                   <Card className="bg-muted/20 border-border">
                     <CardContent className="pt-6">
@@ -844,6 +1075,30 @@ export default function ManageMatch() {
                           <div key={card.id} className="text-sm flex items-center gap-2">
                             {EVENT_ICONS[card.card_type as 'amarelo' | 'azul']} {card.player?.nickname || card.player?.name || "Desconhecido"}
                             <span className="text-muted-foreground ml-auto">{formatMinute(card.minute)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {substitutions.length > 0 && (
+                  <Card className="bg-muted/20 border-border">
+                    <CardContent className="pt-6">
+                      <h3 className="font-bold mb-3">Substituições da Partida:</h3>
+                      <div className="space-y-2">
+                        {substitutions.map((sub) => (
+                          <div key={sub.id} className="text-sm flex items-center gap-2 flex-wrap">
+                            <span>🔄</span>
+                            <span className="text-muted-foreground">{formatMinute(sub.minute)}</span>
+                            <Badge className={teamColors[sub.team_color]}>{teamNames[sub.team_color]}</Badge>
+                            <span className="text-green-500 font-medium">
+                              {sub.player_in.nickname || sub.player_in.name}
+                            </span>
+                            <span className="text-muted-foreground">/</span>
+                            <span className="text-red-500 font-medium">
+                              {sub.player_out.nickname || sub.player_out.name}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -873,6 +1128,30 @@ export default function ManageMatch() {
                           <div key={card.id} className="text-sm flex items-center gap-2">
                             {EVENT_ICONS[card.card_type as 'amarelo' | 'azul']} {card.player?.nickname || card.player?.name || "Desconhecido"}
                             <span className="text-muted-foreground ml-auto">{formatMinute(card.minute)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {substitutions.length > 0 && (
+                  <Card className="bg-muted/20 border-border">
+                    <CardContent className="pt-6">
+                      <h3 className="font-bold mb-3">Substituições da Partida:</h3>
+                      <div className="space-y-2">
+                        {substitutions.map((sub) => (
+                          <div key={sub.id} className="text-sm flex items-center gap-2 flex-wrap">
+                            <span>🔄</span>
+                            <span className="text-muted-foreground">{formatMinute(sub.minute)}</span>
+                            <Badge className={teamColors[sub.team_color]}>{teamNames[sub.team_color]}</Badge>
+                            <span className="text-green-500 font-medium">
+                              {sub.player_in.nickname || sub.player_in.name}
+                            </span>
+                            <span className="text-muted-foreground">/</span>
+                            <span className="text-red-500 font-medium">
+                              {sub.player_out.nickname || sub.player_out.name}
+                            </span>
                           </div>
                         ))}
                       </div>

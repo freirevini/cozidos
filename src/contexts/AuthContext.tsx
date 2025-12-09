@@ -65,14 +65,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             .maybeSingle(),
           supabase
             .from("profiles")
-            .select("is_player, status, nickname, name")
+            .select("is_player, status, nickname, name, created_at")
             .eq("user_id", user.id)
-            .maybeSingle()
+            .order("created_at", { ascending: false })
         ]);
 
         setIsAdmin(roleData.data?.role === "admin");
         
-        const profile = profileResult.data;
+        // Se houver múltiplos perfis, priorizar o aprovado ou o mais recente
+        const profiles = profileResult.data || [];
+        const profile = profiles.length > 0 
+          ? (profiles.find(p => p.status === 'aprovado') || profiles[0])
+          : null;
+        
         setProfileData(profile);
         setIsPlayer(profile?.is_player || false);
         
@@ -81,6 +86,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           profile?.is_player === true && 
           profile?.status === 'pendente'
         );
+        
+        // Log warning se houver múltiplos perfis (mas não quebrar a aplicação)
+        if (profiles.length > 1) {
+          console.warn(`[AuthContext] Múltiplos perfis encontrados para user_id ${user.id}. Usando perfil: ${profile?.id}`);
+        }
       } else {
         setIsAdmin(false);
         setIsPlayer(false);
