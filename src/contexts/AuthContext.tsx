@@ -3,6 +3,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ProfileData {
+  id: string;
   is_player: boolean;
   status: string | null;
   nickname: string | null;
@@ -65,7 +66,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             .maybeSingle(),
           supabase
             .from("profiles")
-            .select("is_player, status, nickname, name, created_at")
+            .select("id, is_player, status, nickname, name, created_at")
             .eq("user_id", user.id)
             .order("created_at", { ascending: false })
         ]);
