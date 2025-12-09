@@ -36,6 +36,7 @@ interface Player {
   nickname: string | null;
   position: "goleiro" | "defensor" | "meio-campista" | "atacante" | null;
   level?: string;
+  avatar_url?: string;
 }
 
 const MatchDetails = () => {
@@ -161,7 +162,7 @@ const MatchDetails = () => {
     try {
       const { data: teamPlayers } = await supabase
         .from("round_team_players")
-        .select(`player_id, team_color, profiles:player_id (id, name, nickname, position, level)`)
+        .select(`player_id, team_color, profiles:player_id (id, name, nickname, position, level, avatar_url)`)
         .eq("round_id", match.round_id);
 
       if (teamPlayers) {
@@ -175,6 +176,7 @@ const MatchDetails = () => {
             nickname: tp.profiles.nickname,
             position: tp.profiles.position,
             level: tp.profiles.level,
+            avatar_url: tp.profiles.avatar_url,
           };
 
           if (tp.team_color === match.team_home) home.push(player);

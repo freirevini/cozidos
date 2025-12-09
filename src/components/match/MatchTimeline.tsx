@@ -1,7 +1,8 @@
-import { formatMinute } from "@/components/ui/event-item";
 import { cn } from "@/lib/utils";
+import iconBall from "@/assets/icon-ball.png";
+import iconBoot from "@/assets/icon-boot.png";
 
-export type TimelineEventType = "goal" | "assist" | "amarelo" | "azul" | "match_start" | "match_end" | "substitution";
+export type TimelineEventType = "goal" | "assist" | "amarelo" | "azul" | "match_start" | "match_end";
 
 export interface TimelineEvent {
   id: string;
@@ -16,10 +17,6 @@ export interface TimelineEvent {
     name: string;
     nickname: string | null;
   };
-  substitution?: {
-    in: { name: string; nickname: string | null };
-    out: { name: string; nickname: string | null };
-  };
 }
 
 interface MatchTimelineProps {
@@ -30,15 +27,14 @@ interface MatchTimelineProps {
   className?: string;
 }
 
-const EVENT_ICONS: Record<TimelineEventType, string> = {
-  goal: "⚽",
-  assist: "👟",
-  amarelo: "🟨",
-  azul: "💠",
-  match_start: "🔵",
-  match_end: "🔵",
-  substitution: "🔄",
-};
+// Formatar minuto no estilo "X'" ou "12'+X"
+function formatMinute(minute: number, maxMinute: number = 12): string {
+  if (minute <= maxMinute) {
+    return `${minute}'`;
+  }
+  const extra = minute - maxMinute;
+  return `${maxMinute}'+${extra}`;
+}
 
 export function MatchTimeline({
   events,
@@ -47,54 +43,44 @@ export function MatchTimeline({
   maxMinute = 12,
   className,
 }: MatchTimelineProps) {
-  // Separar eventos por time e ordenar por minuto
-  const homeEvents = events
-    .filter((e) => e.team_color === teamHome && e.type !== "match_start" && e.type !== "match_end")
-    .sort((a, b) => a.minute - b.minute);
+  // Filtrar e ordenar eventos (excluindo match_start/match_end do layout principal)
+  const matchEvents = events
+    .filter((e) => e.type !== "match_start" && e.type !== "match_end")
+    .sort((a, b) => b.minute - a.minute); // Mais recente primeiro (de cima para baixo)
 
-  const awayEvents = events
-    .filter((e) => e.team_color === teamAway && e.type !== "match_start" && e.type !== "match_end")
-    .sort((a, b) => a.minute - b.minute);
+  const homeEvents = matchEvents.filter((e) => e.team_color === teamHome);
+  const awayEvents = matchEvents.filter((e) => e.team_color === teamAway);
 
-  const globalEvents = events
-    .filter((e) => e.type === "match_start" || e.type === "match_end")
-    .sort((a, b) => a.minute - b.minute);
+  // Combinar todos os eventos ordenados por minuto (descendente)
+  const allEventsSorted = matchEvents.sort((a, b) => b.minute - a.minute);
 
-  const allEventMinutes = [...homeEvents, ...awayEvents, ...globalEvents].map((e) => e.minute);
-  const maxEventMinute = Math.max(...(allEventMinutes.length > 0 ? allEventMinutes : [0]), maxMinute);
-
-  const renderEvent = (event: TimelineEvent, align: "left" | "right" | "center") => {
+  const renderEventContent = (event: TimelineEvent) => {
     const playerName = event.player?.nickname || event.player?.name || "Jogador";
     const assistName = event.assist?.nickname || event.assist?.name;
 
     if (event.type === "goal") {
       return (
-        <div
-          className={cn(
-            "flex flex-col gap-1 max-w-[200px] sm:max-w-none",
-            align === "left" && "items-start text-left",
-            align === "right" && "items-end text-right",
-            align === "center" && "items-center text-center"
-          )}
-        >
-          <div
-            className={cn(
-              "flex items-center gap-1.5",
-              align === "right" && "flex-row-reverse"
-            )}
-          >
-            <span className="text-base sm:text-lg flex-shrink-0">{EVENT_ICONS.goal}</span>
-            <span className="text-xs sm:text-sm font-medium">{playerName}</span>
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-2">
+            <img 
+              src={iconBall} 
+              alt="Gol" 
+              className="w-4 h-4 sm:w-5 sm:h-5 brightness-0 invert flex-shrink-0" 
+            />
+            <span className="text-sm sm:text-base font-medium text-foreground truncate">
+              {playerName}
+            </span>
           </div>
           {assistName && (
-            <div
-              className={cn(
-                "flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground",
-                align === "right" && "flex-row-reverse"
-              )}
-            >
-              <span>{EVENT_ICONS.assist}</span>
-              <span className="truncate">{assistName}</span>
+            <div className="flex items-center gap-2 ml-6 sm:ml-7">
+              <img 
+                src={iconBoot} 
+                alt="Assistência" 
+                className="w-3 h-3 sm:w-4 sm:h-4 brightness-0 invert opacity-70 flex-shrink-0" 
+              />
+              <span className="text-xs sm:text-sm text-muted-foreground truncate">
+                {assistName}
+              </span>
             </div>
           )}
         </div>
@@ -102,51 +88,12 @@ export function MatchTimeline({
     }
 
     if (event.type === "amarelo" || event.type === "azul") {
+      const cardIcon = event.type === "amarelo" ? "🟨" : "🟦";
       return (
-        <div
-          className={cn(
-            "flex items-center gap-1.5 text-xs sm:text-sm max-w-[200px] sm:max-w-none",
-            align === "right" && "flex-row-reverse"
-          )}
-        >
-          <span className="text-base sm:text-lg flex-shrink-0">{EVENT_ICONS[event.type]}</span>
-          <span className="font-medium truncate">{playerName}</span>
-        </div>
-      );
-    }
-
-    if (event.type === "substitution" && event.substitution) {
-      return (
-        <div
-          className={cn(
-            "flex flex-col gap-1 text-sm",
-            align === "left" && "items-start text-left",
-            align === "right" && "items-end text-right"
-          )}
-        >
-          <div className="flex items-center gap-1.5">
-            <span className="text-lg">{EVENT_ICONS.substitution}</span>
-            <span className="font-medium">{formatMinute(event.minute, maxMinute)}</span>
-          </div>
-          <div className="text-xs text-muted-foreground">
-            <span className="text-green-500">
-              {event.substitution.in.nickname || event.substitution.in.name}
-            </span>
-            {" / "}
-            <span className="text-red-500">
-              {event.substitution.out.nickname || event.substitution.out.name}
-            </span>
-          </div>
-        </div>
-      );
-    }
-
-    if (event.type === "match_start" || event.type === "match_end") {
-      return (
-        <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-          <span className="text-base sm:text-lg flex-shrink-0">{EVENT_ICONS[event.type]}</span>
-          <span className="whitespace-nowrap">
-            {event.type === "match_start" ? "Início da partida" : "Final da partida"}
+        <div className="flex items-center gap-2">
+          <span className="text-base sm:text-lg flex-shrink-0">{cardIcon}</span>
+          <span className="text-sm sm:text-base font-medium text-foreground truncate">
+            {playerName}
           </span>
         </div>
       );
@@ -155,74 +102,65 @@ export function MatchTimeline({
     return null;
   };
 
-  // Combinar e ordenar todos os eventos
-  const allEvents = [...homeEvents, ...awayEvents, ...globalEvents].sort(
-    (a, b) => a.minute - b.minute
-  );
+  if (allEventsSorted.length === 0) {
+    return (
+      <div className={cn("py-8 text-center text-muted-foreground text-sm", className)}>
+        Nenhum evento registrado ainda
+      </div>
+    );
+  }
 
   return (
-    <div className={cn("space-y-6", className)}>
-      {/* Timeline Visual */}
-      <div className="relative">
-        {/* Linha central vertical */}
-        <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-primary/30 -translate-x-1/2" />
+    <div className={cn("w-full", className)}>
+      {/* Timeline no estilo ESPN/OneFootball */}
+      <div className="space-y-4">
+        {allEventsSorted.map((event) => {
+          const isHome = event.team_color === teamHome;
+          const isAway = event.team_color === teamAway;
 
-        {/* Eventos */}
-        <div className="relative space-y-6 sm:space-y-8">
-          {allEvents.map((event) => {
-            const isHome = event.team_color === teamHome;
-            const isAway = event.team_color === teamAway;
-            const isGlobal = event.type === "match_start" || event.type === "match_end";
-
-            return (
-              <div
-                key={event.id}
-                className="relative flex items-start sm:items-center min-h-[50px] sm:min-h-[60px]"
-              >
-                {/* Evento do time da casa (esquerda) */}
+          return (
+            <div
+              key={event.id}
+              className="flex items-start gap-2 sm:gap-4 min-h-[48px]"
+            >
+              {/* Coluna Esquerda - Time Casa */}
+              <div className="flex-1 flex justify-end">
                 {isHome && (
-                  <div className="flex-1 pr-2 sm:pr-4 text-right">
-                    {renderEvent(event, "right")}
+                  <div className="text-right pr-2 sm:pr-4">
+                    {renderEventContent(event)}
                   </div>
                 )}
-
-                {/* Marcador central */}
-                <div className="relative z-10 flex-shrink-0 w-8 sm:w-12 flex items-center justify-center">
-                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-primary border-2 border-background shadow-lg" />
-                  <div className="absolute text-[10px] sm:text-xs text-muted-foreground -bottom-5 sm:-bottom-6 whitespace-nowrap">
-                    {formatMinute(event.minute, maxMinute)}
-                  </div>
-                </div>
-
-                {/* Evento do time visitante (direita) */}
-                {isAway && (
-                  <div className="flex-1 pl-2 sm:pl-4 text-left">
-                    {renderEvent(event, "left")}
-                  </div>
-                )}
-
-                {/* Eventos globais (centro) */}
-                {isGlobal && (
-                  <div className="flex-1 text-center px-2">
-                    {renderEvent(event, "center")}
-                  </div>
-                )}
-
-                {/* Espaço vazio quando evento é de um time só */}
-                {isHome && <div className="flex-1 pl-2 sm:pl-4" />}
-                {isAway && <div className="flex-1 pr-2 sm:pr-4" />}
               </div>
-            );
-          })}
 
-          {allEvents.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              Nenhum evento registrado ainda
+              {/* Minuto Central */}
+              <div className="flex-shrink-0 w-12 sm:w-16 flex items-center justify-center">
+                <span className="text-xs sm:text-sm font-bold text-primary bg-primary/10 px-2 py-1 rounded">
+                  {formatMinute(event.minute, maxMinute)}
+                </span>
+              </div>
+
+              {/* Coluna Direita - Time Visitante */}
+              <div className="flex-1 flex justify-start">
+                {isAway && (
+                  <div className="text-left pl-2 sm:pl-4">
+                    {renderEventContent(event)}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-        </div>
+          );
+        })}
       </div>
+
+      {/* Indicador de início/fim */}
+      {events.some((e) => e.type === "match_start") && (
+        <div className="mt-6 pt-4 border-t border-border">
+          <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-muted-foreground">
+            <span className="w-2 h-2 rounded-full bg-primary" />
+            <span>Início da partida</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
