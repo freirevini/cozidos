@@ -7,6 +7,8 @@ import { TeamLogo } from "@/components/match/TeamLogo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import iconBall from "@/assets/icon-ball.png";
+import iconBoot from "@/assets/icon-boot.png";
 
 interface Match {
   id: string;
@@ -348,20 +350,33 @@ export default function Matches() {
                         <div className="border-t border-border pt-3 mt-3">
                           <div className="grid grid-cols-2 gap-3 text-xs sm:text-sm">
                             {/* Gols Time Casa */}
-                            <div className="space-y-1">
+                            <div className="space-y-2">
                               {match.goals
                                 .filter((goal) => goal.team_color === match.team_home)
                                 .sort((a, b) => a.minute - b.minute)
                                 .map((goal, idx) => (
-                                  <div key={idx} className="flex items-center gap-1.5">
-                                    <span>⚽</span>
-                                    <span className="font-medium">
-                                      {goal.minute}' {goal.player?.nickname || goal.player?.name}
-                                    </span>
-                                    {goal.assist?.player && (
-                                      <span className="text-muted-foreground text-xs">
-                                        (Ass: {goal.assist.player.nickname || goal.assist.player.name})
+                                  <div key={idx} className="flex flex-col gap-0.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <img 
+                                        src={iconBall} 
+                                        alt="Gol" 
+                                        className="w-3.5 h-3.5 brightness-0 invert flex-shrink-0" 
+                                      />
+                                      <span className="font-medium">
+                                        {goal.minute}' {goal.player?.nickname || goal.player?.name}
                                       </span>
+                                    </div>
+                                    {goal.assist?.player && (
+                                      <div className="flex items-center gap-1.5 ml-5">
+                                        <img 
+                                          src={iconBoot} 
+                                          alt="Assist" 
+                                          className="w-3 h-3 brightness-0 invert opacity-60 flex-shrink-0" 
+                                        />
+                                        <span className="text-muted-foreground text-xs">
+                                          {goal.assist.player.nickname || goal.assist.player.name}
+                                        </span>
+                                      </div>
                                     )}
                                   </div>
                                 ))}
@@ -372,20 +387,33 @@ export default function Matches() {
                             </div>
 
                             {/* Gols Time Visitante */}
-                            <div className="space-y-1">
+                            <div className="space-y-2">
                               {match.goals
                                 .filter((goal) => goal.team_color === match.team_away)
                                 .sort((a, b) => a.minute - b.minute)
                                 .map((goal, idx) => (
-                                  <div key={idx} className="flex items-center gap-1.5">
-                                    <span>⚽</span>
-                                    <span className="font-medium">
-                                      {goal.minute}' {goal.player?.nickname || goal.player?.name}
-                                    </span>
-                                    {goal.assist?.player && (
-                                      <span className="text-muted-foreground text-xs">
-                                        (Ass: {goal.assist.player.nickname || goal.assist.player.name})
+                                  <div key={idx} className="flex flex-col gap-0.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <img 
+                                        src={iconBall} 
+                                        alt="Gol" 
+                                        className="w-3.5 h-3.5 brightness-0 invert flex-shrink-0" 
+                                      />
+                                      <span className="font-medium">
+                                        {goal.minute}' {goal.player?.nickname || goal.player?.name}
                                       </span>
+                                    </div>
+                                    {goal.assist?.player && (
+                                      <div className="flex items-center gap-1.5 ml-5">
+                                        <img 
+                                          src={iconBoot} 
+                                          alt="Assist" 
+                                          className="w-3 h-3 brightness-0 invert opacity-60 flex-shrink-0" 
+                                        />
+                                        <span className="text-muted-foreground text-xs">
+                                          {goal.assist.player.nickname || goal.assist.player.name}
+                                        </span>
+                                      </div>
                                     )}
                                   </div>
                                 ))}

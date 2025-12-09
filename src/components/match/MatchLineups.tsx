@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { TeamLogo } from "./TeamLogo";
-import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
-type Formation = "2-2-1" | "2-1-2";
 type Position = "goleiro" | "defensor" | "meio-campista" | "atacante";
 
 interface Player {
@@ -12,6 +11,7 @@ interface Player {
   nickname: string | null;
   position: Position | null;
   level?: string;
+  avatar_url?: string;
 }
 
 interface MatchLineupsProps {
@@ -23,207 +23,227 @@ interface MatchLineupsProps {
 }
 
 const teamNames: Record<string, string> = {
+  branco: "BRA",
+  vermelho: "VER",
+  azul: "AZU",
+  laranja: "LAR",
+};
+
+const teamFullNames: Record<string, string> = {
   branco: "BRANCO",
   vermelho: "VERMELHO",
   azul: "AZUL",
   laranja: "LARANJA",
 };
 
-function distributePlayers(players: Player[], formation: Formation): {
-  goalkeeper: Player[];
+// Formação fixa 3-2-1 (1 goleiro, 2 defesa, 2 meio, 1 ataque)
+function distributePlayers(players: Player[]): {
+  goalkeeper: Player | null;
   defenders: Player[];
   midfielders: Player[];
   forwards: Player[];
-  reserves: Player[];
 } {
   const byPosition = {
     goleiro: players.filter((p) => p.position === "goleiro"),
     defensor: players.filter((p) => p.position === "defensor"),
     "meio-campista": players.filter((p) => p.position === "meio-campista"),
     atacante: players.filter((p) => p.position === "atacante"),
+    outros: players.filter((p) => !p.position),
   };
 
-  const result = {
-    goalkeeper: [] as Player[],
-    defenders: [] as Player[],
-    midfielders: [] as Player[],
-    forwards: [] as Player[],
-    reserves: [] as Player[],
-  };
+  const usedIds = new Set<string>();
 
-  result.goalkeeper = byPosition.goleiro.slice(0, 1);
-  const usedIds = new Set(result.goalkeeper.map((p) => p.id));
+  // 1 Goleiro
+  const goalkeeper = byPosition.goleiro[0] || null;
+  if (goalkeeper) usedIds.add(goalkeeper.id);
 
-  if (formation === "2-2-1") {
-    result.defenders = byPosition.defensor.slice(0, 2);
-    result.defenders.forEach((p) => usedIds.add(p.id));
-
-    while (result.defenders.length < 2) {
-      const available = byPosition["meio-campista"].find((p) => !usedIds.has(p.id));
-      if (available) {
-        result.defenders.push(available);
-        usedIds.add(available.id);
-      } else break;
+  // 2 Defensores
+  const defenders: Player[] = [];
+  byPosition.defensor.forEach((p) => {
+    if (defenders.length < 2 && !usedIds.has(p.id)) {
+      defenders.push(p);
+      usedIds.add(p.id);
     }
-
-    const availableMidfielders = byPosition["meio-campista"].filter((p) => !usedIds.has(p.id));
-    result.midfielders = availableMidfielders.slice(0, 2);
-    result.midfielders.forEach((p) => usedIds.add(p.id));
-
-    while (result.midfielders.length < 2) {
-      const available = byPosition.defensor.find((p) => !usedIds.has(p.id)) || byPosition.atacante.find((p) => !usedIds.has(p.id));
-      if (available) {
-        result.midfielders.push(available);
-        usedIds.add(available.id);
-      } else break;
-    }
-
-    const availableForwards = byPosition.atacante.filter((p) => !usedIds.has(p.id));
-    result.forwards = availableForwards.slice(0, 1);
-    result.forwards.forEach((p) => usedIds.add(p.id));
-
-    if (result.forwards.length === 0) {
-      const available = byPosition["meio-campista"].find((p) => !usedIds.has(p.id));
-      if (available) {
-        result.forwards.push(available);
-        usedIds.add(available.id);
+  });
+  // Preencher com meio-campistas se necessário
+  if (defenders.length < 2) {
+    byPosition["meio-campista"].forEach((p) => {
+      if (defenders.length < 2 && !usedIds.has(p.id)) {
+        defenders.push(p);
+        usedIds.add(p.id);
       }
-    }
-  } else {
-    result.defenders = byPosition.defensor.slice(0, 2);
-    result.defenders.forEach((p) => usedIds.add(p.id));
-
-    while (result.defenders.length < 2) {
-      const available = byPosition["meio-campista"].find((p) => !usedIds.has(p.id));
-      if (available) {
-        result.defenders.push(available);
-        usedIds.add(available.id);
-      } else break;
-    }
-
-    const availableMidfielders = byPosition["meio-campista"].filter((p) => !usedIds.has(p.id));
-    result.midfielders = availableMidfielders.slice(0, 1);
-    result.midfielders.forEach((p) => usedIds.add(p.id));
-
-    if (result.midfielders.length === 0) {
-      const available = byPosition.defensor.find((p) => !usedIds.has(p.id)) || byPosition.atacante.find((p) => !usedIds.has(p.id));
-      if (available) {
-        result.midfielders.push(available);
-        usedIds.add(available.id);
-      }
-    }
-
-    const availableForwards = byPosition.atacante.filter((p) => !usedIds.has(p.id));
-    result.forwards = availableForwards.slice(0, 2);
-    result.forwards.forEach((p) => usedIds.add(p.id));
-
-    while (result.forwards.length < 2) {
-      const available = byPosition["meio-campista"].find((p) => !usedIds.has(p.id)) || byPosition.defensor.find((p) => !usedIds.has(p.id));
-      if (available) {
-        result.forwards.push(available);
-        usedIds.add(available.id);
-      } else break;
-    }
+    });
   }
 
-  result.reserves = players.filter((p) => !usedIds.has(p.id));
-  return result;
+  // 2 Meio-campistas
+  const midfielders: Player[] = [];
+  byPosition["meio-campista"].forEach((p) => {
+    if (midfielders.length < 2 && !usedIds.has(p.id)) {
+      midfielders.push(p);
+      usedIds.add(p.id);
+    }
+  });
+  // Preencher com defensores ou atacantes se necessário
+  if (midfielders.length < 2) {
+    [...byPosition.defensor, ...byPosition.atacante].forEach((p) => {
+      if (midfielders.length < 2 && !usedIds.has(p.id)) {
+        midfielders.push(p);
+        usedIds.add(p.id);
+      }
+    });
+  }
+
+  // 1 Atacante
+  const forwards: Player[] = [];
+  byPosition.atacante.forEach((p) => {
+    if (forwards.length < 1 && !usedIds.has(p.id)) {
+      forwards.push(p);
+      usedIds.add(p.id);
+    }
+  });
+  // Preencher com meio-campistas se necessário
+  if (forwards.length < 1) {
+    byPosition["meio-campista"].forEach((p) => {
+      if (forwards.length < 1 && !usedIds.has(p.id)) {
+        forwards.push(p);
+        usedIds.add(p.id);
+      }
+    });
+  }
+
+  return { goalkeeper, defenders, midfielders, forwards };
 }
 
-function FieldFormation({ players, formation }: { players: Player[]; formation: Formation }) {
-  const { goalkeeper, defenders, midfielders, forwards } = distributePlayers(players, formation);
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
-  const PlayerSlot = ({ player, className }: { player?: Player; className?: string }) => {
-    if (!player) {
-      return (
-        <div className={cn("w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center text-xs text-muted-foreground", className)}>-</div>
-      );
-    }
-
+function PlayerSlot({ player, className }: { player: Player | null; className?: string }) {
+  if (!player) {
     return (
-      <div className={cn("w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/20 border-2 border-primary flex flex-col items-center justify-center text-[10px] sm:text-xs font-medium text-foreground p-1", className)} title={player.nickname || player.name}>
-        <span className="truncate w-full text-center leading-tight">{player.nickname || player.name}</span>
+      <div className={cn("flex flex-col items-center gap-1", className)}>
+        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+          <span className="text-muted-foreground text-xs">-</span>
+        </div>
       </div>
     );
-  };
+  }
+
+  const displayName = player.nickname || player.name.split(" ")[0];
+  const initials = getInitials(player.name);
 
   return (
-    <div className="relative w-full aspect-[3/4] bg-gradient-to-b from-green-600 to-green-800 rounded-lg border-4 border-green-700 p-4">
-      <div className="absolute inset-0 border-2 border-white/20 rounded-lg" />
-      <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/20" />
-      <div className="absolute top-1/3 left-0 right-0 h-0.5 bg-white/10" />
-      <div className="absolute bottom-1/3 left-0 right-0 h-0.5 bg-white/10" />
+    <div className={cn("flex flex-col items-center gap-1 max-w-[70px] sm:max-w-[80px]", className)}>
+      <Avatar className="w-12 h-12 sm:w-14 sm:h-14 border-2 border-primary/50">
+        {player.avatar_url ? (
+          <AvatarImage src={player.avatar_url} alt={player.name} />
+        ) : null}
+        <AvatarFallback className="bg-primary/20 text-primary font-bold text-sm sm:text-base">
+          {initials}
+        </AvatarFallback>
+      </Avatar>
+      <span className="text-[10px] sm:text-xs font-medium text-foreground text-center truncate w-full leading-tight">
+        {displayName}
+      </span>
+    </div>
+  );
+}
 
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2">
-        <PlayerSlot player={goalkeeper[0]} />
+function FieldFormation({ players }: { players: Player[] }) {
+  const { goalkeeper, defenders, midfielders, forwards } = distributePlayers(players);
+
+  return (
+    <div className="relative w-full aspect-[3/4] bg-gradient-to-b from-green-700 to-green-900 rounded-xl overflow-hidden">
+      {/* Linhas do campo */}
+      <div className="absolute inset-2 sm:inset-3 border-2 border-white/20 rounded-lg" />
+      <div className="absolute top-1/2 left-2 right-2 sm:left-3 sm:right-3 h-0.5 bg-white/20" />
+      
+      {/* Círculo central */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 sm:w-20 sm:h-20 border-2 border-white/20 rounded-full" />
+      
+      {/* Área do gol */}
+      <div className="absolute bottom-2 sm:bottom-3 left-1/2 -translate-x-1/2 w-24 sm:w-32 h-8 sm:h-10 border-2 border-white/20 border-b-0 rounded-t-lg" />
+
+      {/* Posições dos jogadores - Formação 1-2-2-1 */}
+      
+      {/* Atacante (1) - Topo */}
+      <div className="absolute top-6 sm:top-8 left-1/2 -translate-x-1/2">
+        <PlayerSlot player={forwards[0] || null} />
       </div>
 
-      <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex gap-8">
-        <PlayerSlot player={defenders[0]} />
-        <PlayerSlot player={defenders[1]} />
+      {/* Meio-campistas (2) */}
+      <div className="absolute top-[35%] left-1/2 -translate-x-1/2 flex gap-8 sm:gap-12">
+        <PlayerSlot player={midfielders[0] || null} />
+        <PlayerSlot player={midfielders[1] || null} />
       </div>
 
-      {formation === "2-2-1" ? (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex gap-8">
-          <PlayerSlot player={midfielders[0]} />
-          <PlayerSlot player={midfielders[1]} />
-        </div>
-      ) : (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-          <PlayerSlot player={midfielders[0]} />
-        </div>
-      )}
+      {/* Defensores (2) */}
+      <div className="absolute top-[60%] left-1/2 -translate-x-1/2 flex gap-8 sm:gap-12">
+        <PlayerSlot player={defenders[0] || null} />
+        <PlayerSlot player={defenders[1] || null} />
+      </div>
 
-      {formation === "2-2-1" ? (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2">
-          <PlayerSlot player={forwards[0]} />
-        </div>
-      ) : (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 flex gap-8">
-          <PlayerSlot player={forwards[0]} />
-          <PlayerSlot player={forwards[1]} />
-        </div>
-      )}
+      {/* Goleiro (1) - Base */}
+      <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2">
+        <PlayerSlot player={goalkeeper} />
+      </div>
     </div>
   );
 }
 
 export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, className }: MatchLineupsProps) {
-  const [homeFormation, setHomeFormation] = useState<Formation>("2-2-1");
-  const [awayFormation, setAwayFormation] = useState<Formation>("2-2-1");
+  const [selectedTeam, setSelectedTeam] = useState<"home" | "away">("home");
+
+  const currentPlayers = selectedTeam === "home" ? homePlayers : awayPlayers;
+  const currentTeam = selectedTeam === "home" ? teamHome : teamAway;
 
   return (
-    <div className={cn("space-y-8 sm:space-y-12", className)}>
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <TeamLogo teamColor={teamHome as any} size="sm" />
-            <h3 className="text-base sm:text-lg font-bold uppercase">{teamNames[teamHome] || teamHome}</h3>
-          </div>
-          <div className="flex gap-2">
-            <Button variant={homeFormation === "2-2-1" ? "default" : "outline"} size="sm" onClick={() => setHomeFormation("2-2-1")} className="min-h-[40px] text-xs sm:text-sm">2-2-1</Button>
-            <Button variant={homeFormation === "2-1-2" ? "default" : "outline"} size="sm" onClick={() => setHomeFormation("2-1-2")} className="min-h-[40px] text-xs sm:text-sm">2-1-2</Button>
-          </div>
-        </div>
-        <div className="w-full max-w-md mx-auto">
-          <FieldFormation players={homePlayers} formation={homeFormation} />
+    <div className={cn("space-y-4", className)}>
+      {/* Seletor de times estilo NSH/MTL */}
+      <div className="flex justify-center">
+        <div className="inline-flex bg-muted/30 rounded-full p-1">
+          <button
+            onClick={() => setSelectedTeam("home")}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-full transition-all min-h-[44px]",
+              selectedTeam === "home"
+                ? "bg-primary text-primary-foreground shadow-lg"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <TeamLogo teamColor={teamHome as any} size="xs" />
+            <span className="font-bold text-sm">{teamNames[teamHome]}</span>
+          </button>
+          <button
+            onClick={() => setSelectedTeam("away")}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-full transition-all min-h-[44px]",
+              selectedTeam === "away"
+                ? "bg-primary text-primary-foreground shadow-lg"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <TeamLogo teamColor={teamAway as any} size="xs" />
+            <span className="font-bold text-sm">{teamNames[teamAway]}</span>
+          </button>
         </div>
       </div>
 
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <TeamLogo teamColor={teamAway as any} size="sm" />
-            <h3 className="text-base sm:text-lg font-bold uppercase">{teamNames[teamAway] || teamAway}</h3>
-          </div>
-          <div className="flex gap-2">
-            <Button variant={awayFormation === "2-2-1" ? "default" : "outline"} size="sm" onClick={() => setAwayFormation("2-2-1")} className="min-h-[40px] text-xs sm:text-sm">2-2-1</Button>
-            <Button variant={awayFormation === "2-1-2" ? "default" : "outline"} size="sm" onClick={() => setAwayFormation("2-1-2")} className="min-h-[40px] text-xs sm:text-sm">2-1-2</Button>
-          </div>
-        </div>
-        <div className="w-full max-w-md mx-auto">
-          <FieldFormation players={awayPlayers} formation={awayFormation} />
-        </div>
+      {/* Formação */}
+      <div className="text-center">
+        <span className="text-lg sm:text-xl font-bold text-foreground">1-2-2-1</span>
+      </div>
+
+      {/* Campo com jogadores */}
+      <div className="w-full max-w-sm mx-auto">
+        <FieldFormation players={currentPlayers} />
+      </div>
+
+      {/* Nome do time */}
+      <div className="text-center">
+        <span className="text-sm text-muted-foreground">{teamFullNames[currentTeam]}</span>
       </div>
     </div>
   );

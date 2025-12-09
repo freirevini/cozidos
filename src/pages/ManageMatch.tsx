@@ -42,7 +42,7 @@ interface Goal {
   assists?: Array<{ player_id: string; player?: Player }>;
 }
 
-interface Card {
+interface CardEvent {
   id: string;
   player_id: string;
   card_type: string;
@@ -72,17 +72,9 @@ export default function ManageMatch() {
   const [match, setMatch] = useState<Match | null>(null);
   const [players, setPlayers] = useState<Record<string, Player[]>>({});
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [cards, setCards] = useState<Card[]>([]);
-  const [substitutions, setSubstitutions] = useState<Array<{
-    id: string;
-    team_color: string;
-    minute: number;
-    player_in: Player;
-    player_out: Player;
-  }>>([]);
+  const [cards, setCards] = useState<CardEvent[]>([]);
   const [addingGoal, setAddingGoal] = useState(false);
   const [addingCard, setAddingCard] = useState(false);
-  const [addingSubstitution, setAddingSubstitution] = useState(false);
   const [timer, setTimer] = useState(720); // 12 minutos em segundos
   const [timerRunning, setTimerRunning] = useState(false);
   const [goalData, setGoalData] = useState({
@@ -96,115 +88,81 @@ export default function ManageMatch() {
     player_id: "",
     card_type: "",
   });
-  const [substitutionData, setSubstitutionData] = useState({
-    team: "",
-    player_out_id: "",
-    player_in_id: "",
-  });
 
   useEffect(() => {
-    checkAdmin();
-    loadMatchData();
-  }, [matchId]);
+    checkAdminAndLoad();
+  }, [matchId, roundId]);
 
   useEffect(() => {
     if (match) {
       loadPlayers();
     }
-  }, [match, roundId]);
+  }, [match?.id, match?.team_home, match?.team_away]);
 
   useEffect(() => {
-    if (!matchId) return;
+    let interval: NodeJS.Timeout | null = null;
 
-    // Subscription para atualizar em tempo real quando gols/cartões forem adicionados
-    const channel = supabase
-      .channel(`match-${matchId}-events`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'goals',
-          filter: `match_id=eq.${matchId}`,
-        },
-        () => {
-          loadMatchData();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'assists',
-        },
-        () => {
-          loadMatchData();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'cards',
-          filter: `match_id=eq.${matchId}`,
-        },
-        () => {
-          loadMatchData();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'substitutions',
-          filter: `match_id=eq.${matchId}`,
-        },
-        () => {
-          loadMatchData();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [matchId]);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
     if (timerRunning && timer > 0) {
       interval = setInterval(() => {
         setTimer((prev) => Math.max(0, prev - 1));
       }, 1000);
     }
-    return () => clearInterval(interval);
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [timerRunning, timer]);
 
-  const checkAdmin = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .single();
+  useEffect(() => {
+    if (match?.match_timer_started_at && match.status === 'in_progress') {
+      const startTime = new Date(match.match_timer_started_at).getTime();
+      const now = Date.now();
+      let pausedSeconds = match.match_timer_total_paused_seconds || 0;
       
-      if (data?.role !== "admin") {
-        toast.error("Acesso não autorizado");
-        navigate("/");
-        return;
+      if (match.match_timer_paused_at) {
+        const pausedAt = new Date(match.match_timer_paused_at).getTime();
+        pausedSeconds += Math.floor((now - pausedAt) / 1000);
+        setTimerRunning(false);
+      } else {
+        setTimerRunning(true);
       }
-      setIsAdmin(data?.role === "admin");
+      
+      const elapsedSeconds = Math.floor((now - startTime) / 1000) - pausedSeconds;
+      const remainingSeconds = Math.max(0, 720 - elapsedSeconds);
+      setTimer(remainingSeconds);
     }
+  }, [match?.match_timer_started_at, match?.match_timer_paused_at, match?.match_timer_total_paused_seconds, match?.status]);
+
+  const checkAdminAndLoad = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("Você precisa estar logado");
+      navigate("/auth");
+      return;
+    }
+
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (roleData?.role !== "admin") {
+      toast.error("Acesso negado. Apenas administradores podem gerenciar partidas.");
+      navigate("/");
+      return;
+    }
+
+    setIsAdmin(true);
+    loadMatchData();
   };
 
   const loadMatchData = async () => {
     if (!matchId) return;
 
     try {
+      setLoading(true);
+
       const { data: matchData, error: matchError } = await supabase
         .from("matches")
         .select("*")
@@ -214,95 +172,58 @@ export default function ManageMatch() {
       if (matchError) throw matchError;
       setMatch(matchData);
 
-      // Calcular tempo do cronômetro se a partida estiver em andamento
-      if (matchData.status === 'in_progress' && matchData.match_timer_started_at) {
-        const startTime = new Date(matchData.match_timer_started_at).getTime();
-        const now = Date.now();
-        const elapsedSeconds = Math.floor((now - startTime) / 1000) - (matchData.match_timer_total_paused_seconds || 0);
-        const remainingTime = Math.max(0, 720 - elapsedSeconds);
-        setTimer(remainingTime);
-        setTimerRunning(!matchData.match_timer_paused_at);
-      }
-
-      // Carregar gols e cartões
+      // Carregar gols com assistências
       const { data: goalsData } = await supabase
         .from("goals")
         .select(`
-          *,
+          id,
+          player_id,
+          minute,
+          is_own_goal,
+          team_color,
           player:profiles!goals_player_id_fkey(id, name, nickname),
           assists(
-            id,
             player_id,
             player:profiles!assists_player_id_fkey(id, name, nickname)
           )
         `)
-        .eq("match_id", matchId);
+        .eq("match_id", matchId)
+        .order("minute", { ascending: true });
 
-      const goalsWithPlayers = (goalsData || []).map((goal: any) => {
-        // A constraint UNIQUE em goal_id garante que cada gol tem no máximo uma assistência
-        // Mas o Supabase pode retornar como array ou objeto único dependendo da query
-        let assists = [];
-        if (goal.assists) {
-          // Se for array, pegar o primeiro elemento
-          const assistData = Array.isArray(goal.assists) ? goal.assists[0] : goal.assists;
-          if (assistData && assistData.player_id) {
-            assists = [{
-              player_id: assistData.player_id,
-              player: assistData.player
-            }];
-          }
-        }
-
-        return {
-          ...goal,
-          player: goal.player,
-          assists
-        };
-      });
+      const goalsWithPlayers = (goalsData || []).map((goal: any) => ({
+        id: goal.id,
+        player_id: goal.player_id,
+        minute: goal.minute,
+        is_own_goal: goal.is_own_goal,
+        team_color: goal.team_color,
+        player: goal.player,
+        assists: goal.assists,
+      }));
 
       setGoals(goalsWithPlayers);
 
+      // Carregar cartões
       const { data: cardsData } = await supabase
         .from("cards")
-        .select("*")
-        .eq("match_id", matchId);
-
-      const cardsWithPlayers = await Promise.all(
-        (cardsData || []).map(async (card: any) => {
-          const { data: player } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", card.player_id)
-            .maybeSingle();
-
-          return { ...card, player };
-        })
-      );
-
-      setCards(cardsWithPlayers);
-
-      // Carregar substituições
-      const { data: substitutionsData } = await supabase
-        .from("substitutions")
         .select(`
           id,
-          team_color,
+          player_id,
+          card_type,
           minute,
-          player_in:profiles!substitutions_player_in_id_fkey(id, name, nickname),
-          player_out:profiles!substitutions_player_out_id_fkey(id, name, nickname)
+          player:profiles!cards_player_id_fkey(id, name, nickname)
         `)
         .eq("match_id", matchId)
         .order("minute", { ascending: true });
 
-      const substitutionsWithPlayers = (substitutionsData || []).map((sub: any) => ({
-        id: sub.id,
-        team_color: sub.team_color,
-        minute: sub.minute,
-        player_in: sub.player_in,
-        player_out: sub.player_out,
+      const cardsWithPlayers = (cardsData || []).map((card: any) => ({
+        id: card.id,
+        player_id: card.player_id,
+        card_type: card.card_type,
+        minute: card.minute,
+        player: card.player,
       }));
 
-      setSubstitutions(substitutionsWithPlayers);
+      setCards(cardsWithPlayers);
     } catch (error) {
       console.error("Erro ao carregar partida:", error);
       toast.error("Erro ao carregar dados da partida");
@@ -375,7 +296,6 @@ export default function ManageMatch() {
 
     try {
       if (timerRunning) {
-        // Pausar
         const { error } = await supabase
           .from("matches")
           .update({ match_timer_paused_at: new Date().toISOString() })
@@ -385,7 +305,6 @@ export default function ManageMatch() {
         setTimerRunning(false);
         toast.info("Cronômetro pausado");
       } else {
-        // Retomar
         if (match.match_timer_paused_at && match.match_timer_started_at) {
           const pausedAt = new Date(match.match_timer_paused_at).getTime();
           const now = Date.now();
@@ -418,10 +337,8 @@ export default function ManageMatch() {
       return;
     }
 
-    // Calcular minuto atual baseado no cronômetro
     const currentMinute = Math.ceil((720 - timer) / 60);
 
-    // Validar minuto (0-120)
     if (currentMinute < 0 || currentMinute > 120) {
       toast.error("Minuto inválido. Deve estar entre 0 e 120.");
       return;
@@ -429,10 +346,8 @@ export default function ManageMatch() {
 
     setLoading(true);
     try {
-      // Se for gol contra, usar player_id null
       const isOwnGoal = goalData.player_id === "own_goal";
       
-      // BLOCO C: Usar RPC atômica para garantir consistência gol + assistência
       const { data: result, error: rpcError } = await supabase.rpc('record_goal_with_assist', {
         p_match_id: match.id,
         p_team_color: goalData.team,
@@ -468,10 +383,8 @@ export default function ManageMatch() {
       return;
     }
 
-    // Calcular minuto atual baseado no cronômetro
     const currentMinute = Math.ceil((720 - timer) / 60);
 
-    // Validar minuto (0-120)
     if (currentMinute < 0 || currentMinute > 120) {
       toast.error("Minuto inválido. Deve estar entre 0 e 120.");
       return;
@@ -501,55 +414,6 @@ export default function ManageMatch() {
     }
   };
 
-  const addSubstitution = async () => {
-    if (!substitutionData.team || !substitutionData.player_out_id || !substitutionData.player_in_id || !match) {
-      toast.error("Preencha todos os campos obrigatórios");
-      return;
-    }
-
-    if (substitutionData.player_out_id === substitutionData.player_in_id) {
-      toast.error("O jogador que entra e o que sai devem ser diferentes");
-      return;
-    }
-
-    // Calcular minuto atual baseado no cronômetro
-    const currentMinute = Math.ceil((720 - timer) / 60);
-
-    // Validar minuto (0-120)
-    if (currentMinute < 0 || currentMinute > 120) {
-      toast.error("Minuto inválido. Deve estar entre 0 e 120.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { data: result, error: rpcError } = await supabase.rpc('record_substitution', {
-        p_match_id: match.id,
-        p_team_color: substitutionData.team,
-        p_player_in_id: substitutionData.player_in_id,
-        p_player_out_id: substitutionData.player_out_id,
-        p_minute: currentMinute,
-      });
-
-      if (rpcError) throw rpcError;
-
-      const rpcResult = result as { success: boolean; error?: string; substitution_id?: string };
-      
-      if (!rpcResult.success) {
-        throw new Error(rpcResult.error || 'Erro ao registrar substituição');
-      }
-
-      toast.success(`Substituição registrada no minuto ${currentMinute}!`);
-      setAddingSubstitution(false);
-      setSubstitutionData({ team: "", player_out_id: "", player_in_id: "" });
-      loadMatchData();
-    } catch (error: any) {
-      toast.error("Erro ao registrar substituição: " + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const deleteLastGoal = async () => {
     if (goals.length === 0) {
       toast.error("Não há gols para deletar");
@@ -563,7 +427,6 @@ export default function ManageMatch() {
     try {
       const lastGoal = [...goals].sort((a, b) => b.minute - a.minute)[0];
 
-      // Deletar gol (assistências são deletadas automaticamente via CASCADE)
       const { error: deleteError } = await supabase
         .from("goals")
         .delete()
@@ -571,7 +434,6 @@ export default function ManageMatch() {
 
       if (deleteError) throw deleteError;
 
-      // Atualizar placar
       const teamToUpdate = lastGoal.team_color === match?.team_home ? 'score_home' : 'score_away';
       const currentScore = lastGoal.team_color === match?.team_home ? match?.score_home : match?.score_away;
       
@@ -584,16 +446,14 @@ export default function ManageMatch() {
 
       if (updateError) throw updateError;
 
-      // Recalcular stats da rodada
       const { error: recalcError } = await supabase.rpc('recalc_round_aggregates', {
-        p_round_id: match.round_id
+        p_round_id: match?.round_id
       });
 
       if (recalcError) {
         console.error("Erro ao recalcular stats da rodada:", recalcError);
       }
 
-      // Recalcular rankings globais
       const { error: rankError } = await supabase.rpc('recalc_all_player_rankings');
       
       if (rankError) {
@@ -667,7 +527,6 @@ export default function ManageMatch() {
     <div className="min-h-screen bg-background">
       <Header />
       
-      {/* Cronômetro fixo no topo - apenas quando em andamento */}
       {match.status === 'in_progress' && (
         <div className="sticky top-0 z-50 bg-primary/90 backdrop-blur-sm py-4 shadow-lg">
           <div className="container mx-auto px-4 flex items-center justify-center gap-4">
@@ -687,7 +546,6 @@ export default function ManageMatch() {
       )}
 
       <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 max-w-4xl">
-        {/* Placar Padronizado */}
         <div className="bg-gradient-to-r from-primary/90 to-secondary/90 backdrop-blur-sm p-6 rounded-2xl shadow-lg mb-6">
           <div className="text-center mb-4">
             <Badge className="bg-accent text-accent-foreground font-bold text-sm px-4 py-1">
@@ -732,74 +590,71 @@ export default function ManageMatch() {
               </div>
             </div>
             
-        {/* Gols - Dividido por Time */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          {/* Coluna Time Casa */}
-          <div>
-            <h3 className="font-bold text-center mb-3 text-sm">{teamNames[match.team_home]}</h3>
-            {goals.filter(g => g.team_color === match.team_home).length === 0 ? (
-              <p className="text-center text-xs text-muted-foreground">-</p>
-            ) : (
-              goals
-                .filter(g => g.team_color === match.team_home)
-                .sort((a, b) => a.minute - b.minute)
-                .map((goal, idx) => {
-                  const scorer = goal.player;
-                  const assist = goal.assists && goal.assists.length > 0 ? goal.assists[0] : null;
-                  
-                  return (
-                    <div key={idx} className="mb-3 p-2 bg-muted/10 rounded">
-                      <div className="text-sm font-medium flex items-center gap-1">
-                        <span>{EVENT_ICONS.goal}</span>
-                        <span>{formatMinute(goal.minute)}</span>
-                        <span className="ml-1">{goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}</span>
-                      </div>
-                      {assist?.player && (
-                        <div className="text-xs sm:text-sm text-foreground mt-1 ml-6">
-                          Assist: <span className="font-semibold">
-                            {assist.player.nickname || assist.player.name}
-                          </span>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div>
+                <h3 className="font-bold text-center mb-3 text-sm">{teamNames[match.team_home]}</h3>
+                {goals.filter(g => g.team_color === match.team_home).length === 0 ? (
+                  <p className="text-center text-xs text-muted-foreground">-</p>
+                ) : (
+                  goals
+                    .filter(g => g.team_color === match.team_home)
+                    .sort((a, b) => a.minute - b.minute)
+                    .map((goal, idx) => {
+                      const scorer = goal.player;
+                      const assist = goal.assists && goal.assists.length > 0 ? goal.assists[0] : null;
+                      
+                      return (
+                        <div key={idx} className="mb-3 p-2 bg-muted/10 rounded">
+                          <div className="text-sm font-medium flex items-center gap-1">
+                            <span>{EVENT_ICONS.goal}</span>
+                            <span>{formatMinute(goal.minute)}</span>
+                            <span className="ml-1">{goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}</span>
+                          </div>
+                          {assist?.player && (
+                            <div className="text-xs sm:text-sm text-foreground mt-1 ml-6">
+                              Assist: <span className="font-semibold">
+                                {assist.player.nickname || assist.player.name}
+                              </span>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })
-            )}
-          </div>
+                      );
+                    })
+                )}
+              </div>
 
-          {/* Coluna Time Visitante */}
-          <div>
-            <h3 className="font-bold text-center mb-3 text-sm">{teamNames[match.team_away]}</h3>
-            {goals.filter(g => g.team_color === match.team_away).length === 0 ? (
-              <p className="text-center text-xs text-muted-foreground">-</p>
-            ) : (
-              goals
-                .filter(g => g.team_color === match.team_away)
-                .sort((a, b) => a.minute - b.minute)
-                .map((goal, idx) => {
-                  const scorer = goal.player;
-                  const assist = goal.assists && goal.assists.length > 0 ? goal.assists[0] : null;
-                  
-                  return (
-                    <div key={idx} className="mb-3 p-2 bg-muted/10 rounded">
-                      <div className="text-sm font-medium flex items-center gap-1">
-                        <span>{EVENT_ICONS.goal}</span>
-                        <span>{formatMinute(goal.minute)}</span>
-                        <span className="ml-1">{goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}</span>
-                      </div>
-                      {assist?.player && (
-                        <div className="text-xs sm:text-sm text-foreground mt-1 ml-6">
-                          Assist: <span className="font-semibold">
-                            {assist.player.nickname || assist.player.name}
-                          </span>
+              <div>
+                <h3 className="font-bold text-center mb-3 text-sm">{teamNames[match.team_away]}</h3>
+                {goals.filter(g => g.team_color === match.team_away).length === 0 ? (
+                  <p className="text-center text-xs text-muted-foreground">-</p>
+                ) : (
+                  goals
+                    .filter(g => g.team_color === match.team_away)
+                    .sort((a, b) => a.minute - b.minute)
+                    .map((goal, idx) => {
+                      const scorer = goal.player;
+                      const assist = goal.assists && goal.assists.length > 0 ? goal.assists[0] : null;
+                      
+                      return (
+                        <div key={idx} className="mb-3 p-2 bg-muted/10 rounded">
+                          <div className="text-sm font-medium flex items-center gap-1">
+                            <span>{EVENT_ICONS.goal}</span>
+                            <span>{formatMinute(goal.minute)}</span>
+                            <span className="ml-1">{goal.is_own_goal ? 'Gol Contra' : (scorer?.nickname || scorer?.name || 'Desconhecido')}</span>
+                          </div>
+                          {assist?.player && (
+                            <div className="text-xs sm:text-sm text-foreground mt-1 ml-6">
+                              Assist: <span className="font-semibold">
+                                {assist.player.nickname || assist.player.name}
+                              </span>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })
-            )}
-          </div>
-        </div>
+                      );
+                    })
+                )}
+              </div>
+            </div>
           </CardHeader>
 
           <CardContent className="space-y-4">
@@ -811,7 +666,7 @@ export default function ManageMatch() {
 
             {match.status === 'in_progress' && (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <Button
                     onClick={() => setAddingGoal(!addingGoal)}
                     variant={addingGoal ? "secondary" : "default"}
@@ -826,14 +681,6 @@ export default function ManageMatch() {
                     className={`min-h-[44px] ${addingCard ? "bg-red-600 hover:bg-red-700 text-white" : ""}`}
                   >
                     {addingCard ? "Cancelar Cartão" : "Registrar Cartão"}
-                  </Button>
-
-                  <Button
-                    onClick={() => setAddingSubstitution(!addingSubstitution)}
-                    variant={addingSubstitution ? "secondary" : "default"}
-                    className={`min-h-[44px] ${addingSubstitution ? "bg-red-600 hover:bg-red-700 text-white" : ""}`}
-                  >
-                    {addingSubstitution ? "Cancelar Subst." : "Registrar Subst."}
                   </Button>
 
                   <Button
@@ -995,77 +842,6 @@ export default function ManageMatch() {
                   </Card>
                 )}
 
-                {addingSubstitution && (
-                  <Card className="bg-muted/20 border-border">
-                    <CardContent className="pt-6 space-y-4">
-                      <Select 
-                        value={substitutionData.team} 
-                        onValueChange={(v) => setSubstitutionData({ ...substitutionData, team: v, player_out_id: "", player_in_id: "" })}
-                      >
-                        <SelectTrigger className="h-12">
-                          <SelectValue placeholder="Selecione o time" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={match.team_home}>{teamNames[match.team_home]}</SelectItem>
-                          <SelectItem value={match.team_away}>{teamNames[match.team_away]}</SelectItem>
-                        </SelectContent>
-                      </Select>
-
-                      {substitutionData.team && (
-                        <>
-                          <div>
-                            <p className="text-sm font-medium mb-2">Jogador que SAI:</p>
-                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                              {players[substitutionData.team]?.map((player) => (
-                                <Button
-                                  key={player.id}
-                                  variant={substitutionData.player_out_id === player.id ? "default" : "outline"}
-                                  className="h-auto py-3 px-2 text-xs min-h-[44px]"
-                                  onClick={() => setSubstitutionData({ 
-                                    ...substitutionData, 
-                                    player_out_id: player.id,
-                                    player_in_id: substitutionData.player_in_id === player.id ? "" : substitutionData.player_in_id
-                                  })}
-                                >
-                                  {player.nickname || player.name}
-                                </Button>
-                              ))}
-                            </div>
-                          </div>
-
-                          {substitutionData.player_out_id && (
-                            <div>
-                              <p className="text-sm font-medium mb-2">Jogador que ENTRA:</p>
-                              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                                {players[substitutionData.team]
-                                  ?.filter(p => p.id !== substitutionData.player_out_id)
-                                  .map((player) => (
-                                    <Button
-                                      key={player.id}
-                                      variant={substitutionData.player_in_id === player.id ? "default" : "outline"}
-                                      className="h-auto py-3 px-2 text-xs min-h-[44px]"
-                                      onClick={() => setSubstitutionData({ ...substitutionData, player_in_id: player.id })}
-                                    >
-                                      {player.nickname || player.name}
-                                    </Button>
-                                  ))}
-                              </div>
-                            </div>
-                          )}
-
-                          <Button 
-                            onClick={addSubstitution} 
-                            className="w-full min-h-[44px]" 
-                            disabled={loading || !substitutionData.team || !substitutionData.player_out_id || !substitutionData.player_in_id}
-                          >
-                            Confirmar Substituição (Minuto: {Math.ceil((720 - timer) / 60)})
-                          </Button>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-
                 {cards.length > 0 && (
                   <Card className="bg-muted/20 border-border">
                     <CardContent className="pt-6">
@@ -1075,30 +851,6 @@ export default function ManageMatch() {
                           <div key={card.id} className="text-sm flex items-center gap-2">
                             {EVENT_ICONS[card.card_type as 'amarelo' | 'azul']} {card.player?.nickname || card.player?.name || "Desconhecido"}
                             <span className="text-muted-foreground ml-auto">{formatMinute(card.minute)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {substitutions.length > 0 && (
-                  <Card className="bg-muted/20 border-border">
-                    <CardContent className="pt-6">
-                      <h3 className="font-bold mb-3">Substituições da Partida:</h3>
-                      <div className="space-y-2">
-                        {substitutions.map((sub) => (
-                          <div key={sub.id} className="text-sm flex items-center gap-2 flex-wrap">
-                            <span>🔄</span>
-                            <span className="text-muted-foreground">{formatMinute(sub.minute)}</span>
-                            <Badge className={teamColors[sub.team_color]}>{teamNames[sub.team_color]}</Badge>
-                            <span className="text-green-500 font-medium">
-                              {sub.player_in.nickname || sub.player_in.name}
-                            </span>
-                            <span className="text-muted-foreground">/</span>
-                            <span className="text-red-500 font-medium">
-                              {sub.player_out.nickname || sub.player_out.name}
-                            </span>
                           </div>
                         ))}
                       </div>
@@ -1128,30 +880,6 @@ export default function ManageMatch() {
                           <div key={card.id} className="text-sm flex items-center gap-2">
                             {EVENT_ICONS[card.card_type as 'amarelo' | 'azul']} {card.player?.nickname || card.player?.name || "Desconhecido"}
                             <span className="text-muted-foreground ml-auto">{formatMinute(card.minute)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {substitutions.length > 0 && (
-                  <Card className="bg-muted/20 border-border">
-                    <CardContent className="pt-6">
-                      <h3 className="font-bold mb-3">Substituições da Partida:</h3>
-                      <div className="space-y-2">
-                        {substitutions.map((sub) => (
-                          <div key={sub.id} className="text-sm flex items-center gap-2 flex-wrap">
-                            <span>🔄</span>
-                            <span className="text-muted-foreground">{formatMinute(sub.minute)}</span>
-                            <Badge className={teamColors[sub.team_color]}>{teamNames[sub.team_color]}</Badge>
-                            <span className="text-green-500 font-medium">
-                              {sub.player_in.nickname || sub.player_in.name}
-                            </span>
-                            <span className="text-muted-foreground">/</span>
-                            <span className="text-red-500 font-medium">
-                              {sub.player_out.nickname || sub.player_out.name}
-                            </span>
                           </div>
                         ))}
                       </div>
