@@ -40,7 +40,12 @@ function GoalIcon() {
 
 function CardIcon({ type }: { type: "amarelo" | "azul" }) {
   return (
-    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#1a1a1a] border-2 border-border flex items-center justify-center z-10 shadow-lg">
+    <div className={cn(
+      "w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#1a1a1a] border-2 flex items-center justify-center z-10 shadow-lg",
+      type === "amarelo" 
+        ? "border-yellow-400 shadow-yellow-400/30" 
+        : "border-blue-500 shadow-blue-500/30"
+    )}>
       <div 
         className={cn(
           "w-4 h-6 sm:w-5 sm:h-7 rounded-sm transform rotate-6",
