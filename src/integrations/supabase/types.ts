@@ -766,6 +766,58 @@ export type Database = {
         }
         Relationships: []
       }
+      substitutions: {
+        Row: {
+          created_at: string
+          id: string
+          match_id: string
+          minute: number
+          player_in_id: string
+          player_out_id: string
+          team_color: Database["public"]["Enums"]["team_color"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          match_id: string
+          minute: number
+          player_in_id: string
+          player_out_id: string
+          team_color: Database["public"]["Enums"]["team_color"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          match_id?: string
+          minute?: number
+          player_in_id?: string
+          player_out_id?: string
+          team_color?: Database["public"]["Enums"]["team_color"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "substitutions_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "substitutions_player_in_id_fkey"
+            columns: ["player_in_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "substitutions_player_out_id_fkey"
+            columns: ["player_out_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string

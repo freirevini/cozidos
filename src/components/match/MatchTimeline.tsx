@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { formatMinute } from "@/components/ui/event-item";
 
-export type TimelineEventType = "goal" | "assist" | "amarelo" | "azul" | "match_start" | "match_end";
+export type TimelineEventType = "goal" | "assist" | "amarelo" | "azul" | "substitution" | "match_start" | "match_end";
 
 export interface TimelineEvent {
   id: string;
@@ -14,6 +14,17 @@ export interface TimelineEvent {
     avatar_url?: string | null;
   };
   assist?: {
+    name: string;
+    nickname: string | null;
+    avatar_url?: string | null;
+  };
+  // For substitution events
+  playerOut?: {
+    name: string;
+    nickname: string | null;
+    avatar_url?: string | null;
+  };
+  playerIn?: {
     name: string;
     nickname: string | null;
     avatar_url?: string | null;
@@ -85,6 +96,30 @@ function MatchEventIcon() {
   );
 }
 
+// Substitution icon - circular with arrows (green in, red out)
+function SubstitutionIcon() {
+  return (
+    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#1a1a1a] border-2 border-gray-500 flex items-center justify-center z-10 shadow-lg shadow-gray-500/20">
+      <svg 
+        viewBox="0 0 24 24" 
+        className="w-5 h-5 sm:w-6 sm:h-6"
+        fill="none"
+      >
+        {/* Arrow up (green - player in) */}
+        <path 
+          d="M8 16 L8 10 L5 10 L9 5 L13 10 L10 10 L10 16 Z" 
+          fill="#22c55e"
+        />
+        {/* Arrow down (red - player out) */}
+        <path 
+          d="M16 8 L16 14 L19 14 L15 19 L11 14 L14 14 L14 8 Z" 
+          fill="#ef4444"
+        />
+      </svg>
+    </div>
+  );
+}
+
 // Event text content with proper alignment
 function EventContent({ 
   event, 
@@ -150,6 +185,38 @@ function EventContent({
     );
   }
 
+  // Substitution event
+  if (event.type === "substitution") {
+    const playerOutName = event.playerOut?.nickname || event.playerOut?.name || "Saiu";
+    const playerInName = event.playerIn?.nickname || event.playerIn?.name || "Entrou";
+    
+    return (
+      <div className={cn(
+        "flex items-center gap-2 sm:gap-3",
+        isHome ? "flex-row" : "flex-row-reverse"
+      )}>
+        {/* Player info - stacked with in/out */}
+        <div className={cn(
+          "flex flex-col min-w-0",
+          isHome ? "items-end text-right" : "items-start text-left"
+        )}>
+          <span className="font-bold text-white text-sm sm:text-base truncate max-w-[110px] sm:max-w-[150px] flex items-center gap-1">
+            <span className="text-green-500 text-xs">▲</span>
+            {playerInName}
+          </span>
+          <span className="text-xs text-gray-400 truncate max-w-[100px] sm:max-w-[130px] flex items-center gap-1">
+            <span className="text-red-500 text-xs">▼</span>
+            {playerOutName}
+          </span>
+        </div>
+        {/* Minute */}
+        <span className="text-sm sm:text-base text-gray-400 font-medium whitespace-nowrap">
+          {formattedMinute}
+        </span>
+      </div>
+    );
+  }
+
   return null;
 }
 
@@ -203,6 +270,7 @@ function TimelineRow({
     if (event.type === "amarelo" || event.type === "azul") {
       return <CardIcon type={event.type} />;
     }
+    if (event.type === "substitution") return <SubstitutionIcon />;
     return null;
   };
 
