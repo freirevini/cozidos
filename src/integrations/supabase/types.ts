@@ -910,6 +910,17 @@ export type Database = {
         Args: { p_birth_date: string; p_email: string }
         Returns: string
       }
+      get_match_player_events: {
+        Args: { p_match_id: string }
+        Returns: {
+          blue_count: number
+          goals_count: number
+          is_starter: boolean
+          player_id: string
+          sub_in_minute: number
+          yellow_count: number
+        }[]
+      }
       get_users_without_profiles: {
         Args: never
         Returns: {

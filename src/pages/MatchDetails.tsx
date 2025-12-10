@@ -313,7 +313,7 @@ const MatchDetails = () => {
 
               <TabsContent value="times" className="space-y-6">
                 {homePlayers.length > 0 || awayPlayers.length > 0 ? (
-                  <MatchLineups teamHome={match.team_home} teamAway={match.team_away} homePlayers={homePlayers} awayPlayers={awayPlayers} />
+                  <MatchLineups teamHome={match.team_home} teamAway={match.team_away} homePlayers={homePlayers} awayPlayers={awayPlayers} matchId={matchId} />
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">Escalações não disponíveis</div>
                 )}

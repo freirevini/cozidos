@@ -2,6 +2,8 @@ import { useState } from "react";
 import { TeamLogo } from "./TeamLogo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { PlayerEventBadges } from "./PlayerEventBadges";
+import { useMatchPlayerEvents, PlayerEventCounts } from "@/hooks/useMatchPlayerEvents";
 
 type Position = "goleiro" | "defensor" | "meio-campista" | "atacante";
 
@@ -19,6 +21,7 @@ interface MatchLineupsProps {
   teamAway: string;
   homePlayers: Player[];
   awayPlayers: Player[];
+  matchId?: string;
   className?: string;
 }
 
@@ -123,9 +126,10 @@ const positions = {
 interface PlayerNodeProps {
   player: Player | null;
   position: { x: number; y: number };
+  eventData?: PlayerEventCounts | null;
 }
 
-function PlayerNode({ player, position }: PlayerNodeProps) {
+function PlayerNode({ player, position, eventData }: PlayerNodeProps) {
   if (!player) {
     return (
       <div
@@ -149,6 +153,13 @@ function PlayerNode({ player, position }: PlayerNodeProps) {
   const displayName = player.nickname || player.name.split(" ")[0];
   const initials = getInitials(player.name);
 
+  const hasEvents = eventData && (
+    eventData.goals_count > 0 ||
+    eventData.yellow_count > 0 ||
+    eventData.blue_count > 0 ||
+    eventData.sub_in_minute !== null
+  );
+
   return (
     <div
       className="absolute flex flex-col items-center gap-1.5 transition-transform duration-200 hover:scale-110 active:scale-105 cursor-pointer z-10"
@@ -162,17 +173,27 @@ function PlayerNode({ player, position }: PlayerNodeProps) {
       tabIndex={0}
       aria-label={`Jogador: ${player.name}`}
     >
-      <Avatar 
-        className="border-2 border-primary/60 shadow-lg shadow-black/40"
-        style={{ width: 'clamp(44px, 12vw, 64px)', height: 'clamp(44px, 12vw, 64px)' }}
-      >
-        {player.avatar_url ? (
-          <AvatarImage src={player.avatar_url} alt={player.name} className="object-cover" />
-        ) : null}
-        <AvatarFallback className="bg-primary/50 text-primary-foreground font-bold text-sm">
-          {initials}
-        </AvatarFallback>
-      </Avatar>
+      <div className="relative">
+        <Avatar 
+          className="border-2 border-primary/60 shadow-lg shadow-black/40"
+          style={{ width: 'clamp(44px, 12vw, 64px)', height: 'clamp(44px, 12vw, 64px)' }}
+        >
+          {player.avatar_url ? (
+            <AvatarImage src={player.avatar_url} alt={player.name} className="object-cover" />
+          ) : null}
+          <AvatarFallback className="bg-primary/50 text-primary-foreground font-bold text-sm">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+        {hasEvents && (
+          <PlayerEventBadges
+            goals={eventData.goals_count}
+            yellowCards={eventData.yellow_count}
+            blueCards={eventData.blue_count}
+            subInMinute={eventData.sub_in_minute}
+          />
+        )}
+      </div>
       <span 
         className="text-[11px] sm:text-xs font-medium text-white text-center truncate w-full leading-tight drop-shadow-md"
       >
@@ -182,7 +203,12 @@ function PlayerNode({ player, position }: PlayerNodeProps) {
   );
 }
 
-function FieldFormation({ players }: { players: Player[] }) {
+interface FieldFormationProps {
+  players: Player[];
+  getPlayerEvents: (playerId: string) => PlayerEventCounts | null;
+}
+
+function FieldFormation({ players, getPlayerEvents }: FieldFormationProps) {
   const { goalkeeper, defenders, midfielders, forwards } = distributePlayers(players);
 
   return (
@@ -251,12 +277,36 @@ function FieldFormation({ players }: { players: Player[] }) {
         />
 
         {/* Player nodes - positioned by percentage */}
-        <PlayerNode player={forwards[0] || null} position={positions.forward} />
-        <PlayerNode player={midfielders[0] || null} position={positions.midLeft} />
-        <PlayerNode player={midfielders[1] || null} position={positions.midRight} />
-        <PlayerNode player={defenders[0] || null} position={positions.defLeft} />
-        <PlayerNode player={defenders[1] || null} position={positions.defRight} />
-        <PlayerNode player={goalkeeper} position={positions.goalkeeper} />
+        <PlayerNode 
+          player={forwards[0] || null} 
+          position={positions.forward} 
+          eventData={forwards[0] ? getPlayerEvents(forwards[0].id) : null}
+        />
+        <PlayerNode 
+          player={midfielders[0] || null} 
+          position={positions.midLeft}
+          eventData={midfielders[0] ? getPlayerEvents(midfielders[0].id) : null}
+        />
+        <PlayerNode 
+          player={midfielders[1] || null} 
+          position={positions.midRight}
+          eventData={midfielders[1] ? getPlayerEvents(midfielders[1].id) : null}
+        />
+        <PlayerNode 
+          player={defenders[0] || null} 
+          position={positions.defLeft}
+          eventData={defenders[0] ? getPlayerEvents(defenders[0].id) : null}
+        />
+        <PlayerNode 
+          player={defenders[1] || null} 
+          position={positions.defRight}
+          eventData={defenders[1] ? getPlayerEvents(defenders[1].id) : null}
+        />
+        <PlayerNode 
+          player={goalkeeper} 
+          position={positions.goalkeeper}
+          eventData={goalkeeper ? getPlayerEvents(goalkeeper.id) : null}
+        />
       </div>
 
       {/* Drop shadow below field for 3D effect */}
@@ -271,8 +321,9 @@ function FieldFormation({ players }: { players: Player[] }) {
   );
 }
 
-export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, className }: MatchLineupsProps) {
+export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, matchId, className }: MatchLineupsProps) {
   const [selectedTeam, setSelectedTeam] = useState<"home" | "away">("home");
+  const { getPlayerEvents } = useMatchPlayerEvents(matchId);
 
   const currentPlayers = selectedTeam === "home" ? homePlayers : awayPlayers;
 
@@ -315,7 +366,7 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, cla
 
       {/* 3D Field with players */}
       <div className="w-full px-2">
-        <FieldFormation players={currentPlayers} />
+        <FieldFormation players={currentPlayers} getPlayerEvents={getPlayerEvents} />
       </div>
     </div>
   );
