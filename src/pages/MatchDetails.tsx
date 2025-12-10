@@ -269,6 +269,7 @@ const MatchDetails = () => {
               roundNumber={match.round_number}
               status={match.status}
               scheduledDate={match.scheduled_date || match.started_at || undefined}
+              currentMinute={currentMinute}
               className="mb-6"
             />
 

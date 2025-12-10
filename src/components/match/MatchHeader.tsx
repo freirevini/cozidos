@@ -1,4 +1,5 @@
 import { TeamLogo } from "./TeamLogo";
+import { formatMinute } from "@/components/ui/event-item";
 
 interface MatchHeaderProps {
   teamHome: string;
@@ -8,6 +9,7 @@ interface MatchHeaderProps {
   roundNumber?: number;
   status: "not_started" | "in_progress" | "finished";
   scheduledDate?: string;
+  currentMinute?: number | null;
   className?: string;
 }
 
@@ -26,6 +28,7 @@ export function MatchHeader({
   roundNumber,
   status,
   scheduledDate,
+  currentMinute,
   className,
 }: MatchHeaderProps) {
   const getStatusText = () => {
@@ -62,11 +65,28 @@ export function MatchHeader({
           </div>
         </div>
 
-        {/* Placar */}
+        {/* Placar + Timer */}
         <div className="flex flex-col items-center gap-1">
           <div className="text-4xl sm:text-5xl md:text-6xl font-bold tabular-nums text-primary">
             {scoreHome} : {scoreAway}
           </div>
+          
+          {/* Live Timer */}
+          {status === "in_progress" && currentMinute !== null && (
+            <div className="flex items-center gap-1.5 text-primary">
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              <span className="text-base sm:text-lg font-bold">
+                {formatMinute(currentMinute, 12)}
+              </span>
+            </div>
+          )}
+          
+          {/* Finished indicator */}
+          {status === "finished" && (
+            <span className="text-xs sm:text-sm text-green-500 font-medium">
+              Encerrada
+            </span>
+          )}
         </div>
 
         {/* Time Visitante */}
@@ -80,4 +100,3 @@ export function MatchHeader({
     </div>
   );
 }
-
