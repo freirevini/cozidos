@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import iconBall from "@/assets/icon-ball.png";
 import iconBoot from "@/assets/icon-boot.png";
 import { formatMinute } from "@/components/ui/event-item";
@@ -13,10 +14,12 @@ export interface TimelineEvent {
   player?: {
     name: string;
     nickname: string | null;
+    avatar_url?: string | null;
   };
   assist?: {
     name: string;
     nickname: string | null;
+    avatar_url?: string | null;
   };
 }
 
@@ -49,6 +52,7 @@ export function MatchTimeline({
   const renderEventContent = (event: TimelineEvent) => {
     const playerName = event.player?.nickname || event.player?.name || "Jogador";
     const assistName = event.assist?.nickname || event.assist?.name;
+    const playerInitials = playerName.substring(0, 2).toUpperCase();
 
     if (event.type === "goal") {
       return (
@@ -59,6 +63,12 @@ export function MatchTimeline({
               alt="Gol" 
               className="w-4 h-4 sm:w-5 sm:h-5 brightness-0 invert flex-shrink-0" 
             />
+            <Avatar className="h-5 w-5 sm:h-6 sm:w-6">
+              <AvatarImage src={event.player?.avatar_url || undefined} />
+              <AvatarFallback className="text-[8px] sm:text-[10px] bg-primary/20 text-primary">
+                {playerInitials}
+              </AvatarFallback>
+            </Avatar>
             <span className="text-sm sm:text-base font-medium text-foreground truncate">
               {playerName}
             </span>
@@ -84,6 +94,12 @@ export function MatchTimeline({
       return (
         <div className="flex items-center gap-2">
           <span className="text-base sm:text-lg flex-shrink-0">{cardIcon}</span>
+          <Avatar className="h-5 w-5 sm:h-6 sm:w-6">
+            <AvatarImage src={event.player?.avatar_url || undefined} />
+            <AvatarFallback className="text-[8px] sm:text-[10px] bg-primary/20 text-primary">
+              {playerInitials}
+            </AvatarFallback>
+          </Avatar>
           <span className="text-sm sm:text-base font-medium text-foreground truncate">
             {playerName}
           </span>

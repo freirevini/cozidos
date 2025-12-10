@@ -95,12 +95,12 @@ const MatchDetails = () => {
     try {
       const { data: goalsData } = await supabase
         .from("goals")
-        .select(`*, player:profiles!goals_player_id_fkey(id, name, nickname), assists(player:profiles!assists_player_id_fkey(id, name, nickname))`)
+        .select(`*, player:profiles!goals_player_id_fkey(id, name, nickname, avatar_url), assists(player:profiles!assists_player_id_fkey(id, name, nickname, avatar_url))`)
         .eq("match_id", matchId);
 
       const { data: cardsData } = await supabase
         .from("cards")
-        .select(`*, player:profiles!cards_player_id_fkey(id, name, nickname)`)
+        .select(`*, player:profiles!cards_player_id_fkey(id, name, nickname, avatar_url)`)
         .eq("match_id", matchId);
 
       const allEvents: TimelineEvent[] = [];
@@ -117,8 +117,8 @@ const MatchDetails = () => {
             type: "goal",
             minute: goal.minute,
             team_color: goal.team_color,
-            player: goal.player ? { name: goal.player.name, nickname: goal.player.nickname } : undefined,
-            assist: assistData?.player ? { name: assistData.player.name, nickname: assistData.player.nickname } : undefined,
+            player: goal.player ? { name: goal.player.name, nickname: goal.player.nickname, avatar_url: goal.player.avatar_url } : undefined,
+            assist: assistData?.player ? { name: assistData.player.name, nickname: assistData.player.nickname, avatar_url: assistData.player.avatar_url } : undefined,
           });
         });
       }
@@ -137,7 +137,7 @@ const MatchDetails = () => {
             type: card.card_type === "amarelo" ? "amarelo" : "azul",
             minute: card.minute,
             team_color: teamData?.team_color,
-            player: card.player ? { name: card.player.name, nickname: card.player.nickname } : undefined,
+            player: card.player ? { name: card.player.name, nickname: card.player.nickname, avatar_url: card.player.avatar_url } : undefined,
           });
         }
       }
