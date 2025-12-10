@@ -14,7 +14,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { Skeleton } from "@/components/ui/skeleton";
 import EventsFilterPanel from "@/components/EventsFilterPanel";
 import { cn } from "@/lib/utils";
-import TeamLogo from "@/components/match/TeamLogo";
+import { TeamLogo } from "@/components/match/TeamLogo";
 
 
 interface Match {
