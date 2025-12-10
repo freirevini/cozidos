@@ -116,7 +116,7 @@ function getInitials(name: string): string {
 function PlayerSlot({ player, className }: { player: Player | null; className?: string }) {
   // Counter-transform to keep player nodes upright despite field rotation
   const counterTransformStyle = {
-    transform: 'rotateX(-55deg)',
+    transform: 'rotateX(-35deg)',
     transformOrigin: 'center center',
   };
 
@@ -163,64 +163,72 @@ function FieldFormation({ players }: { players: Player[] }) {
     <div 
       className="relative w-full"
       style={{
-        perspective: '800px',
-        perspectiveOrigin: 'center 100%',
+        perspective: '1000px',
+        perspectiveOrigin: 'center 90%',
       }}
     >
-      {/* 3D Field Plane */}
+      {/* 3D Field Plane - gentler tilt like MLS reference */}
       <div 
-        className="relative w-full aspect-[4/5] rounded-xl overflow-hidden"
+        className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden"
         style={{
-          transform: 'rotateX(55deg)',
+          transform: 'rotateX(35deg)',
           transformStyle: 'preserve-3d',
           transformOrigin: 'center bottom',
-          background: 'linear-gradient(to top, #1a5c2b 0%, #2d8a42 50%, #1f7035 100%)',
+          background: 'linear-gradient(to bottom, #1a3d25 0%, #1e4a2d 30%, #234f32 60%, #2a5a3a 100%)',
         }}
       >
         {/* Field lines */}
-        <div className="absolute inset-3 sm:inset-4 border-2 border-white/25 rounded-lg" />
+        <div className="absolute inset-4 sm:inset-5 border-2 border-white/15 rounded-lg" />
         
         {/* Center line */}
-        <div className="absolute top-1/2 left-3 right-3 sm:left-4 sm:right-4 h-0.5 bg-white/25" />
+        <div className="absolute top-[45%] left-4 right-4 sm:left-5 sm:right-5 h-0.5 bg-white/15" />
         
         {/* Center circle */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 sm:w-24 sm:h-24 border-2 border-white/25 rounded-full" />
+        <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 sm:w-20 sm:h-20 border-2 border-white/15 rounded-full" />
         
         {/* Goal area */}
-        <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 w-28 sm:w-36 h-10 sm:h-12 border-2 border-white/25 border-b-0 rounded-t-lg" />
+        <div className="absolute bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 w-32 sm:w-40 h-12 sm:h-14 border-2 border-white/15 border-b-0 rounded-t-lg" />
         
         {/* Penalty arc */}
-        <div className="absolute bottom-[52px] sm:bottom-[60px] left-1/2 -translate-x-1/2 w-16 sm:w-20 h-8 sm:h-10 border-2 border-white/25 border-b-0 rounded-t-full" />
+        <div className="absolute bottom-[60px] sm:bottom-[70px] left-1/2 -translate-x-1/2 w-14 sm:w-16 h-6 sm:h-8 border-2 border-white/15 border-b-0 rounded-t-full" />
 
-        {/* Fade gradient at top for depth effect */}
+        {/* Subtle fade at top for depth */}
         <div 
           className="absolute inset-0 pointer-events-none"
           style={{
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.2) 20%, transparent 40%)',
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 25%)',
+          }}
+        />
+
+        {/* Semi-transparent goalkeeper zone */}
+        <div 
+          className="absolute bottom-0 left-0 right-0 h-[22%] pointer-events-none"
+          style={{
+            background: 'linear-gradient(to top, rgba(0,0,0,0.25) 0%, transparent 100%)',
           }}
         />
 
         {/* Player positions - Formation 2-2-1 (outfield) + Goalkeeper */}
         
         {/* Atacante (1) - Top */}
-        <div className="absolute top-[12%] left-1/2 -translate-x-1/2">
+        <div className="absolute top-[8%] left-1/2 -translate-x-1/2">
           <PlayerSlot player={forwards[0] || null} />
         </div>
 
         {/* Meio-campistas (2) */}
-        <div className="absolute top-[36%] left-1/2 -translate-x-1/2 flex gap-14 sm:gap-20">
+        <div className="absolute top-[32%] left-1/2 -translate-x-1/2 flex gap-20 sm:gap-28">
           <PlayerSlot player={midfielders[0] || null} />
           <PlayerSlot player={midfielders[1] || null} />
         </div>
 
         {/* Defensores (2) */}
-        <div className="absolute top-[58%] left-1/2 -translate-x-1/2 flex gap-14 sm:gap-20">
+        <div className="absolute top-[55%] left-1/2 -translate-x-1/2 flex gap-20 sm:gap-28">
           <PlayerSlot player={defenders[0] || null} />
           <PlayerSlot player={defenders[1] || null} />
         </div>
 
         {/* Goleiro (1) - Bottom */}
-        <div className="absolute bottom-[6%] left-1/2 -translate-x-1/2">
+        <div className="absolute bottom-[4%] left-1/2 -translate-x-1/2">
           <PlayerSlot player={goalkeeper} />
         </div>
       </div>
