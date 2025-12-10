@@ -267,8 +267,9 @@ const MatchDetails = () => {
               scoreHome={match.score_home}
               scoreAway={match.score_away}
               roundNumber={match.round_number}
+              matchNumber={match.match_number}
               status={match.status}
-              scheduledDate={match.scheduled_date || match.started_at || undefined}
+              scheduledTime={match.scheduled_time}
               currentMinute={currentMinute}
               className="mb-6"
             />
