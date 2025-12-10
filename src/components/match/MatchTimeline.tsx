@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import iconBall from "@/assets/icon-ball.png";
 import iconBoot from "@/assets/icon-boot.png";
+import { formatMinute } from "@/components/ui/event-item";
 
 export type TimelineEventType = "goal" | "assist" | "amarelo" | "azul" | "match_start" | "match_end";
 
@@ -25,15 +26,6 @@ interface MatchTimelineProps {
   teamAway: string;
   maxMinute?: number;
   className?: string;
-}
-
-// Formatar minuto no estilo "X'" ou "12'+X"
-function formatMinute(minute: number, maxMinute: number = 12): string {
-  if (minute <= maxMinute) {
-    return `${minute}'`;
-  }
-  const extra = minute - maxMinute;
-  return `${maxMinute}'+${extra}`;
 }
 
 export function MatchTimeline({

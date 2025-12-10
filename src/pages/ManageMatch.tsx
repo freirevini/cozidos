@@ -64,6 +64,19 @@ const teamNames: Record<string, string> = {
   laranja: "Laranja",
 };
 
+function getCurrentMatchMinute(match: Match | null): number {
+  if (!match || !match.match_timer_started_at) return 0;
+  const startTime = new Date(match.match_timer_started_at).getTime();
+  const now = Date.now();
+  let pausedSeconds = match.match_timer_total_paused_seconds || 0;
+  if (match.match_timer_paused_at) {
+    const pausedAt = new Date(match.match_timer_paused_at).getTime();
+    pausedSeconds += Math.floor((now - pausedAt) / 1000);
+  }
+  const elapsedSeconds = Math.max(0, Math.floor((now - startTime) / 1000) - pausedSeconds);
+  return Math.floor(elapsedSeconds / 60);
+}
+
 export default function ManageMatch() {
   const { matchId, roundId } = useParams();
   const navigate = useNavigate();
@@ -88,6 +101,10 @@ export default function ManageMatch() {
     player_id: "",
     card_type: "",
   });
+  const [roundPlayers, setRoundPlayers] = useState<Record<string, Player[]>>({});
+  const [substitutionTeam, setSubstitutionTeam] = useState<string | null>(null);
+  const [subOutId, setSubOutId] = useState<string | "">("");
+  const [subInId, setSubInId] = useState<string | "">("");
 
   useEffect(() => {
     checkAdminAndLoad();
@@ -132,6 +149,25 @@ export default function ManageMatch() {
       setTimer(remainingSeconds);
     }
   }, [match?.match_timer_started_at, match?.match_timer_paused_at, match?.match_timer_total_paused_seconds, match?.status]);
+
+  useEffect(() => {
+    // Carregar todos jogadores disponíveis na rodada (reservas inclusos)
+    const loadRoundPlayers = async () => {
+      if (!match || !match.round_id) return;
+      const { data } = await supabase
+        .from("round_team_players")
+        .select(`team_color, profiles:player_id (id, name, nickname)`)
+        .eq("round_id", match.round_id);
+      if (!data) return;
+      const grupos: Record<string, Player[]> = {};
+      data.forEach((item: any) => {
+        if (!grupos[item.team_color]) grupos[item.team_color] = [];
+        grupos[item.team_color].push({ id: item.profiles.id, name: item.profiles.name, nickname: item.profiles.nickname });
+      });
+      setRoundPlayers(grupos);
+    };
+    loadRoundPlayers();
+  }, [match?.id, match?.round_id]);
 
   const checkAdminAndLoad = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -531,7 +567,7 @@ export default function ManageMatch() {
         <div className="sticky top-0 z-50 bg-primary/90 backdrop-blur-sm py-4 shadow-lg">
           <div className="container mx-auto px-4 flex items-center justify-center gap-4">
             <div className="text-4xl font-bold text-white font-mono">
-              {formatTime(timer)}
+              {formatMinute(getCurrentMatchMinute(match))}
             </div>
             <Button
               variant="secondary"
