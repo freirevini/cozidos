@@ -114,9 +114,9 @@ function getInitials(name: string): string {
 }
 
 function PlayerSlot({ player, className }: { player: Player | null; className?: string }) {
-  // Counter-transform to keep player nodes upright despite field rotation
+  // Counter-transform to keep player nodes upright despite field rotation (45deg)
   const counterTransformStyle = {
-    transform: 'rotateX(-35deg)',
+    transform: 'rotateX(-45deg)',
     transformOrigin: 'center center',
   };
 
@@ -163,72 +163,95 @@ function FieldFormation({ players }: { players: Player[] }) {
     <div 
       className="relative w-full"
       style={{
-        perspective: '1000px',
-        perspectiveOrigin: 'center 90%',
+        perspective: '1200px',
+        perspectiveOrigin: 'center 100%',
       }}
     >
-      {/* 3D Field Plane - gentler tilt like MLS reference */}
+      {/* 3D Field Plane - Dark charcoal grey like MLS reference */}
       <div 
-        className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden"
+        className="relative w-full aspect-[3/4] rounded-t-2xl overflow-hidden"
         style={{
-          transform: 'rotateX(35deg)',
+          transform: 'rotateX(45deg)',
           transformStyle: 'preserve-3d',
           transformOrigin: 'center bottom',
-          background: 'linear-gradient(to bottom, #1a3d25 0%, #1e4a2d 30%, #234f32 60%, #2a5a3a 100%)',
         }}
       >
-        {/* Field lines */}
-        <div className="absolute inset-4 sm:inset-5 border-2 border-white/15 rounded-lg" />
-        
-        {/* Center line */}
-        <div className="absolute top-[45%] left-4 right-4 sm:left-5 sm:right-5 h-0.5 bg-white/15" />
-        
-        {/* Center circle */}
-        <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 sm:w-20 sm:h-20 border-2 border-white/15 rounded-full" />
-        
-        {/* Goal area */}
-        <div className="absolute bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 w-32 sm:w-40 h-12 sm:h-14 border-2 border-white/15 border-b-0 rounded-t-lg" />
-        
-        {/* Penalty arc */}
-        <div className="absolute bottom-[60px] sm:bottom-[70px] left-1/2 -translate-x-1/2 w-14 sm:w-16 h-6 sm:h-8 border-2 border-white/15 border-b-0 rounded-t-full" />
-
-        {/* Subtle fade at top for depth */}
+        {/* Base dark charcoal background */}
         <div 
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-0"
           style={{
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 25%)',
+            background: '#1a1a1a',
           }}
         />
 
-        {/* Semi-transparent goalkeeper zone */}
+        {/* Spotlight effect - brighter center-bottom, darker edges */}
         <div 
-          className="absolute bottom-0 left-0 right-0 h-[22%] pointer-events-none"
+          className="absolute inset-0"
           style={{
-            background: 'linear-gradient(to top, rgba(0,0,0,0.25) 0%, transparent 100%)',
+            background: 'radial-gradient(ellipse 80% 60% at 50% 85%, rgba(60,60,60,0.8) 0%, rgba(40,40,40,0.4) 40%, rgba(20,20,20,0.1) 70%, transparent 100%)',
+          }}
+        />
+
+        {/* Secondary spotlight for depth */}
+        <div 
+          className="absolute inset-0"
+          style={{
+            background: 'radial-gradient(ellipse 100% 50% at 50% 100%, rgba(80,80,80,0.3) 0%, transparent 60%)',
+          }}
+        />
+
+        {/* Fade-out at top edge - smooth transition to black background */}
+        <div 
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 15%, rgba(0,0,0,0.2) 30%, transparent 50%)',
+          }}
+        />
+
+        {/* Field lines - white/light grey for contrast */}
+        <div className="absolute inset-4 sm:inset-5 border-2 border-white/25 rounded-lg" />
+        
+        {/* Center line */}
+        <div className="absolute top-[45%] left-4 right-4 sm:left-5 sm:right-5 h-0.5 bg-white/25" />
+        
+        {/* Center circle */}
+        <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 sm:w-20 sm:h-20 border-2 border-white/25 rounded-full" />
+        
+        {/* Goal area */}
+        <div className="absolute bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 w-32 sm:w-40 h-12 sm:h-14 border-2 border-white/25 border-b-0 rounded-t-lg" />
+        
+        {/* Penalty arc */}
+        <div className="absolute bottom-[60px] sm:bottom-[70px] left-1/2 -translate-x-1/2 w-14 sm:w-16 h-6 sm:h-8 border-2 border-white/25 border-b-0 rounded-t-full" />
+
+        {/* Vignette effect on edges */}
+        <div 
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            boxShadow: 'inset 0 0 60px rgba(0,0,0,0.8)',
           }}
         />
 
         {/* Player positions - Formation 2-2-1 (outfield) + Goalkeeper */}
         
         {/* Atacante (1) - Top */}
-        <div className="absolute top-[8%] left-1/2 -translate-x-1/2">
+        <div className="absolute top-[12%] left-1/2 -translate-x-1/2">
           <PlayerSlot player={forwards[0] || null} />
         </div>
 
         {/* Meio-campistas (2) */}
-        <div className="absolute top-[32%] left-1/2 -translate-x-1/2 flex gap-20 sm:gap-28">
+        <div className="absolute top-[35%] left-1/2 -translate-x-1/2 flex gap-20 sm:gap-28">
           <PlayerSlot player={midfielders[0] || null} />
           <PlayerSlot player={midfielders[1] || null} />
         </div>
 
         {/* Defensores (2) */}
-        <div className="absolute top-[55%] left-1/2 -translate-x-1/2 flex gap-20 sm:gap-28">
+        <div className="absolute top-[58%] left-1/2 -translate-x-1/2 flex gap-20 sm:gap-28">
           <PlayerSlot player={defenders[0] || null} />
           <PlayerSlot player={defenders[1] || null} />
         </div>
 
         {/* Goleiro (1) - Bottom */}
-        <div className="absolute bottom-[4%] left-1/2 -translate-x-1/2">
+        <div className="absolute bottom-[6%] left-1/2 -translate-x-1/2">
           <PlayerSlot player={goalkeeper} />
         </div>
       </div>
