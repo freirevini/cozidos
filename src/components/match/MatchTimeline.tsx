@@ -1,6 +1,5 @@
 import { cn } from "@/lib/utils";
-import iconGoal from "@/assets/icon-goal.png";
-import iconAssist from "@/assets/icon-assist.png";
+import { Circle } from "lucide-react";
 import { formatMinute } from "@/components/ui/event-item";
 
 export type TimelineEventType = "goal" | "assist" | "amarelo" | "azul" | "match_start" | "match_end";
@@ -30,21 +29,21 @@ interface MatchTimelineProps {
   className?: string;
 }
 
-// Icon components for the central axis
+// Circular badge goal icon - clean aesthetic
 function GoalIcon() {
   return (
-    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-background border-2 border-emerald-500 flex items-center justify-center z-10 shadow-lg shadow-emerald-500/20">
-      <img src={iconGoal} alt="Gol" className="w-6 h-6 sm:w-7 sm:h-7" />
+    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#1a1a1a] border-2 border-emerald-500 flex items-center justify-center z-10 shadow-lg shadow-emerald-500/30">
+      <Circle className="w-5 h-5 sm:w-6 sm:h-6 text-white fill-white" strokeWidth={0} />
     </div>
   );
 }
 
 function CardIcon({ type }: { type: "amarelo" | "azul" }) {
   return (
-    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-background border-2 border-border flex items-center justify-center z-10 shadow-lg">
+    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#1a1a1a] border-2 border-border flex items-center justify-center z-10 shadow-lg">
       <div 
         className={cn(
-          "w-5 h-7 sm:w-6 sm:h-8 rounded-sm transform rotate-6",
+          "w-4 h-6 sm:w-5 sm:h-7 rounded-sm transform rotate-6",
           type === "amarelo" ? "bg-yellow-400" : "bg-blue-500"
         )}
       />
@@ -54,13 +53,13 @@ function CardIcon({ type }: { type: "amarelo" | "azul" }) {
 
 function MatchEventIcon() {
   return (
-    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center z-10">
-      <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-primary" />
+    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center z-10">
+      <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-primary" />
     </div>
   );
 }
 
-// Event content component for each side
+// Event content component with proper text alignment
 function EventContent({ 
   event, 
   side,
@@ -76,45 +75,43 @@ function EventContent({
 
   if (event.type === "goal") {
     if (side === "home") {
-      // Home: content on left, text aligned right
+      // Home: right-aligned towards center
       return (
-        <div className="flex items-center justify-end gap-2 sm:gap-3 text-right">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Names stacked, right-aligned */}
           <div className="flex flex-col items-end min-w-0">
-            <span className="font-semibold text-foreground text-sm sm:text-base truncate max-w-[120px] sm:max-w-[180px]">
+            <span className="font-semibold text-foreground text-sm sm:text-base truncate max-w-[100px] sm:max-w-[160px]">
               {playerName}
             </span>
             {assistName && (
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <img src={iconAssist} alt="Assist" className="w-3 h-3 sm:w-4 sm:h-4 opacity-70" />
-                <span className="text-xs sm:text-sm truncate max-w-[100px] sm:max-w-[140px]">
-                  {assistName}
-                </span>
-              </div>
+              <span className="text-xs text-gray-400 truncate max-w-[90px] sm:max-w-[140px]">
+                {assistName}
+              </span>
             )}
           </div>
+          {/* Time */}
           <span className="text-xs sm:text-sm text-muted-foreground font-medium whitespace-nowrap">
             {formattedMinute}
           </span>
         </div>
       );
     } else {
-      // Away: content on right, text aligned left
+      // Away: left-aligned from center
       return (
-        <div className="flex items-center justify-start gap-2 sm:gap-3 text-left">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Time */}
           <span className="text-xs sm:text-sm text-muted-foreground font-medium whitespace-nowrap">
             {formattedMinute}
           </span>
+          {/* Names stacked, left-aligned */}
           <div className="flex flex-col items-start min-w-0">
-            <span className="font-semibold text-foreground text-sm sm:text-base truncate max-w-[120px] sm:max-w-[180px]">
+            <span className="font-semibold text-foreground text-sm sm:text-base truncate max-w-[100px] sm:max-w-[160px]">
               {playerName}
             </span>
             {assistName && (
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <img src={iconAssist} alt="Assist" className="w-3 h-3 sm:w-4 sm:h-4 opacity-70" />
-                <span className="text-xs sm:text-sm truncate max-w-[100px] sm:max-w-[140px]">
-                  {assistName}
-                </span>
-              </div>
+              <span className="text-xs text-gray-400 truncate max-w-[90px] sm:max-w-[140px]">
+                {assistName}
+              </span>
             )}
           </div>
         </div>
@@ -126,8 +123,8 @@ function EventContent({
   if (event.type === "amarelo" || event.type === "azul") {
     if (side === "home") {
       return (
-        <div className="flex items-center justify-end gap-2 sm:gap-3 text-right">
-          <span className="font-medium text-foreground text-sm sm:text-base truncate max-w-[120px] sm:max-w-[180px]">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span className="font-medium text-foreground text-sm sm:text-base truncate max-w-[100px] sm:max-w-[160px]">
             {playerName}
           </span>
           <span className="text-xs sm:text-sm text-muted-foreground font-medium whitespace-nowrap">
@@ -137,11 +134,11 @@ function EventContent({
       );
     } else {
       return (
-        <div className="flex items-center justify-start gap-2 sm:gap-3 text-left">
+        <div className="flex items-center gap-2 sm:gap-3">
           <span className="text-xs sm:text-sm text-muted-foreground font-medium whitespace-nowrap">
             {formattedMinute}
           </span>
-          <span className="font-medium text-foreground text-sm sm:text-base truncate max-w-[120px] sm:max-w-[180px]">
+          <span className="font-medium text-foreground text-sm sm:text-base truncate max-w-[100px] sm:max-w-[160px]">
             {playerName}
           </span>
         </div>
