@@ -114,10 +114,10 @@ function getInitials(name: string): string {
 }
 
 function PlayerSlot({ player, className }: { player: Player | null; className?: string }) {
-  // Counter-transform to keep player nodes upright despite field rotation (45deg)
+  // Counter-transform to keep player nodes upright despite field rotation (65deg)
   const counterTransformStyle = {
-    transform: 'rotateX(-45deg)',
-    transformOrigin: 'center center',
+    transform: 'rotateX(-65deg)',
+    transformOrigin: 'center bottom',
   };
 
   if (!player) {
@@ -163,15 +163,15 @@ function FieldFormation({ players }: { players: Player[] }) {
     <div 
       className="relative w-full"
       style={{
-        perspective: '1200px',
-        perspectiveOrigin: 'center 100%',
+        perspective: '800px',
+        perspectiveOrigin: 'center 120%',
       }}
     >
-      {/* 3D Field Plane - Dark charcoal grey like MLS reference */}
+      {/* 3D Field Plane - Steeper inclination for depth */}
       <div 
-        className="relative w-full aspect-[3/4] rounded-t-2xl overflow-hidden"
+        className="relative w-full aspect-[4/5] rounded-t-2xl overflow-hidden"
         style={{
-          transform: 'rotateX(45deg)',
+          transform: 'rotateX(65deg) translateY(-10%)',
           transformStyle: 'preserve-3d',
           transformOrigin: 'center bottom',
         }}
@@ -233,25 +233,25 @@ function FieldFormation({ players }: { players: Player[] }) {
 
         {/* Player positions - Formation 2-2-1 (outfield) + Goalkeeper */}
         
-        {/* Atacante (1) - Top */}
-        <div className="absolute top-[12%] left-1/2 -translate-x-1/2">
+        {/* Atacante (1) - Top - adjusted for steeper angle */}
+        <div className="absolute top-[8%] left-1/2 -translate-x-1/2" style={{ transformStyle: 'preserve-3d' }}>
           <PlayerSlot player={forwards[0] || null} />
         </div>
 
         {/* Meio-campistas (2) */}
-        <div className="absolute top-[35%] left-1/2 -translate-x-1/2 flex gap-20 sm:gap-28">
+        <div className="absolute top-[28%] left-1/2 -translate-x-1/2 flex gap-16 sm:gap-24" style={{ transformStyle: 'preserve-3d' }}>
           <PlayerSlot player={midfielders[0] || null} />
           <PlayerSlot player={midfielders[1] || null} />
         </div>
 
         {/* Defensores (2) */}
-        <div className="absolute top-[58%] left-1/2 -translate-x-1/2 flex gap-20 sm:gap-28">
+        <div className="absolute top-[48%] left-1/2 -translate-x-1/2 flex gap-16 sm:gap-24" style={{ transformStyle: 'preserve-3d' }}>
           <PlayerSlot player={defenders[0] || null} />
           <PlayerSlot player={defenders[1] || null} />
         </div>
 
         {/* Goleiro (1) - Bottom */}
-        <div className="absolute bottom-[6%] left-1/2 -translate-x-1/2">
+        <div className="absolute bottom-[8%] left-1/2 -translate-x-1/2" style={{ transformStyle: 'preserve-3d' }}>
           <PlayerSlot player={goalkeeper} />
         </div>
       </div>
