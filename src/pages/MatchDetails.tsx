@@ -93,15 +93,24 @@ const MatchDetails = () => {
     if (!matchId || !match) return;
 
     try {
-      const { data: goalsData } = await supabase
-        .from("goals")
-        .select(`*, player:profiles!goals_player_id_fkey(id, name, nickname, avatar_url), assists(player:profiles!assists_player_id_fkey(id, name, nickname, avatar_url))`)
-        .eq("match_id", matchId);
+      const [goalsResult, cardsResult, substitutionsResult] = await Promise.all([
+        supabase
+          .from("goals")
+          .select(`*, player:profiles!goals_player_id_fkey(id, name, nickname, avatar_url), assists(player:profiles!assists_player_id_fkey(id, name, nickname, avatar_url))`)
+          .eq("match_id", matchId),
+        supabase
+          .from("cards")
+          .select(`*, player:profiles!cards_player_id_fkey(id, name, nickname, avatar_url)`)
+          .eq("match_id", matchId),
+        supabase
+          .from("substitutions")
+          .select(`*, player_out:profiles!substitutions_player_out_id_fkey(id, name, nickname, avatar_url), player_in:profiles!substitutions_player_in_id_fkey(id, name, nickname, avatar_url)`)
+          .eq("match_id", matchId)
+      ]);
 
-      const { data: cardsData } = await supabase
-        .from("cards")
-        .select(`*, player:profiles!cards_player_id_fkey(id, name, nickname, avatar_url)`)
-        .eq("match_id", matchId);
+      const goalsData = goalsResult.data;
+      const cardsData = cardsResult.data;
+      const substitutionsData = substitutionsResult.data;
 
       const allEvents: TimelineEvent[] = [];
 
@@ -140,6 +149,19 @@ const MatchDetails = () => {
             player: card.player ? { name: card.player.name, nickname: card.player.nickname, avatar_url: card.player.avatar_url } : undefined,
           });
         }
+      }
+
+      if (substitutionsData) {
+        substitutionsData.forEach((sub: any) => {
+          allEvents.push({
+            id: sub.id,
+            type: "substitution",
+            minute: sub.minute,
+            team_color: sub.team_color,
+            playerOut: sub.player_out ? { name: sub.player_out.name, nickname: sub.player_out.nickname, avatar_url: sub.player_out.avatar_url } : undefined,
+            playerIn: sub.player_in ? { name: sub.player_in.name, nickname: sub.player_in.nickname, avatar_url: sub.player_in.avatar_url } : undefined,
+          });
+        });
       }
 
       if (match.status === "finished" && match.finished_at) {
@@ -234,6 +256,7 @@ const MatchDetails = () => {
       .on("postgres_changes", { event: "*", schema: "public", table: "goals" }, () => loadEvents())
       .on("postgres_changes", { event: "*", schema: "public", table: "cards" }, () => loadEvents())
       .on("postgres_changes", { event: "*", schema: "public", table: "assists" }, () => loadEvents())
+      .on("postgres_changes", { event: "*", schema: "public", table: "substitutions" }, () => loadEvents())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
