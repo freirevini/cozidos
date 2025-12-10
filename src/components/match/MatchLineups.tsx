@@ -50,7 +50,7 @@ function distributePlayers(players: Player[]): {
   const goalkeeper = byPosition.goleiro[0] || null;
   if (goalkeeper) usedIds.add(goalkeeper.id);
 
-  // 2 Defensores
+  // 2 Defenders
   const defenders: Player[] = [];
   byPosition.defensor.forEach((p) => {
     if (defenders.length < 2 && !usedIds.has(p.id)) {
@@ -58,7 +58,6 @@ function distributePlayers(players: Player[]): {
       usedIds.add(p.id);
     }
   });
-  // Preencher com meio-campistas se necessário
   if (defenders.length < 2) {
     byPosition["meio-campista"].forEach((p) => {
       if (defenders.length < 2 && !usedIds.has(p.id)) {
@@ -68,7 +67,7 @@ function distributePlayers(players: Player[]): {
     });
   }
 
-  // 2 Meio-campistas
+  // 2 Midfielders
   const midfielders: Player[] = [];
   byPosition["meio-campista"].forEach((p) => {
     if (midfielders.length < 2 && !usedIds.has(p.id)) {
@@ -76,7 +75,6 @@ function distributePlayers(players: Player[]): {
       usedIds.add(p.id);
     }
   });
-  // Preencher com defensores ou atacantes se necessário
   if (midfielders.length < 2) {
     [...byPosition.defensor, ...byPosition.atacante].forEach((p) => {
       if (midfielders.length < 2 && !usedIds.has(p.id)) {
@@ -86,7 +84,7 @@ function distributePlayers(players: Player[]): {
     });
   }
 
-  // 1 Atacante
+  // 1 Forward
   const forwards: Player[] = [];
   byPosition.atacante.forEach((p) => {
     if (forwards.length < 1 && !usedIds.has(p.id)) {
@@ -94,7 +92,6 @@ function distributePlayers(players: Player[]): {
       usedIds.add(p.id);
     }
   });
-  // Preencher com meio-campistas se necessário
   if (forwards.length < 1) {
     byPosition["meio-campista"].forEach((p) => {
       if (forwards.length < 1 && !usedIds.has(p.id)) {
@@ -113,21 +110,37 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function PlayerSlot({ player, className }: { player: Player | null; className?: string }) {
-  // Counter-transform to keep player nodes upright despite field rotation (65deg)
-  const counterTransformStyle = {
-    transform: 'rotateX(-65deg)',
-    transformOrigin: 'center bottom',
-  };
+// Player positions (percentage from top/left) - MLS style layout
+const positions = {
+  forward: { x: 50, y: 12 },
+  midLeft: { x: 30, y: 35 },
+  midRight: { x: 70, y: 35 },
+  defLeft: { x: 30, y: 58 },
+  defRight: { x: 70, y: 58 },
+  goalkeeper: { x: 50, y: 82 },
+};
 
+interface PlayerNodeProps {
+  player: Player | null;
+  position: { x: number; y: number };
+}
+
+function PlayerNode({ player, position }: PlayerNodeProps) {
   if (!player) {
     return (
-      <div 
-        className={cn("flex flex-col items-center gap-1", className)}
-        style={counterTransformStyle}
+      <div
+        className="absolute flex flex-col items-center gap-1 transition-transform duration-200 hover:scale-110 active:scale-105"
+        style={{
+          left: `${position.x}%`,
+          top: `${position.y}%`,
+          transform: 'translate(-50%, -50%)',
+        }}
       >
-        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center bg-black/20">
-          <span className="text-white/40 text-xs">-</span>
+        <div 
+          className="rounded-full border-2 border-dashed border-white/20 flex items-center justify-center bg-black/30"
+          style={{ width: 'clamp(44px, 12vw, 64px)', height: 'clamp(44px, 12vw, 64px)' }}
+        >
+          <span className="text-white/30 text-xs">-</span>
         </div>
       </div>
     );
@@ -137,19 +150,32 @@ function PlayerSlot({ player, className }: { player: Player | null; className?: 
   const initials = getInitials(player.name);
 
   return (
-    <div 
-      className={cn("flex flex-col items-center gap-1.5 max-w-[80px] sm:max-w-[90px]", className)}
-      style={counterTransformStyle}
+    <div
+      className="absolute flex flex-col items-center gap-1.5 transition-transform duration-200 hover:scale-110 active:scale-105 cursor-pointer z-10"
+      style={{
+        left: `${position.x}%`,
+        top: `${position.y}%`,
+        transform: 'translate(-50%, -50%)',
+        width: 'clamp(60px, 15vw, 80px)',
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Jogador: ${player.name}`}
     >
-      <Avatar className="w-14 h-14 sm:w-16 sm:h-16 border-2 border-white/40 shadow-lg ring-2 ring-black/20">
+      <Avatar 
+        className="border-2 border-primary/60 shadow-lg shadow-black/40"
+        style={{ width: 'clamp(44px, 12vw, 64px)', height: 'clamp(44px, 12vw, 64px)' }}
+      >
         {player.avatar_url ? (
           <AvatarImage src={player.avatar_url} alt={player.name} className="object-cover" />
         ) : null}
-        <AvatarFallback className="bg-primary/40 text-primary-foreground font-bold text-sm sm:text-base">
+        <AvatarFallback className="bg-primary/50 text-primary-foreground font-bold text-sm">
           {initials}
         </AvatarFallback>
       </Avatar>
-      <span className="text-[10px] sm:text-xs font-semibold text-white text-center truncate w-full leading-tight drop-shadow-md">
+      <span 
+        className="text-[11px] sm:text-xs font-medium text-white text-center truncate w-full leading-tight drop-shadow-md"
+      >
         {displayName}
       </span>
     </div>
@@ -161,100 +187,86 @@ function FieldFormation({ players }: { players: Player[] }) {
 
   return (
     <div 
-      className="relative w-full"
+      className="relative w-full mx-auto"
       style={{
-        perspective: '800px',
-        perspectiveOrigin: 'center 120%',
+        perspective: '1200px',
+        maxWidth: '420px',
       }}
     >
-      {/* 3D Field Plane - Steeper inclination for depth */}
+      {/* 3D Field with subtle MLS-style inclination */}
       <div 
-        className="relative w-full aspect-[4/5] rounded-t-2xl overflow-hidden"
+        className="relative w-full rounded-2xl overflow-hidden"
         style={{
-          transform: 'rotateX(65deg) translateY(-10%)',
-          transformStyle: 'preserve-3d',
-          transformOrigin: 'center bottom',
+          transform: 'rotateX(18deg) scaleY(0.95)',
+          transformOrigin: 'center center',
+          height: 'clamp(340px, 60vw, 480px)',
         }}
       >
-        {/* Base dark charcoal background */}
+        {/* Base dark charcoal background - MLS style */}
         <div 
           className="absolute inset-0"
           style={{
-            background: '#1a1a1a',
+            background: 'linear-gradient(180deg, #0f1112 0%, #1a1d1f 50%, #1f2224 100%)',
           }}
         />
 
-        {/* Spotlight effect - brighter center-bottom, darker edges */}
+        {/* Subtle spotlight effect */}
         <div 
           className="absolute inset-0"
           style={{
-            background: 'radial-gradient(ellipse 80% 60% at 50% 85%, rgba(60,60,60,0.8) 0%, rgba(40,40,40,0.4) 40%, rgba(20,20,20,0.1) 70%, transparent 100%)',
+            background: 'radial-gradient(ellipse 90% 70% at 50% 70%, rgba(50,55,60,0.5) 0%, transparent 70%)',
           }}
         />
 
-        {/* Secondary spotlight for depth */}
+        {/* Field lines - SVG style clean lines */}
+        <div className="absolute inset-0 p-4 sm:p-5">
+          {/* Outer border */}
+          <div className="absolute inset-4 sm:inset-5 border border-white/15 rounded-lg" />
+          
+          {/* Center line */}
+          <div className="absolute top-[42%] left-4 right-4 sm:left-5 sm:right-5 h-px bg-white/15" />
+          
+          {/* Center circle */}
+          <div className="absolute top-[42%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 sm:w-16 sm:h-16 border border-white/15 rounded-full" />
+          
+          {/* Center dot */}
+          <div className="absolute top-[42%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-white/20 rounded-full" />
+          
+          {/* Goal area bottom */}
+          <div className="absolute bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 w-28 sm:w-32 h-10 sm:h-12 border border-white/15 border-b-0 rounded-t-md" />
+          
+          {/* Penalty arc bottom */}
+          <div className="absolute bottom-[52px] sm:bottom-[60px] left-1/2 -translate-x-1/2 w-12 sm:w-14 h-5 sm:h-6 border border-white/15 border-b-0 rounded-t-full" />
+          
+          {/* Goal area top (subtle) */}
+          <div className="absolute top-4 sm:top-5 left-1/2 -translate-x-1/2 w-28 sm:w-32 h-10 sm:h-12 border border-white/10 border-t-0 rounded-b-md" />
+        </div>
+
+        {/* Bottom shadow for depth */}
         <div 
-          className="absolute inset-0"
+          className="absolute bottom-0 left-0 right-0 h-8 pointer-events-none"
           style={{
-            background: 'radial-gradient(ellipse 100% 50% at 50% 100%, rgba(80,80,80,0.3) 0%, transparent 60%)',
+            background: 'linear-gradient(to top, rgba(0,0,0,0.4), transparent)',
           }}
         />
 
-        {/* Fade-out at top edge - smooth transition to black background */}
-        <div 
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 15%, rgba(0,0,0,0.2) 30%, transparent 50%)',
-          }}
-        />
-
-        {/* Field lines - white/light grey for contrast */}
-        <div className="absolute inset-4 sm:inset-5 border-2 border-white/25 rounded-lg" />
-        
-        {/* Center line */}
-        <div className="absolute top-[45%] left-4 right-4 sm:left-5 sm:right-5 h-0.5 bg-white/25" />
-        
-        {/* Center circle */}
-        <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 sm:w-20 sm:h-20 border-2 border-white/25 rounded-full" />
-        
-        {/* Goal area */}
-        <div className="absolute bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 w-32 sm:w-40 h-12 sm:h-14 border-2 border-white/25 border-b-0 rounded-t-lg" />
-        
-        {/* Penalty arc */}
-        <div className="absolute bottom-[60px] sm:bottom-[70px] left-1/2 -translate-x-1/2 w-14 sm:w-16 h-6 sm:h-8 border-2 border-white/25 border-b-0 rounded-t-full" />
-
-        {/* Vignette effect on edges */}
-        <div 
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            boxShadow: 'inset 0 0 60px rgba(0,0,0,0.8)',
-          }}
-        />
-
-        {/* Player positions - Formation 2-2-1 (outfield) + Goalkeeper */}
-        
-        {/* Atacante (1) - Top - adjusted for steeper angle */}
-        <div className="absolute top-[8%] left-1/2 -translate-x-1/2" style={{ transformStyle: 'preserve-3d' }}>
-          <PlayerSlot player={forwards[0] || null} />
-        </div>
-
-        {/* Meio-campistas (2) */}
-        <div className="absolute top-[28%] left-1/2 -translate-x-1/2 flex gap-16 sm:gap-24" style={{ transformStyle: 'preserve-3d' }}>
-          <PlayerSlot player={midfielders[0] || null} />
-          <PlayerSlot player={midfielders[1] || null} />
-        </div>
-
-        {/* Defensores (2) */}
-        <div className="absolute top-[48%] left-1/2 -translate-x-1/2 flex gap-16 sm:gap-24" style={{ transformStyle: 'preserve-3d' }}>
-          <PlayerSlot player={defenders[0] || null} />
-          <PlayerSlot player={defenders[1] || null} />
-        </div>
-
-        {/* Goleiro (1) - Bottom */}
-        <div className="absolute bottom-[8%] left-1/2 -translate-x-1/2" style={{ transformStyle: 'preserve-3d' }}>
-          <PlayerSlot player={goalkeeper} />
-        </div>
+        {/* Player nodes - positioned by percentage */}
+        <PlayerNode player={forwards[0] || null} position={positions.forward} />
+        <PlayerNode player={midfielders[0] || null} position={positions.midLeft} />
+        <PlayerNode player={midfielders[1] || null} position={positions.midRight} />
+        <PlayerNode player={defenders[0] || null} position={positions.defLeft} />
+        <PlayerNode player={defenders[1] || null} position={positions.defRight} />
+        <PlayerNode player={goalkeeper} position={positions.goalkeeper} />
       </div>
+
+      {/* Drop shadow below field for 3D effect */}
+      <div 
+        className="absolute -bottom-3 left-4 right-4 h-6 rounded-b-2xl pointer-events-none"
+        style={{
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.3), transparent)',
+          filter: 'blur(8px)',
+        }}
+      />
     </div>
   );
 }
@@ -296,13 +308,13 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, cla
         </div>
       </div>
 
-      {/* Formation - showing only outfield players */}
+      {/* Formation label */}
       <div className="text-center">
         <span className="text-lg sm:text-xl font-bold text-foreground">2-2-1</span>
       </div>
 
       {/* 3D Field with players */}
-      <div className="w-full max-w-sm mx-auto px-2">
+      <div className="w-full px-2">
         <FieldFormation players={currentPlayers} />
       </div>
     </div>
