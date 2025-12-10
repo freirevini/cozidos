@@ -711,6 +711,36 @@ export default function ManageMatch() {
     }
   };
 
+  const deleteLastSubstitution = async () => {
+    if (substitutions.length === 0) {
+      toast.error("Não há substituições para desfazer");
+      return;
+    }
+
+    const confirmed = window.confirm("Tem certeza que deseja desfazer a última substituição?");
+    if (!confirmed) return;
+
+    setLoading(true);
+    try {
+      const lastSub = [...substitutions].sort((a, b) => b.minute - a.minute)[0];
+
+      const { error: deleteError } = await supabase
+        .from("substitutions")
+        .delete()
+        .eq("id", lastSub.id);
+
+      if (deleteError) throw deleteError;
+
+      toast.success("Substituição desfeita!");
+      await loadMatchData();
+    } catch (error) {
+      console.error("Erro ao desfazer substituição:", error);
+      toast.error("Erro ao desfazer substituição");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const finishMatch = async () => {
     if (!match) return;
 
@@ -1141,16 +1171,26 @@ export default function ManageMatch() {
                   Desfazer Gol
                 </Button>
 
-                <Button 
-                  onClick={finishMatch} 
+                <Button
+                  onClick={deleteLastSubstitution}
                   variant="outline"
-                  className="min-h-[48px] rounded-xl border-destructive/50 text-destructive hover:bg-destructive/10"
-                  disabled={loading}
+                  disabled={substitutions.length === 0 || loading}
+                  className="min-h-[48px] rounded-xl border-muted-foreground/30 text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 >
-                  <Flag size={18} className="mr-2" />
-                  Encerrar
+                  <Undo2 size={18} className="mr-2" />
+                  Desfazer Subst.
                 </Button>
               </div>
+
+              <Button 
+                onClick={finishMatch} 
+                variant="outline"
+                className="w-full min-h-[48px] rounded-xl border-destructive/50 text-destructive hover:bg-destructive/10"
+                disabled={loading}
+              >
+                <Flag size={18} className="mr-2" />
+                Encerrar Partida
+              </Button>
             </>
           )}
 
