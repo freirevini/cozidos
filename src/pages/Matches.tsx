@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import { TeamLogo } from "@/components/match/TeamLogo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import iconBall from "@/assets/icon-ball.png";
 import iconBoot from "@/assets/icon-boot.png";
@@ -22,10 +23,10 @@ interface Match {
   finished_at: string | null;
   status: string;
   goals: Array<{
-    player: { nickname: string; name: string };
+    player: { nickname: string; name: string; avatar_url?: string | null };
     minute: number;
     team_color: string;
-    assist: { player: { nickname: string; name: string } | null } | null;
+    assist: { player: { nickname: string; name: string; avatar_url?: string | null } | null } | null;
   }>;
 }
 
@@ -99,9 +100,9 @@ export default function Matches() {
                 .from("goals")
                 .select(`
                   *,
-                  player:profiles!goals_player_id_fkey(nickname, name),
+                  player:profiles!goals_player_id_fkey(nickname, name, avatar_url),
                   assists(
-                    player:profiles!assists_player_id_fkey(nickname, name)
+                    player:profiles!assists_player_id_fkey(nickname, name, avatar_url)
                   )
                 `)
                 .eq("match_id", match.id);
@@ -118,7 +119,7 @@ export default function Matches() {
                 return {
                   minute: goal.minute,
                   team_color: goal.team_color,
-                  player: goal.player || { nickname: "Desconhecido", name: "Desconhecido" },
+                  player: goal.player || { nickname: "Desconhecido", name: "Desconhecido", avatar_url: null },
                   assist,
                 };
               });
@@ -362,6 +363,12 @@ export default function Matches() {
                                         alt="Gol" 
                                         className="w-3.5 h-3.5 brightness-0 invert flex-shrink-0" 
                                       />
+                                      <Avatar className="h-5 w-5">
+                                        <AvatarImage src={goal.player?.avatar_url || undefined} />
+                                        <AvatarFallback className="text-[8px] bg-primary/20 text-primary">
+                                          {(goal.player?.nickname || goal.player?.name)?.substring(0, 2).toUpperCase()}
+                                        </AvatarFallback>
+                                      </Avatar>
                                       <span className="font-medium">
                                         {goal.minute}' {goal.player?.nickname || goal.player?.name}
                                       </span>
@@ -399,6 +406,12 @@ export default function Matches() {
                                         alt="Gol" 
                                         className="w-3.5 h-3.5 brightness-0 invert flex-shrink-0" 
                                       />
+                                      <Avatar className="h-5 w-5">
+                                        <AvatarImage src={goal.player?.avatar_url || undefined} />
+                                        <AvatarFallback className="text-[8px] bg-primary/20 text-primary">
+                                          {(goal.player?.nickname || goal.player?.name)?.substring(0, 2).toUpperCase()}
+                                        </AvatarFallback>
+                                      </Avatar>
                                       <span className="font-medium">
                                         {goal.minute}' {goal.player?.nickname || goal.player?.name}
                                       </span>

@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Info, RefreshCw, Trophy, Target } from "lucide-react";
 import { toast } from "sonner";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -260,7 +261,17 @@ export default function Classification() {
                     <TableBody>
                       {filteredStats.map((stat, index) => <TableRow key={stat.player_id} className="border-border hover:bg-muted/30">
                           <TableCell className="font-bold text-primary">{index + 1}</TableCell>
-                          <TableCell className="font-medium">{stat.nickname}</TableCell>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-7 w-7">
+                                <AvatarImage src={stat.avatar_url || undefined} alt={stat.nickname} />
+                                <AvatarFallback className="text-xs bg-primary/20 text-primary">
+                                  {stat.nickname?.substring(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              {stat.nickname}
+                            </div>
+                          </TableCell>
                           <TableCell className="text-center">{stat.presencas}</TableCell>
                           <TableCell className="text-center">{stat.vitorias}</TableCell>
                           <TableCell className="text-center">{stat.empates}</TableCell>
@@ -303,7 +314,17 @@ export default function Classification() {
                           <TableBody>
                             {filteredStats.map((stat, index) => <TableRow key={stat.player_id} className="border-border">
                                 <TableCell className="font-bold text-primary">{index + 1}</TableCell>
-                                <TableCell className="font-medium">{stat.nickname}</TableCell>
+                                <TableCell className="font-medium">
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage src={stat.avatar_url || undefined} alt={stat.nickname} />
+                                      <AvatarFallback className="text-[10px] bg-primary/20 text-primary">
+                                        {stat.nickname?.substring(0, 2).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    {stat.nickname}
+                                  </div>
+                                </TableCell>
                                 <TableCell className="text-center">{stat.presencas}</TableCell>
                                 <TableCell className="text-center font-bold text-primary">
                                   {stat.pontos_totais}
@@ -329,7 +350,17 @@ export default function Classification() {
                           </TableHeader>
                           <TableBody>
                             {filteredStats.map(stat => <TableRow key={stat.player_id} className="border-border">
-                                <TableCell className="font-medium min-w-[120px]">{stat.nickname}</TableCell>
+                                <TableCell className="font-medium min-w-[120px]">
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage src={stat.avatar_url || undefined} alt={stat.nickname} />
+                                      <AvatarFallback className="text-[10px] bg-primary/20 text-primary">
+                                        {stat.nickname?.substring(0, 2).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    {stat.nickname}
+                                  </div>
+                                </TableCell>
                                 <TableCell className="text-center">{stat.gols}</TableCell>
                                 <TableCell className="text-center">{stat.assistencias}</TableCell>
                                 <TableCell className="text-center">{stat.cartoes_amarelos}</TableCell>
