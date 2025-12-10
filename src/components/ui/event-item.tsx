@@ -32,9 +32,10 @@ export const EVENT_LABELS: Record<EventType, string> = {
 };
 
 // Formatar minuto com acréscimos (partidas de 12 min)
+// Format: "MM'" for regular time, "12' + X" for stoppage time
 export const formatMinute = (minute: number, matchDuration: number = 12): string => {
   if (minute > matchDuration) {
-    return `${matchDuration}'+${minute - matchDuration}`;
+    return `${matchDuration}' + ${minute - matchDuration}`;
   }
   return `${minute}'`;
 };

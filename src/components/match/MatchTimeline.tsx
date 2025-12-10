@@ -1,7 +1,6 @@
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import iconBall from "@/assets/icon-ball.png";
-import iconBoot from "@/assets/icon-boot.png";
+import iconGoal from "@/assets/icon-goal.png";
+import iconAssist from "@/assets/icon-assist.png";
 import { formatMinute } from "@/components/ui/event-item";
 
 export type TimelineEventType = "goal" | "assist" | "amarelo" | "azul" | "match_start" | "match_end";
@@ -31,6 +30,219 @@ interface MatchTimelineProps {
   className?: string;
 }
 
+// Icon components for the central axis
+function GoalIcon() {
+  return (
+    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-background border-2 border-emerald-500 flex items-center justify-center z-10 shadow-lg shadow-emerald-500/20">
+      <img src={iconGoal} alt="Gol" className="w-6 h-6 sm:w-7 sm:h-7" />
+    </div>
+  );
+}
+
+function CardIcon({ type }: { type: "amarelo" | "azul" }) {
+  return (
+    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-background border-2 border-border flex items-center justify-center z-10 shadow-lg">
+      <div 
+        className={cn(
+          "w-5 h-7 sm:w-6 sm:h-8 rounded-sm transform rotate-6",
+          type === "amarelo" ? "bg-yellow-400" : "bg-blue-500"
+        )}
+      />
+    </div>
+  );
+}
+
+function MatchEventIcon() {
+  return (
+    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center z-10">
+      <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-primary" />
+    </div>
+  );
+}
+
+// Event content component for each side
+function EventContent({ 
+  event, 
+  side,
+  maxMinute = 12
+}: { 
+  event: TimelineEvent; 
+  side: "home" | "away";
+  maxMinute?: number;
+}) {
+  const playerName = event.player?.nickname || event.player?.name || "Jogador";
+  const assistName = event.assist?.nickname || event.assist?.name;
+  const formattedMinute = formatMinute(event.minute, maxMinute);
+
+  if (event.type === "goal") {
+    if (side === "home") {
+      // Home: content on left, text aligned right
+      return (
+        <div className="flex items-center justify-end gap-2 sm:gap-3 text-right">
+          <div className="flex flex-col items-end min-w-0">
+            <span className="font-semibold text-foreground text-sm sm:text-base truncate max-w-[120px] sm:max-w-[180px]">
+              {playerName}
+            </span>
+            {assistName && (
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <img src={iconAssist} alt="Assist" className="w-3 h-3 sm:w-4 sm:h-4 opacity-70" />
+                <span className="text-xs sm:text-sm truncate max-w-[100px] sm:max-w-[140px]">
+                  {assistName}
+                </span>
+              </div>
+            )}
+          </div>
+          <span className="text-xs sm:text-sm text-muted-foreground font-medium whitespace-nowrap">
+            {formattedMinute}
+          </span>
+        </div>
+      );
+    } else {
+      // Away: content on right, text aligned left
+      return (
+        <div className="flex items-center justify-start gap-2 sm:gap-3 text-left">
+          <span className="text-xs sm:text-sm text-muted-foreground font-medium whitespace-nowrap">
+            {formattedMinute}
+          </span>
+          <div className="flex flex-col items-start min-w-0">
+            <span className="font-semibold text-foreground text-sm sm:text-base truncate max-w-[120px] sm:max-w-[180px]">
+              {playerName}
+            </span>
+            {assistName && (
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <img src={iconAssist} alt="Assist" className="w-3 h-3 sm:w-4 sm:h-4 opacity-70" />
+                <span className="text-xs sm:text-sm truncate max-w-[100px] sm:max-w-[140px]">
+                  {assistName}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // Cards
+  if (event.type === "amarelo" || event.type === "azul") {
+    if (side === "home") {
+      return (
+        <div className="flex items-center justify-end gap-2 sm:gap-3 text-right">
+          <span className="font-medium text-foreground text-sm sm:text-base truncate max-w-[120px] sm:max-w-[180px]">
+            {playerName}
+          </span>
+          <span className="text-xs sm:text-sm text-muted-foreground font-medium whitespace-nowrap">
+            {formattedMinute}
+          </span>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex items-center justify-start gap-2 sm:gap-3 text-left">
+          <span className="text-xs sm:text-sm text-muted-foreground font-medium whitespace-nowrap">
+            {formattedMinute}
+          </span>
+          <span className="font-medium text-foreground text-sm sm:text-base truncate max-w-[120px] sm:max-w-[180px]">
+            {playerName}
+          </span>
+        </div>
+      );
+    }
+  }
+
+  return null;
+}
+
+// Row component for timeline
+function TimelineRow({ 
+  event, 
+  teamHome, 
+  teamAway,
+  maxMinute,
+  isFirst,
+  isLast
+}: { 
+  event: TimelineEvent; 
+  teamHome: string;
+  teamAway: string;
+  maxMinute: number;
+  isFirst: boolean;
+  isLast: boolean;
+}) {
+  const isHome = event.team_color === teamHome;
+  const isAway = event.team_color === teamAway;
+  const isMatchEvent = event.type === "match_start" || event.type === "match_end";
+
+  // For match start/end events
+  if (isMatchEvent) {
+    return (
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center py-3 sm:py-4 relative">
+        {/* Left - Empty */}
+        <div />
+        
+        {/* Center - Icon with vertical line segments */}
+        <div className="flex flex-col items-center relative">
+          {/* Line above (hidden for first) */}
+          {!isFirst && (
+            <div className="absolute bottom-full w-px h-6 sm:h-8 bg-border" />
+          )}
+          
+          <MatchEventIcon />
+          
+          {/* Line below (hidden for last) */}
+          {!isLast && (
+            <div className="absolute top-full w-px h-6 sm:h-8 bg-border" />
+          )}
+        </div>
+        
+        {/* Right - Label */}
+        <div className="pl-3 sm:pl-4">
+          <span className="text-xs sm:text-sm text-muted-foreground">
+            {event.type === "match_start" ? "Início da partida" : "Final da partida"}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Regular events (goals, cards)
+  const renderIcon = () => {
+    if (event.type === "goal") return <GoalIcon />;
+    if (event.type === "amarelo" || event.type === "azul") {
+      return <CardIcon type={event.type} />;
+    }
+    return null;
+  };
+
+  return (
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center py-3 sm:py-4 relative">
+      {/* Left Column - Home Team Events */}
+      <div className="flex justify-end pr-3 sm:pr-4">
+        {isHome && <EventContent event={event} side="home" maxMinute={maxMinute} />}
+      </div>
+      
+      {/* Center Column - Icon with vertical line segments */}
+      <div className="flex flex-col items-center relative">
+        {/* Line above (hidden for first) */}
+        {!isFirst && (
+          <div className="absolute bottom-full w-px h-6 sm:h-8 bg-border" />
+        )}
+        
+        {renderIcon()}
+        
+        {/* Line below (hidden for last) */}
+        {!isLast && (
+          <div className="absolute top-full w-px h-6 sm:h-8 bg-border" />
+        )}
+      </div>
+      
+      {/* Right Column - Away Team Events */}
+      <div className="flex justify-start pl-3 sm:pl-4">
+        {isAway && <EventContent event={event} side="away" maxMinute={maxMinute} />}
+      </div>
+    </div>
+  );
+}
+
 export function MatchTimeline({
   events,
   teamHome,
@@ -38,79 +250,10 @@ export function MatchTimeline({
   maxMinute = 12,
   className,
 }: MatchTimelineProps) {
-  // Filtrar e ordenar eventos (excluindo match_start/match_end do layout principal)
-  const matchEvents = events
-    .filter((e) => e.type !== "match_start" && e.type !== "match_end")
-    .sort((a, b) => b.minute - a.minute); // Mais recente primeiro (de cima para baixo)
+  // Sort events by minute (ascending - oldest first at top)
+  const sortedEvents = [...events].sort((a, b) => a.minute - b.minute);
 
-  const homeEvents = matchEvents.filter((e) => e.team_color === teamHome);
-  const awayEvents = matchEvents.filter((e) => e.team_color === teamAway);
-
-  // Combinar todos os eventos ordenados por minuto (descendente)
-  const allEventsSorted = matchEvents.sort((a, b) => b.minute - a.minute);
-
-  const renderEventContent = (event: TimelineEvent) => {
-    const playerName = event.player?.nickname || event.player?.name || "Jogador";
-    const assistName = event.assist?.nickname || event.assist?.name;
-    const playerInitials = playerName.substring(0, 2).toUpperCase();
-
-    if (event.type === "goal") {
-      return (
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-2">
-            <img 
-              src={iconBall} 
-              alt="Gol" 
-              className="w-4 h-4 sm:w-5 sm:h-5 brightness-0 invert flex-shrink-0" 
-            />
-            <Avatar className="h-5 w-5 sm:h-6 sm:w-6">
-              <AvatarImage src={event.player?.avatar_url || undefined} />
-              <AvatarFallback className="text-[8px] sm:text-[10px] bg-primary/20 text-primary">
-                {playerInitials}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-sm sm:text-base font-medium text-foreground truncate">
-              {playerName}
-            </span>
-          </div>
-          {assistName && (
-            <div className="flex items-center gap-2 ml-6 sm:ml-7">
-              <img 
-                src={iconBoot} 
-                alt="Assistência" 
-                className="w-3 h-3 sm:w-4 sm:h-4 brightness-0 invert opacity-70 flex-shrink-0" 
-              />
-              <span className="text-xs sm:text-sm text-muted-foreground truncate">
-                {assistName}
-              </span>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    if (event.type === "amarelo" || event.type === "azul") {
-      const cardIcon = event.type === "amarelo" ? "🟨" : "🟦";
-      return (
-        <div className="flex items-center gap-2">
-          <span className="text-base sm:text-lg flex-shrink-0">{cardIcon}</span>
-          <Avatar className="h-5 w-5 sm:h-6 sm:w-6">
-            <AvatarImage src={event.player?.avatar_url || undefined} />
-            <AvatarFallback className="text-[8px] sm:text-[10px] bg-primary/20 text-primary">
-              {playerInitials}
-            </AvatarFallback>
-          </Avatar>
-          <span className="text-sm sm:text-base font-medium text-foreground truncate">
-            {playerName}
-          </span>
-        </div>
-      );
-    }
-
-    return null;
-  };
-
-  if (allEventsSorted.length === 0) {
+  if (sortedEvents.length === 0) {
     return (
       <div className={cn("py-8 text-center text-muted-foreground text-sm", className)}>
         Nenhum evento registrado ainda
@@ -119,56 +262,21 @@ export function MatchTimeline({
   }
 
   return (
-    <div className={cn("w-full", className)}>
-      {/* Timeline no estilo ESPN/OneFootball */}
-      <div className="space-y-4">
-        {allEventsSorted.map((event) => {
-          const isHome = event.team_color === teamHome;
-          const isAway = event.team_color === teamAway;
-
-          return (
-            <div
-              key={event.id}
-              className="flex items-start gap-2 sm:gap-4 min-h-[48px]"
-            >
-              {/* Coluna Esquerda - Time Casa */}
-              <div className="flex-1 flex justify-end">
-                {isHome && (
-                  <div className="text-right pr-2 sm:pr-4">
-                    {renderEventContent(event)}
-                  </div>
-                )}
-              </div>
-
-              {/* Minuto Central */}
-              <div className="flex-shrink-0 w-12 sm:w-16 flex items-center justify-center">
-                <span className="text-xs sm:text-sm font-bold text-primary bg-primary/10 px-2 py-1 rounded">
-                  {formatMinute(event.minute, maxMinute)}
-                </span>
-              </div>
-
-              {/* Coluna Direita - Time Visitante */}
-              <div className="flex-1 flex justify-start">
-                {isAway && (
-                  <div className="text-left pl-2 sm:pl-4">
-                    {renderEventContent(event)}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+    <div className={cn("w-full py-2", className)}>
+      {/* Timeline with vertical central line */}
+      <div className="relative">
+        {sortedEvents.map((event, index) => (
+          <TimelineRow
+            key={event.id}
+            event={event}
+            teamHome={teamHome}
+            teamAway={teamAway}
+            maxMinute={maxMinute}
+            isFirst={index === 0}
+            isLast={index === sortedEvents.length - 1}
+          />
+        ))}
       </div>
-
-      {/* Indicador de início/fim */}
-      {events.some((e) => e.type === "match_start") && (
-        <div className="mt-6 pt-4 border-t border-border">
-          <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-muted-foreground">
-            <span className="w-2 h-2 rounded-full bg-primary" />
-            <span>Início da partida</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
