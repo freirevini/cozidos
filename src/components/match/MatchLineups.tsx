@@ -29,13 +29,6 @@ const teamNames: Record<string, string> = {
   laranja: "LAR",
 };
 
-const teamFullNames: Record<string, string> = {
-  branco: "BRANCO",
-  vermelho: "VERMELHO",
-  azul: "AZUL",
-  laranja: "LARANJA",
-};
-
 // Formação fixa 3-2-1 (1 goleiro, 2 defesa, 2 meio, 1 ataque)
 function distributePlayers(players: Player[]): {
   goalkeeper: Player | null;
@@ -121,11 +114,20 @@ function getInitials(name: string): string {
 }
 
 function PlayerSlot({ player, className }: { player: Player | null; className?: string }) {
+  // Counter-transform to keep player nodes upright despite field rotation
+  const counterTransformStyle = {
+    transform: 'rotateX(-55deg)',
+    transformOrigin: 'center center',
+  };
+
   if (!player) {
     return (
-      <div className={cn("flex flex-col items-center gap-1", className)}>
-        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
-          <span className="text-muted-foreground text-xs">-</span>
+      <div 
+        className={cn("flex flex-col items-center gap-1", className)}
+        style={counterTransformStyle}
+      >
+        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center bg-black/20">
+          <span className="text-white/40 text-xs">-</span>
         </div>
       </div>
     );
@@ -135,16 +137,19 @@ function PlayerSlot({ player, className }: { player: Player | null; className?: 
   const initials = getInitials(player.name);
 
   return (
-    <div className={cn("flex flex-col items-center gap-1 max-w-[70px] sm:max-w-[80px]", className)}>
-      <Avatar className="w-12 h-12 sm:w-14 sm:h-14 border-2 border-primary/50">
+    <div 
+      className={cn("flex flex-col items-center gap-1.5 max-w-[80px] sm:max-w-[90px]", className)}
+      style={counterTransformStyle}
+    >
+      <Avatar className="w-14 h-14 sm:w-16 sm:h-16 border-2 border-white/40 shadow-lg ring-2 ring-black/20">
         {player.avatar_url ? (
-          <AvatarImage src={player.avatar_url} alt={player.name} />
+          <AvatarImage src={player.avatar_url} alt={player.name} className="object-cover" />
         ) : null}
-        <AvatarFallback className="bg-primary/20 text-primary font-bold text-sm sm:text-base">
+        <AvatarFallback className="bg-primary/40 text-primary-foreground font-bold text-sm sm:text-base">
           {initials}
         </AvatarFallback>
       </Avatar>
-      <span className="text-[10px] sm:text-xs font-medium text-foreground text-center truncate w-full leading-tight">
+      <span className="text-[10px] sm:text-xs font-semibold text-white text-center truncate w-full leading-tight drop-shadow-md">
         {displayName}
       </span>
     </div>
@@ -155,39 +160,69 @@ function FieldFormation({ players }: { players: Player[] }) {
   const { goalkeeper, defenders, midfielders, forwards } = distributePlayers(players);
 
   return (
-    <div className="relative w-full aspect-[3/4] bg-gradient-to-b from-green-700 to-green-900 rounded-xl overflow-hidden">
-      {/* Linhas do campo */}
-      <div className="absolute inset-2 sm:inset-3 border-2 border-white/20 rounded-lg" />
-      <div className="absolute top-1/2 left-2 right-2 sm:left-3 sm:right-3 h-0.5 bg-white/20" />
-      
-      {/* Círculo central */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 sm:w-20 sm:h-20 border-2 border-white/20 rounded-full" />
-      
-      {/* Área do gol */}
-      <div className="absolute bottom-2 sm:bottom-3 left-1/2 -translate-x-1/2 w-24 sm:w-32 h-8 sm:h-10 border-2 border-white/20 border-b-0 rounded-t-lg" />
+    <div 
+      className="relative w-full"
+      style={{
+        perspective: '800px',
+        perspectiveOrigin: 'center 100%',
+      }}
+    >
+      {/* 3D Field Plane */}
+      <div 
+        className="relative w-full aspect-[4/5] rounded-xl overflow-hidden"
+        style={{
+          transform: 'rotateX(55deg)',
+          transformStyle: 'preserve-3d',
+          transformOrigin: 'center bottom',
+          background: 'linear-gradient(to top, #1a5c2b 0%, #2d8a42 50%, #1f7035 100%)',
+        }}
+      >
+        {/* Field lines */}
+        <div className="absolute inset-3 sm:inset-4 border-2 border-white/25 rounded-lg" />
+        
+        {/* Center line */}
+        <div className="absolute top-1/2 left-3 right-3 sm:left-4 sm:right-4 h-0.5 bg-white/25" />
+        
+        {/* Center circle */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 sm:w-24 sm:h-24 border-2 border-white/25 rounded-full" />
+        
+        {/* Goal area */}
+        <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 w-28 sm:w-36 h-10 sm:h-12 border-2 border-white/25 border-b-0 rounded-t-lg" />
+        
+        {/* Penalty arc */}
+        <div className="absolute bottom-[52px] sm:bottom-[60px] left-1/2 -translate-x-1/2 w-16 sm:w-20 h-8 sm:h-10 border-2 border-white/25 border-b-0 rounded-t-full" />
 
-      {/* Posições dos jogadores - Formação 1-2-2-1 */}
-      
-      {/* Atacante (1) - Topo */}
-      <div className="absolute top-6 sm:top-8 left-1/2 -translate-x-1/2">
-        <PlayerSlot player={forwards[0] || null} />
-      </div>
+        {/* Fade gradient at top for depth effect */}
+        <div 
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.2) 20%, transparent 40%)',
+          }}
+        />
 
-      {/* Meio-campistas (2) */}
-      <div className="absolute top-[35%] left-1/2 -translate-x-1/2 flex gap-8 sm:gap-12">
-        <PlayerSlot player={midfielders[0] || null} />
-        <PlayerSlot player={midfielders[1] || null} />
-      </div>
+        {/* Player positions - Formation 2-2-1 (outfield) + Goalkeeper */}
+        
+        {/* Atacante (1) - Top */}
+        <div className="absolute top-[12%] left-1/2 -translate-x-1/2">
+          <PlayerSlot player={forwards[0] || null} />
+        </div>
 
-      {/* Defensores (2) */}
-      <div className="absolute top-[60%] left-1/2 -translate-x-1/2 flex gap-8 sm:gap-12">
-        <PlayerSlot player={defenders[0] || null} />
-        <PlayerSlot player={defenders[1] || null} />
-      </div>
+        {/* Meio-campistas (2) */}
+        <div className="absolute top-[36%] left-1/2 -translate-x-1/2 flex gap-14 sm:gap-20">
+          <PlayerSlot player={midfielders[0] || null} />
+          <PlayerSlot player={midfielders[1] || null} />
+        </div>
 
-      {/* Goleiro (1) - Base */}
-      <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2">
-        <PlayerSlot player={goalkeeper} />
+        {/* Defensores (2) */}
+        <div className="absolute top-[58%] left-1/2 -translate-x-1/2 flex gap-14 sm:gap-20">
+          <PlayerSlot player={defenders[0] || null} />
+          <PlayerSlot player={defenders[1] || null} />
+        </div>
+
+        {/* Goleiro (1) - Bottom */}
+        <div className="absolute bottom-[6%] left-1/2 -translate-x-1/2">
+          <PlayerSlot player={goalkeeper} />
+        </div>
       </div>
     </div>
   );
@@ -197,11 +232,10 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, cla
   const [selectedTeam, setSelectedTeam] = useState<"home" | "away">("home");
 
   const currentPlayers = selectedTeam === "home" ? homePlayers : awayPlayers;
-  const currentTeam = selectedTeam === "home" ? teamHome : teamAway;
 
   return (
     <div className={cn("space-y-4", className)}>
-      {/* Seletor de times estilo NSH/MTL */}
+      {/* Team selector */}
       <div className="flex justify-center">
         <div className="inline-flex bg-muted/30 rounded-full p-1">
           <button
@@ -231,19 +265,14 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, cla
         </div>
       </div>
 
-      {/* Formação */}
+      {/* Formation - showing only outfield players */}
       <div className="text-center">
-        <span className="text-lg sm:text-xl font-bold text-foreground">1-2-2-1</span>
+        <span className="text-lg sm:text-xl font-bold text-foreground">2-2-1</span>
       </div>
 
-      {/* Campo com jogadores */}
-      <div className="w-full max-w-sm mx-auto">
+      {/* 3D Field with players */}
+      <div className="w-full max-w-sm mx-auto px-2">
         <FieldFormation players={currentPlayers} />
-      </div>
-
-      {/* Nome do time */}
-      <div className="text-center">
-        <span className="text-sm text-muted-foreground">{teamFullNames[currentTeam]}</span>
       </div>
     </div>
   );
