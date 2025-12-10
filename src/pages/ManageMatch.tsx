@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { ArrowLeft, Play, Pause, Target, User, Goal, Square, Undo2, Flag } from "lucide-react";
+import { ArrowLeft, Play, Pause, Target, User, Goal, Square, Undo2, Flag, ArrowLeftRight } from "lucide-react";
 import { MatchHeader } from "@/components/match/MatchHeader";
 import { MatchTimeline, TimelineEvent } from "@/components/match/MatchTimeline";
 import { EVENT_ICONS } from "@/components/ui/event-item";
@@ -56,6 +56,17 @@ interface CardEvent {
   team_color?: string;
 }
 
+interface Substitution {
+  id: string;
+  match_id: string;
+  team_color: string;
+  player_out_id: string;
+  player_in_id: string;
+  minute: number;
+  player_out?: Player;
+  player_in?: Player;
+}
+
 const teamNames: Record<string, string> = {
   branco: "Branco",
   vermelho: "Vermelho",
@@ -85,9 +96,11 @@ export default function ManageMatch() {
   const [players, setPlayers] = useState<Record<string, Player[]>>({});
   const [goals, setGoals] = useState<GoalData[]>([]);
   const [cards, setCards] = useState<CardEvent[]>([]);
+  const [substitutions, setSubstitutions] = useState<Substitution[]>([]);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [addingGoal, setAddingGoal] = useState(false);
   const [addingCard, setAddingCard] = useState(false);
+  const [addingSub, setAddingSub] = useState(false);
   const [timer, setTimer] = useState(720);
   const [timerRunning, setTimerRunning] = useState(false);
   const [currentMinute, setCurrentMinute] = useState<number | null>(null);
@@ -102,6 +115,12 @@ export default function ManageMatch() {
     player_id: "",
     card_type: "",
   });
+  const [subData, setSubData] = useState({
+    team: "",
+    player_out_id: "",
+    player_in_id: "",
+  });
+  const [availablePlayersIn, setAvailablePlayersIn] = useState<Player[]>([]);
 
   useEffect(() => {
     checkAdminAndLoad();
@@ -155,7 +174,7 @@ export default function ManageMatch() {
     }
   }, [match]);
 
-  // Build timeline events from goals and cards
+  // Build timeline events from goals, cards, and substitutions
   useEffect(() => {
     if (!match) return;
     
@@ -201,6 +220,26 @@ export default function ManageMatch() {
         } : undefined,
       });
     });
+
+    // Add substitutions
+    substitutions.forEach((sub) => {
+      events.push({
+        id: sub.id,
+        type: "substitution",
+        minute: sub.minute,
+        team_color: sub.team_color,
+        playerOut: sub.player_out ? {
+          name: sub.player_out.name,
+          nickname: sub.player_out.nickname,
+          avatar_url: sub.player_out.avatar_url
+        } : undefined,
+        playerIn: sub.player_in ? {
+          name: sub.player_in.name,
+          nickname: sub.player_in.nickname,
+          avatar_url: sub.player_in.avatar_url
+        } : undefined,
+      });
+    });
     
     // Add match end event
     if (match.status === "finished" && match.finished_at) {
@@ -210,7 +249,7 @@ export default function ManageMatch() {
     
     events.sort((a, b) => a.minute - b.minute);
     setTimelineEvents(events);
-  }, [match, goals, cards]);
+  }, [match, goals, cards, substitutions]);
 
   // Real-time subscriptions
   useEffect(() => {
@@ -222,6 +261,7 @@ export default function ManageMatch() {
       .on("postgres_changes", { event: "*", schema: "public", table: "goals" }, () => loadMatchData())
       .on("postgres_changes", { event: "*", schema: "public", table: "cards" }, () => loadMatchData())
       .on("postgres_changes", { event: "*", schema: "public", table: "assists" }, () => loadMatchData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "substitutions", filter: `match_id=eq.${matchId}` }, () => loadMatchData())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -333,6 +373,35 @@ export default function ManageMatch() {
       }
 
       setCards(cardsWithTeam);
+
+      // Load substitutions
+      const { data: subsData } = await supabase
+        .from("substitutions")
+        .select(`
+          id,
+          match_id,
+          team_color,
+          player_out_id,
+          player_in_id,
+          minute,
+          player_out:profiles!substitutions_player_out_id_fkey(id, name, nickname, avatar_url),
+          player_in:profiles!substitutions_player_in_id_fkey(id, name, nickname, avatar_url)
+        `)
+        .eq("match_id", matchId)
+        .order("minute", { ascending: true });
+
+      const subsWithPlayers = (subsData || []).map((sub: any) => ({
+        id: sub.id,
+        match_id: sub.match_id,
+        team_color: sub.team_color,
+        player_out_id: sub.player_out_id,
+        player_in_id: sub.player_in_id,
+        minute: sub.minute,
+        player_out: sub.player_out,
+        player_in: sub.player_in,
+      }));
+
+      setSubstitutions(subsWithPlayers);
     } catch (error) {
       console.error("Erro ao carregar partida:", error);
       toast.error("Erro ao carregar dados da partida");
@@ -368,6 +437,93 @@ export default function ManageMatch() {
       console.error("Erro ao carregar jogadores:", error);
     }
   };
+
+  // Load available players for substitution (from other teams not playing this match)
+  const loadAvailablePlayersIn = async () => {
+    if (!roundId || !match) return;
+
+    try {
+      // Get all players from other teams in this round (not team_home or team_away)
+      const { data: otherTeamPlayers } = await supabase
+        .from("round_team_players")
+        .select("player_id, profiles!inner(id, name, nickname, avatar_url)")
+        .eq("round_id", roundId)
+        .not("team_color", "in", `(${match.team_home},${match.team_away})`);
+
+      // Get players who already entered via substitution in this match
+      const playersAlreadyIn = substitutions.map(s => s.player_in_id);
+
+      // Filter out players who already entered
+      const availablePlayers = (otherTeamPlayers || [])
+        .map((p: any) => p.profiles)
+        .filter(Boolean)
+        .filter((p: Player) => !playersAlreadyIn.includes(p.id));
+
+      setAvailablePlayersIn(availablePlayers);
+    } catch (error) {
+      console.error("Erro ao carregar jogadores disponíveis:", error);
+    }
+  };
+
+  // Get players currently on field for a team (starters + players who came in - players who went out)
+  const getPlayersOnField = (teamColor: string): Player[] => {
+    const starters = players[teamColor] || [];
+    
+    // Add players who entered via substitution to this team
+    const playersIn = substitutions
+      .filter(s => s.team_color === teamColor)
+      .map(s => s.player_in)
+      .filter(Boolean) as Player[];
+    
+    // Get IDs of players who left via substitution
+    const playersOutIds = substitutions
+      .filter(s => s.team_color === teamColor)
+      .map(s => s.player_out_id);
+    
+    // Combine and filter
+    const allPlayers = [...starters, ...playersIn];
+    return allPlayers.filter(p => !playersOutIds.includes(p.id));
+  };
+
+  const addSubstitution = async () => {
+    if (!subData.team || !subData.player_out_id || !subData.player_in_id || !match) {
+      toast.error("Preencha todos os campos obrigatórios");
+      return;
+    }
+
+    const currentMin = Math.ceil((720 - timer) / 60);
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("substitutions")
+        .insert([{
+          match_id: match.id,
+          team_color: subData.team as "branco" | "vermelho" | "azul" | "laranja",
+          player_out_id: subData.player_out_id,
+          player_in_id: subData.player_in_id,
+          minute: currentMin,
+        }]);
+
+      if (error) throw error;
+
+      toast.success("Substituição registrada!");
+      setAddingSub(false);
+      setSubData({ team: "", player_out_id: "", player_in_id: "" });
+      loadMatchData();
+    } catch (error: any) {
+      toast.error("Erro ao registrar substituição: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Effect to load available players when opening substitution form
+  useEffect(() => {
+    if (addingSub && match) {
+      loadAvailablePlayersIn();
+    }
+  }, [addingSub, substitutions, match]);
 
   const startMatch = async () => {
     if (!match) return;
@@ -685,10 +841,10 @@ export default function ManageMatch() {
 
           {isMatchActive && (
             <>
-              {/* Goal and Card buttons row */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Goal, Card and Substitution buttons row */}
+              <div className="grid grid-cols-3 gap-2">
                 <Button
-                  onClick={() => { setAddingGoal(!addingGoal); setAddingCard(false); }}
+                  onClick={() => { setAddingGoal(!addingGoal); setAddingCard(false); setAddingSub(false); }}
                   variant={addingGoal ? "default" : "outline"}
                   className={`min-h-[52px] rounded-xl font-medium ${
                     addingGoal 
@@ -696,12 +852,12 @@ export default function ManageMatch() {
                       : "border-border hover:bg-muted/50"
                   }`}
                 >
-                  <Goal size={20} className="mr-2" />
-                  {addingGoal ? "Cancelar" : "Gol"}
+                  <Goal size={18} className="mr-1" />
+                  {addingGoal ? "X" : "Gol"}
                 </Button>
 
                 <Button
-                  onClick={() => { setAddingCard(!addingCard); setAddingGoal(false); }}
+                  onClick={() => { setAddingCard(!addingCard); setAddingGoal(false); setAddingSub(false); }}
                   variant={addingCard ? "default" : "outline"}
                   className={`min-h-[52px] rounded-xl font-medium ${
                     addingCard 
@@ -709,8 +865,21 @@ export default function ManageMatch() {
                       : "border-border hover:bg-muted/50"
                   }`}
                 >
-                  <Square size={20} className="mr-2" />
-                  {addingCard ? "Cancelar" : "Cartão"}
+                  <Square size={18} className="mr-1" />
+                  {addingCard ? "X" : "Cartão"}
+                </Button>
+
+                <Button
+                  onClick={() => { setAddingSub(!addingSub); setAddingGoal(false); setAddingCard(false); }}
+                  variant={addingSub ? "default" : "outline"}
+                  className={`min-h-[52px] rounded-xl font-medium ${
+                    addingSub 
+                      ? "bg-gray-600 hover:bg-gray-700 text-white border-0" 
+                      : "border-border hover:bg-muted/50"
+                  }`}
+                >
+                  <ArrowLeftRight size={18} className="mr-1" />
+                  {addingSub ? "X" : "Subst."}
                 </Button>
               </div>
 
@@ -878,6 +1047,83 @@ export default function ManageMatch() {
                       disabled={loading || !cardData.team || !cardData.player_id || !cardData.card_type}
                     >
                       Confirmar Cartão ({Math.ceil((720 - timer) / 60)}')
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Substitution form */}
+              {addingSub && (
+                <Card className="bg-muted/10 border-border rounded-xl">
+                  <CardContent className="p-4 space-y-4">
+                    <Select value={subData.team} onValueChange={(v) => setSubData({ ...subData, team: v, player_out_id: "", player_in_id: "" })}>
+                      <SelectTrigger className="h-12 rounded-lg">
+                        <SelectValue placeholder="Time que substitui" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={match.team_home}>{teamNames[match.team_home]}</SelectItem>
+                        <SelectItem value={match.team_away}>{teamNames[match.team_away]}</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {subData.team && (
+                      <>
+                        <div>
+                          <p className="text-sm font-medium mb-3 text-foreground flex items-center gap-2">
+                            <span className="text-red-500">▼</span> Quem sai?
+                          </p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {getPlayersOnField(subData.team).map((player) => (
+                              <Button
+                                key={player.id}
+                                variant={subData.player_out_id === player.id ? "default" : "outline"}
+                                className={`h-auto py-3 px-2 text-xs min-h-[44px] rounded-lg ${
+                                  subData.player_out_id === player.id ? "bg-red-600 hover:bg-red-700" : ""
+                                }`}
+                                onClick={() => setSubData({ ...subData, player_out_id: player.id })}
+                              >
+                                {player.nickname || player.name}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {subData.player_out_id && (
+                          <div>
+                            <p className="text-sm font-medium mb-3 text-foreground flex items-center gap-2">
+                              <span className="text-green-500">▲</span> Quem entra?
+                            </p>
+                            {availablePlayersIn.length > 0 ? (
+                              <div className="grid grid-cols-3 gap-2">
+                                {availablePlayersIn.map((player) => (
+                                  <Button
+                                    key={player.id}
+                                    variant={subData.player_in_id === player.id ? "default" : "outline"}
+                                    className={`h-auto py-3 px-2 text-xs min-h-[44px] rounded-lg ${
+                                      subData.player_in_id === player.id ? "bg-green-600 hover:bg-green-700" : ""
+                                    }`}
+                                    onClick={() => setSubData({ ...subData, player_in_id: player.id })}
+                                  >
+                                    {player.nickname || player.name}
+                                  </Button>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground text-center py-4">
+                                Nenhum jogador disponível para entrar
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    <Button 
+                      onClick={addSubstitution} 
+                      className="w-full min-h-[48px] rounded-lg bg-gray-600 hover:bg-gray-700" 
+                      disabled={loading || !subData.team || !subData.player_out_id || !subData.player_in_id}
+                    >
+                      Confirmar Substituição ({Math.ceil((720 - timer) / 60)}')
                     </Button>
                   </CardContent>
                 </Card>
