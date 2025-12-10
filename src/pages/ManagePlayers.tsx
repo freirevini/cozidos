@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Filter, UserCheck, UserX, AlertTriangle, UserPlus, RefreshCw, Upload, Copy, Link2 } from "lucide-react";
+import { Trash2, Search, Filter, UserCheck, UserX, AlertTriangle, UserPlus, RefreshCw, Upload, Copy, Link2, Camera } from "lucide-react";
 import { LinkPendingPlayerModal } from "@/components/LinkPendingPlayerModal";
 import { AlertDialogIcon } from "@/components/ui/alert-dialog-icon";
 import { toast as sonnerToast } from "sonner";
@@ -108,6 +108,10 @@ export default function ManagePlayers() {
   
   // Estado para exibir token gerado
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
+  
+  // Estado para edição de avatar (desktop)
+  const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
+  const [avatarEditPlayer, setAvatarEditPlayer] = useState<Player | null>(null);
 
   useEffect(() => {
     checkAdmin();
@@ -1328,6 +1332,19 @@ export default function ManagePlayers() {
                               </>
                             )}
                             
+                            {/* Botão de foto - sempre visível para admin */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setAvatarEditPlayer(player);
+                                setAvatarDialogOpen(true);
+                              }}
+                              title="Alterar Foto"
+                            >
+                              <Camera className="h-4 w-4" />
+                            </Button>
+                            
                             <Button
                               size="sm"
                               variant="destructive"
@@ -1589,6 +1606,20 @@ export default function ManagePlayers() {
                                   )}
                                 </div>
                               )}
+                              
+                              {/* Botão de foto - sempre visível para admin */}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setAvatarEditPlayer(player);
+                                  setAvatarDialogOpen(true);
+                                }}
+                                className="min-h-[44px]"
+                                title="Alterar Foto"
+                              >
+                                <Camera className="h-4 w-4" />
+                              </Button>
                               
                               <Button
                                 size="sm"
@@ -1952,6 +1983,44 @@ export default function ManagePlayers() {
             <DialogFooter>
               <Button onClick={() => setShowImportHelp(false)} className="w-full sm:w-auto">
                 Entendi
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog de Edição de Avatar (Desktop) */}
+        <Dialog open={avatarDialogOpen} onOpenChange={setAvatarDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                <Camera className="h-5 w-5 text-primary" />
+                Foto do Jogador
+              </DialogTitle>
+              <DialogDescription>
+                {avatarEditPlayer?.nickname || avatarEditPlayer?.name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              {avatarEditPlayer && (
+                <AvatarUpload
+                  playerId={avatarEditPlayer.id}
+                  playerName={avatarEditPlayer.nickname || avatarEditPlayer.name}
+                  currentAvatarUrl={avatarEditPlayer.avatar_url}
+                  onUploadComplete={(url) => {
+                    setPlayers(players.map(p => 
+                      p.id === avatarEditPlayer.id ? { ...p, avatar_url: url } : p
+                    ));
+                    setAvatarEditPlayer(prev => prev ? { ...prev, avatar_url: url } : null);
+                  }}
+                />
+              )}
+            </div>
+            <DialogFooter>
+              <Button onClick={() => {
+                setAvatarDialogOpen(false);
+                setAvatarEditPlayer(null);
+              }}>
+                Fechar
               </Button>
             </DialogFooter>
           </DialogContent>
