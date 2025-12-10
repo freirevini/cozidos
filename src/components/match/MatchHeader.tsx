@@ -1,5 +1,4 @@
 import { TeamLogo } from "./TeamLogo";
-import { formatMinute } from "@/components/ui/event-item";
 
 interface MatchHeaderProps {
   teamHome: string;
@@ -14,6 +13,13 @@ interface MatchHeaderProps {
   className?: string;
 }
 
+// Format minute with overtime display (base 12 minutes)
+const formatMinuteDisplay = (minute: number | null | undefined): string => {
+  if (minute === null || minute === undefined) return "--:--";
+  if (minute <= 12) return `${minute}'`;
+  return `12' + ${minute - 12}`;
+};
+
 export function MatchHeader({
   teamHome,
   teamAway,
@@ -26,14 +32,25 @@ export function MatchHeader({
   currentMinute,
   className,
 }: MatchHeaderProps) {
-  // Format scheduled time from ISO string to HH:MM
-  const formatTime = (timeString?: string) => {
+  // Safe time formatting - handles both ISO strings and time-only strings
+  const formatTime = (timeString?: string): string => {
     if (!timeString) return "--:--";
+    
     try {
+      // If it's a time-only string (HH:MM:SS or HH:MM), extract hours and minutes
+      if (timeString.match(/^\d{2}:\d{2}(:\d{2})?$/)) {
+        return timeString.substring(0, 5);
+      }
+      
+      // Try parsing as ISO date
       const date = new Date(timeString);
-      return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      }
+      
+      return "--:--";
     } catch {
-      return timeString;
+      return "--:--";
     }
   };
 
@@ -42,8 +59,8 @@ export function MatchHeader({
     if (status === "finished") {
       return "Encerrado";
     }
-    if (status === "in_progress" && currentMinute !== null) {
-      return formatMinute(currentMinute, 12);
+    if (status === "in_progress" && currentMinute !== null && currentMinute !== undefined) {
+      return formatMinuteDisplay(currentMinute);
     }
     // Not started - show scheduled time
     return formatTime(scheduledTime);
@@ -52,7 +69,7 @@ export function MatchHeader({
   // Get status chip styles
   const getStatusChipStyles = () => {
     if (status === "in_progress") {
-      return "bg-primary/20 border-primary text-primary";
+      return "bg-primary/20 border-primary/50 text-foreground";
     }
     if (status === "finished") {
       return "bg-muted border-border text-foreground";
@@ -72,11 +89,11 @@ export function MatchHeader({
       )}
 
       {/* Main Score Layout - MLS Style */}
-      <div className="flex items-center justify-center gap-3 sm:gap-6">
-        {/* Home Team Logo */}
-        <div className="flex items-center gap-2 sm:gap-4">
+      <div className="flex items-center justify-center gap-2 sm:gap-4">
+        {/* Home Team Logo + Score */}
+        <div className="flex items-center gap-2 sm:gap-3">
           <TeamLogo teamColor={teamHome as any} size="md" />
-          <span className="text-3xl sm:text-4xl md:text-5xl font-bold tabular-nums text-foreground">
+          <span className="text-3xl sm:text-4xl md:text-5xl font-bold tabular-nums text-primary">
             {scoreHome}
           </span>
         </div>
@@ -84,20 +101,20 @@ export function MatchHeader({
         {/* Status Chip - Central */}
         <div 
           className={`
-            px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border text-xs sm:text-sm font-semibold
-            min-w-[70px] sm:min-w-[90px] text-center whitespace-nowrap
+            px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border text-xs sm:text-sm font-medium
+            min-w-[70px] sm:min-w-[90px] text-center whitespace-nowrap flex items-center justify-center gap-1.5
             ${getStatusChipStyles()}
           `}
         >
           {status === "in_progress" && (
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse mr-1.5" />
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
           )}
-          {getStatusChipContent()}
+          <span>{getStatusChipContent()}</span>
         </div>
 
-        {/* Away Team Logo */}
-        <div className="flex items-center gap-2 sm:gap-4">
-          <span className="text-3xl sm:text-4xl md:text-5xl font-bold tabular-nums text-foreground">
+        {/* Away Team Score + Logo */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span className="text-3xl sm:text-4xl md:text-5xl font-bold tabular-nums text-primary">
             {scoreAway}
           </span>
           <TeamLogo teamColor={teamAway as any} size="md" />

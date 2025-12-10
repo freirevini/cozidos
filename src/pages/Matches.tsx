@@ -5,11 +5,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { TeamLogo } from "@/components/match/TeamLogo";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import iconBall from "@/assets/icon-ball.png";
-import iconBoot from "@/assets/icon-boot.png";
 
 interface Match {
   id: string;
@@ -21,13 +17,10 @@ interface Match {
   scheduled_time: string;
   started_at: string | null;
   finished_at: string | null;
+  match_timer_started_at: string | null;
+  match_timer_paused_at: string | null;
+  match_timer_total_paused_seconds: number | null;
   status: string;
-  goals: Array<{
-    player: { nickname: string; name: string; avatar_url?: string | null };
-    minute: number;
-    team_color: string;
-    assist: { player: { nickname: string; name: string; avatar_url?: string | null } | null } | null;
-  }>;
 }
 
 interface Round {
@@ -50,24 +43,19 @@ export default function Matches() {
   const [rounds, setRounds] = useState<Round[]>([]);
   const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [, setTick] = useState(0); // For timer updates
 
   useEffect(() => {
-    loadUserAndData();
+    loadRounds();
   }, []);
 
-  const loadUserAndData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      setIsAdmin(data?.role === "admin");
-    }
-    await loadRounds();
-  };
+  // Timer update for live matches
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const loadRounds = async () => {
     try {
@@ -78,7 +66,7 @@ export default function Matches() {
       const { data: roundsData } = await supabase
         .from("rounds")
         .select("*")
-        .order("round_number", { ascending: false }); // Mais recente primeiro
+        .order("round_number", { ascending: false });
 
       if (!roundsData) {
         setLoading(false);
@@ -91,56 +79,18 @@ export default function Matches() {
             .from("matches")
             .select("*")
             .eq("round_id", round.id)
-            .order("scheduled_time", { ascending: true }); // Ordenar por horário
-
-          const matchesWithDetails = await Promise.all(
-            (matches || []).map(async (match: any) => {
-              // Buscar gols com assistências
-              const { data: goalsData } = await supabase
-                .from("goals")
-                .select(`
-                  *,
-                  player:profiles!goals_player_id_fkey(nickname, name, avatar_url),
-                  assists(
-                    player:profiles!assists_player_id_fkey(nickname, name, avatar_url)
-                  )
-                `)
-                .eq("match_id", match.id);
-
-              const goalsWithPlayers = (goalsData || []).map((goal: any) => {
-                let assist = null;
-                if (goal.assists) {
-                  const assistData = Array.isArray(goal.assists) ? goal.assists[0] : goal.assists;
-                  if (assistData?.player) {
-                    assist = { player: assistData.player };
-                  }
-                }
-
-                return {
-                  minute: goal.minute,
-                  team_color: goal.team_color,
-                  player: goal.player || { nickname: "Desconhecido", name: "Desconhecido", avatar_url: null },
-                  assist,
-                };
-              });
-
-              return {
-                ...match,
-                goals: goalsWithPlayers,
-              };
-            })
-          );
+            .order("scheduled_time", { ascending: true });
 
           return {
             ...round,
-            matches: matchesWithDetails || [],
+            matches: matches || [],
           };
         })
       );
 
       setRounds(roundsWithMatches);
       if (roundsWithMatches.length > 0) {
-        setCurrentRoundIndex(0); // Sempre começar na rodada mais recente
+        setCurrentRoundIndex(0);
       }
       setLoading(false);
     } catch (error) {
@@ -151,7 +101,7 @@ export default function Matches() {
 
   const currentRound = rounds[currentRoundIndex];
 
-  // Realtime: Sincronizar atualizações
+  // Realtime subscriptions
   useEffect(() => {
     if (!currentRound) return;
 
@@ -171,62 +121,13 @@ export default function Matches() {
       )
       .subscribe();
 
-    const goalsChannel = supabase
-      .channel("goals-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "goals",
-        },
-        () => {
-          loadRounds();
-        }
-      )
-      .subscribe();
-
-    const assistsChannel = supabase
-      .channel("assists-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "assists",
-        },
-        () => {
-          loadRounds();
-        }
-      )
-      .subscribe();
-
     return () => {
       supabase.removeChannel(matchesChannel);
-      supabase.removeChannel(goalsChannel);
-      supabase.removeChannel(assistsChannel);
     };
   }, [currentRound]);
 
-  // Filtrar apenas rodadas não "a_iniciar" para navegação
+  // Filter only visible rounds (not "a_iniciar")
   const visibleRounds = rounds.filter((r) => r.status !== "a_iniciar");
-
-  const getStatusText = (status: string) => {
-    if (status === "not_started") return "A iniciar";
-    if (status === "in_progress") return "Em andamento";
-    if (status === "finished") return "Encerrado";
-    return "";
-  };
-
-  const getStatusBadge = (status: string) => {
-    if (status === "in_progress") {
-      return <Badge className="bg-primary text-primary-foreground">Em andamento</Badge>;
-    }
-    if (status === "finished") {
-      return <Badge className="bg-green-600 text-white">Encerrado</Badge>;
-    }
-    return <Badge variant="outline">A iniciar</Badge>;
-  };
 
   const formatDate = (dateString: string) => {
     try {
@@ -238,8 +139,75 @@ export default function Matches() {
     }
   };
 
-  const formatTime = (timeString: string) => {
-    return timeString.substring(0, 5);
+  // Safe time formatting - handles both ISO strings and time-only strings
+  const formatTime = (timeString: string | null | undefined): string => {
+    if (!timeString) return "--:--";
+    
+    try {
+      // If it's a time-only string (HH:MM:SS or HH:MM), extract hours and minutes
+      if (timeString.match(/^\d{2}:\d{2}(:\d{2})?$/)) {
+        return timeString.substring(0, 5);
+      }
+      
+      // Try parsing as ISO date
+      const date = new Date(timeString);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      }
+      
+      return "--:--";
+    } catch {
+      return "--:--";
+    }
+  };
+
+  // Calculate current minute for live matches
+  const getCurrentMinute = (match: Match): number | null => {
+    if (match.status !== "in_progress" || !match.match_timer_started_at) return null;
+
+    try {
+      const startTime = new Date(match.match_timer_started_at).getTime();
+      if (isNaN(startTime)) return null;
+      
+      const now = Date.now();
+      let pausedSeconds = match.match_timer_total_paused_seconds || 0;
+      
+      if (match.match_timer_paused_at) {
+        const pausedAt = new Date(match.match_timer_paused_at).getTime();
+        if (!isNaN(pausedAt)) {
+          pausedSeconds += Math.floor((now - pausedAt) / 1000);
+        }
+      }
+      
+      const elapsedSeconds = Math.max(0, Math.floor((now - startTime) / 1000) - pausedSeconds);
+      return Math.floor(elapsedSeconds / 60);
+    } catch {
+      return null;
+    }
+  };
+
+  // Format minute with overtime display (base 12 minutes)
+  const formatMinuteDisplay = (minute: number): string => {
+    if (minute <= 12) return `${minute}'`;
+    return `12' + ${minute - 12}`;
+  };
+
+  // Get status chip content based on match state
+  const getStatusContent = (match: Match): string => {
+    if (match.status === "finished") {
+      return "Encerrado";
+    }
+    
+    if (match.status === "in_progress") {
+      const minute = getCurrentMinute(match);
+      if (minute !== null) {
+        return formatMinuteDisplay(minute);
+      }
+      return "Em andamento";
+    }
+    
+    // Not started - show scheduled time
+    return formatTime(match.scheduled_time);
   };
 
   return (
@@ -247,13 +215,13 @@ export default function Matches() {
       <Header />
 
       <main className="container mx-auto px-4 py-6 max-w-6xl">
-        {/* Título */}
+        {/* Title */}
         <h1 className="text-2xl sm:text-3xl font-bold text-primary mb-6">Rodadas</h1>
 
-        {/* Navegação de Rodadas - Estilo B1 */}
+        {/* Round Navigation */}
         <div className="mb-6 overflow-x-auto scrollbar-hide">
           <div className="flex gap-3 min-w-max pb-2">
-            {visibleRounds.map((round, idx) => {
+            {visibleRounds.map((round) => {
               const actualIndex = rounds.findIndex((r) => r.id === round.id);
               const isActive = currentRoundIndex === actualIndex;
 
@@ -276,7 +244,7 @@ export default function Matches() {
           </div>
         </div>
 
-        {/* Lista de Partidas - Estilo B1 */}
+        {/* Match List */}
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">Carregando...</div>
         ) : !currentRound ? (
@@ -290,158 +258,60 @@ export default function Matches() {
                 Nenhuma partida nesta rodada
               </div>
             ) : (
-              currentRound.matches.map((match) => {
-                const matchDate =
-                  match.status === "finished" && match.finished_at
-                    ? formatDate(match.finished_at)
-                    : match.started_at
-                    ? formatDate(match.started_at)
-                    : currentRound.scheduled_date
-                    ? formatDate(currentRound.scheduled_date)
-                    : "";
-
-                return (
-                  <Card
-                    key={match.id}
-                    className="overflow-hidden hover:shadow-lg hover:shadow-primary/20 transition-all border-border cursor-pointer active:scale-[0.98]"
-                    onClick={() => navigate(`/match/${match.id}`)}
-                  >
-                    <CardContent className="p-4 sm:p-6">
-                      {/* Cabeçalho com horário e status */}
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="text-sm text-muted-foreground">
-                          {match.started_at
-                            ? formatTime(match.started_at)
-                            : formatTime(match.scheduled_time)}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {getStatusBadge(match.status)}
-                          {match.status === "finished" && (
-                            <span className="text-xs text-muted-foreground">{matchDate}</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Placar com logos */}
-                      <div className="flex items-center justify-center gap-4 sm:gap-6 mb-4">
-                        {/* Time Casa */}
-                        <div className="flex flex-col items-center gap-2 flex-1">
+              currentRound.matches.map((match) => (
+                <Card
+                  key={match.id}
+                  className="overflow-hidden hover:shadow-lg hover:shadow-primary/20 transition-all border-border cursor-pointer active:scale-[0.98]"
+                  onClick={() => navigate(`/match/${match.id}`)}
+                >
+                  <CardContent className="p-4 sm:p-6">
+                    {/* Score Layout - Centered with Status Pill */}
+                    <div className="flex items-center justify-center gap-2 sm:gap-4">
+                      {/* Home Team */}
+                      <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-end">
+                        <div className="flex flex-col items-center gap-1">
                           <TeamLogo teamColor={match.team_home as any} size="sm" />
-                          <span className="text-sm font-medium text-center">
+                          <span className="text-xs sm:text-sm font-medium text-foreground">
                             {teamNames[match.team_home]}
                           </span>
                         </div>
+                        <span className="text-2xl sm:text-3xl md:text-4xl font-bold tabular-nums text-primary">
+                          {match.score_home}
+                        </span>
+                      </div>
 
-                        {/* Placar */}
-                        <div className="text-3xl sm:text-4xl font-bold tabular-nums text-primary">
-                          {match.score_home} - {match.score_away}
-                        </div>
+                      {/* Status Chip - Central */}
+                      <div 
+                        className={cn(
+                          "px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border text-xs sm:text-sm font-medium",
+                          "min-w-[70px] sm:min-w-[90px] text-center whitespace-nowrap flex items-center justify-center gap-1.5",
+                          match.status === "in_progress" 
+                            ? "bg-primary/20 border-primary/50 text-foreground" 
+                            : "bg-muted border-border text-foreground"
+                        )}
+                      >
+                        {match.status === "in_progress" && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                        )}
+                        <span>{getStatusContent(match)}</span>
+                      </div>
 
-                        {/* Time Visitante */}
-                        <div className="flex flex-col items-center gap-2 flex-1">
+                      {/* Away Team */}
+                      <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-start">
+                        <span className="text-2xl sm:text-3xl md:text-4xl font-bold tabular-nums text-primary">
+                          {match.score_away}
+                        </span>
+                        <div className="flex flex-col items-center gap-1">
                           <TeamLogo teamColor={match.team_away as any} size="sm" />
-                          <span className="text-sm font-medium text-center">
+                          <span className="text-xs sm:text-sm font-medium text-foreground">
                             {teamNames[match.team_away]}
                           </span>
                         </div>
                       </div>
-
-                      {/* Gols com assistências (se houver) */}
-                      {match.goals.length > 0 && (
-                        <div className="border-t border-border pt-3 mt-3">
-                          <div className="grid grid-cols-2 gap-3 text-xs sm:text-sm">
-                            {/* Gols Time Casa */}
-                            <div className="space-y-2">
-                              {match.goals
-                                .filter((goal) => goal.team_color === match.team_home)
-                                .sort((a, b) => a.minute - b.minute)
-                                .map((goal, idx) => (
-                                  <div key={idx} className="flex flex-col gap-0.5">
-                                    <div className="flex items-center gap-1.5">
-                                      <img 
-                                        src={iconBall} 
-                                        alt="Gol" 
-                                        className="w-3.5 h-3.5 brightness-0 invert flex-shrink-0" 
-                                      />
-                                      <Avatar className="h-5 w-5">
-                                        <AvatarImage src={goal.player?.avatar_url || undefined} />
-                                        <AvatarFallback className="text-[8px] bg-primary/20 text-primary">
-                                          {(goal.player?.nickname || goal.player?.name)?.substring(0, 2).toUpperCase()}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <span className="font-medium">
-                                        {goal.minute}' {goal.player?.nickname || goal.player?.name}
-                                      </span>
-                                    </div>
-                                    {goal.assist?.player && (
-                                      <div className="flex items-center gap-1.5 ml-5">
-                                        <img 
-                                          src={iconBoot} 
-                                          alt="Assist" 
-                                          className="w-3 h-3 brightness-0 invert opacity-60 flex-shrink-0" 
-                                        />
-                                        <span className="text-muted-foreground text-xs">
-                                          {goal.assist.player.nickname || goal.assist.player.name}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                              {match.goals.filter((g) => g.team_color === match.team_home).length ===
-                                0 && (
-                                <div className="text-muted-foreground italic text-center">-</div>
-                              )}
-                            </div>
-
-                            {/* Gols Time Visitante */}
-                            <div className="space-y-2">
-                              {match.goals
-                                .filter((goal) => goal.team_color === match.team_away)
-                                .sort((a, b) => a.minute - b.minute)
-                                .map((goal, idx) => (
-                                  <div key={idx} className="flex flex-col gap-0.5">
-                                    <div className="flex items-center gap-1.5">
-                                      <img 
-                                        src={iconBall} 
-                                        alt="Gol" 
-                                        className="w-3.5 h-3.5 brightness-0 invert flex-shrink-0" 
-                                      />
-                                      <Avatar className="h-5 w-5">
-                                        <AvatarImage src={goal.player?.avatar_url || undefined} />
-                                        <AvatarFallback className="text-[8px] bg-primary/20 text-primary">
-                                          {(goal.player?.nickname || goal.player?.name)?.substring(0, 2).toUpperCase()}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <span className="font-medium">
-                                        {goal.minute}' {goal.player?.nickname || goal.player?.name}
-                                      </span>
-                                    </div>
-                                    {goal.assist?.player && (
-                                      <div className="flex items-center gap-1.5 ml-5">
-                                        <img 
-                                          src={iconBoot} 
-                                          alt="Assist" 
-                                          className="w-3 h-3 brightness-0 invert opacity-60 flex-shrink-0" 
-                                        />
-                                        <span className="text-muted-foreground text-xs">
-                                          {goal.assist.player.nickname || goal.assist.player.name}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                              {match.goals.filter((g) => g.team_color === match.team_away).length ===
-                                0 && (
-                                <div className="text-muted-foreground italic text-center">-</div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
             )}
           </div>
         )}
