@@ -103,20 +103,24 @@ export function PlayerEventBadges({
             />
           )}
           {type === "sub" && (
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              className="w-3 h-3"
-              stroke="currentColor"
-              strokeWidth="2.5"
+            <span 
+              className="flex items-center justify-center w-3.5 h-3.5 rounded-full bg-emerald-500/90 shadow-sm"
+              style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.4)" }}
             >
-              <path
-                d="M7 17L17 7M17 7V17M17 7H7"
-                stroke="#22c55e"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                className="w-2.5 h-2.5"
+                strokeWidth="3"
+              >
+                <path
+                  d="M12 19V5M12 5L6 11M12 5L18 11"
+                  stroke="white"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
           )}
         </span>
       ))}
