@@ -1,25 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, Filter, UserCheck, UserX, AlertTriangle, UserPlus, RefreshCw, Upload, Copy, Link2, Camera } from "lucide-react";
-import { LinkPendingPlayerModal } from "@/components/LinkPendingPlayerModal";
-import { AlertDialogIcon } from "@/components/ui/alert-dialog-icon";
 import { toast as sonnerToast } from "sonner";
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { z } from 'zod';
 import { getUserFriendlyError } from "@/lib/errorHandler";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { RefreshCw, AlertTriangle, Link2, Copy } from "lucide-react";
+import { AlertDialogIcon } from "@/components/ui/alert-dialog-icon";
+import { LinkPendingPlayerModal } from "@/components/LinkPendingPlayerModal";
+import { AvatarUpload } from "@/components/AvatarUpload";
 import {
   Dialog,
   DialogContent,
@@ -28,73 +21,53 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AvatarUpload } from "@/components/AvatarUpload";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
-interface Player {
-  id: string;
-  name: string;
-  first_name: string | null;
-  last_name: string | null;
-  nickname: string | null;
-  email: string | null;
-  birth_date: string | null;
-  is_player: boolean;
-  level: string | null;
-  position: string | null;
-  status: string | null;
-  user_id: string | null;
-  avatar_url: string | null;
-  claim_token: string | null;
-  created_by_admin_simple: boolean | null;
-  player_type_detail: string | null;
-}
+import {
+  PlayerCompactCard,
+  PlayerEditDialog,
+  PlayerFilters,
+  PlayerQuickActions,
+  type Player,
+} from "@/components/players";
 
-const statusLabels: Record<string, string> = {
-  pendente: "Pendente",
-  aprovado: "Aprovado",
-  congelado: "Congelado",
-  rejeitado: "Rejeitado",
-};
-
-const statusColors: Record<string, string> = {
-  pendente: "bg-yellow-600 text-white",
-  aprovado: "bg-green-600 text-white",
-  congelado: "bg-gray-600 text-white",
-  rejeitado: "bg-red-600 text-white",
-};
-
-const positionLabels: Record<string, string> = {
-  goleiro: "Goleiro",
-  defensor: "Defensor",
-  "meio-campista": "Meio-Campista",
-  atacante: "Atacante",
-};
+const PLAYERS_PER_PAGE = 20;
 
 export default function ManagePlayers() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [players, setPlayers] = useState<Player[]>([]);
+  
+  // Data states
+  const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
+  const [displayedPlayers, setDisplayedPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [showImportHelp, setShowImportHelp] = useState(false);
-
-  // Filtros
+  const [refreshing, setRefreshing] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  
+  // Filter states
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterPosition, setFilterPosition] = useState<string>("all");
-
-  // Estados para inline editing (nickname - desktop)
-  const [editingNickname, setEditingNickname] = useState<string | null>(null);
-  const [nicknameValue, setNicknameValue] = useState("");
-
-  // Estados para edição completa (mobile)
-  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
-  const [editingPlayerData, setEditingPlayerData] = useState<Player | null>(null);
-
-  // Estados para dialog de cadastro simplificado
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterPosition, setFilterPosition] = useState("all");
+  
+  // Dialog states
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [showImportHelp, setShowImportHelp] = useState(false);
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [selectedPendingPlayer, setSelectedPendingPlayer] = useState<Player | null>(null);
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null);
+  const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
+  const [avatarEditPlayer, setAvatarEditPlayer] = useState<Player | null>(null);
+  
+  // Form state for new player
   const [formData, setFormData] = useState({
     nickname: "",
     level: "",
@@ -102,50 +75,79 @@ export default function ManagePlayers() {
     player_type_detail: "mensal" as "mensal" | "avulso" | "avulso_fixo",
   });
   
-  // Estados para modal de vinculação de pendentes
-  const [linkModalOpen, setLinkModalOpen] = useState(false);
-  const [selectedPendingPlayer, setSelectedPendingPlayer] = useState<Player | null>(null);
-  
-  // Estado para exibir token gerado
-  const [generatedToken, setGeneratedToken] = useState<string | null>(null);
-  
-  // Estado para edição de avatar (desktop)
-  const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
-  const [avatarEditPlayer, setAvatarEditPlayer] = useState<Player | null>(null);
+  // Ref for infinite scroll
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    checkAdmin();
-  }, []);
-
-  useEffect(() => {
-    if (isAdmin) {
-      loadPlayers();
+    if (!isAdmin) {
+      navigate("/");
+      return;
     }
+    loadPlayers();
   }, [isAdmin]);
 
+  // Fuzzy search with multiple fields
+  const fuzzyMatch = useCallback((player: Player, term: string): boolean => {
+    const searchLower = term.toLowerCase();
+    const fields = [
+      player.name,
+      player.nickname,
+      player.first_name,
+      player.last_name,
+      player.email,
+      player.position,
+      player.level,
+    ].filter(Boolean).map(f => f?.toLowerCase() || "");
+    
+    return fields.some(field => field.includes(searchLower));
+  }, []);
+
+  // Apply filters
   useEffect(() => {
-    applyFilters();
-  }, [players, searchTerm, filterStatus, filterPosition]);
+    let filtered = [...allPlayers];
+    
+    // Fuzzy search
+    if (searchTerm) {
+      filtered = filtered.filter(p => fuzzyMatch(p, searchTerm));
+    }
+    
+    // Status filter
+    if (filterStatus !== "all") {
+      filtered = filtered.filter(p => p.status === filterStatus);
+    }
+    
+    // Position filter
+    if (filterPosition !== "all") {
+      filtered = filtered.filter(p => p.position === filterPosition);
+    }
+    
+    setFilteredPlayers(filtered);
+    setDisplayedPlayers(filtered.slice(0, PLAYERS_PER_PAGE));
+    setHasMore(filtered.length > PLAYERS_PER_PAGE);
+  }, [allPlayers, searchTerm, filterStatus, filterPosition, fuzzyMatch]);
 
-  const checkAdmin = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      navigate("/auth");
-      return;
+  // Infinite scroll observer
+  useEffect(() => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
     }
 
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMorePlayers();
+        }
+      },
+      { threshold: 0.1 }
+    );
 
-    if (data?.role !== "admin") {
-      navigate("/");
-      sonnerToast.error("Acesso negado: apenas administradores");
-      return;
+    if (loadMoreRef.current) {
+      observerRef.current.observe(loadMoreRef.current);
     }
-  };
+
+    return () => observerRef.current?.disconnect();
+  }, [hasMore, loadingMore, filteredPlayers.length, displayedPlayers.length]);
 
   const loadPlayers = async () => {
     setLoading(true);
@@ -157,7 +159,7 @@ export default function ManagePlayers() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setPlayers(data || []);
+      setAllPlayers(data || []);
     } catch (error: any) {
       sonnerToast.error("Erro ao carregar jogadores: " + error.message);
     } finally {
@@ -165,333 +167,182 @@ export default function ManagePlayers() {
     }
   };
 
+  const loadMorePlayers = () => {
+    if (loadingMore || displayedPlayers.length >= filteredPlayers.length) return;
+    
+    setLoadingMore(true);
+    setTimeout(() => {
+      const nextBatch = filteredPlayers.slice(
+        displayedPlayers.length,
+        displayedPlayers.length + PLAYERS_PER_PAGE
+      );
+      setDisplayedPlayers(prev => [...prev, ...nextBatch]);
+      setHasMore(displayedPlayers.length + nextBatch.length < filteredPlayers.length);
+      setLoadingMore(false);
+    }, 100);
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadPlayers();
+    setRefreshing(false);
+    sonnerToast.success("Lista atualizada!");
+  };
+
   const { isRefreshing, pullDistance } = usePullToRefresh({
-    onRefresh: async () => {
-      await loadPlayers();
-      sonnerToast.success("Dados atualizados!");
-    },
+    onRefresh: handleRefresh,
     enabled: true,
   });
 
-  const applyFilters = () => {
-    let filtered = [...players];
-
-    // Filtro de busca por nome/apelido/email
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (p) =>
-          p.name?.toLowerCase().includes(term) ||
-          p.nickname?.toLowerCase().includes(term) ||
-          p.first_name?.toLowerCase().includes(term) ||
-          p.last_name?.toLowerCase().includes(term) ||
-          p.email?.toLowerCase().includes(term)
-      );
-    }
-
-    // Filtro por status
-    if (filterStatus !== "all") {
-      filtered = filtered.filter((p) => p.status === filterStatus);
-    }
-
-    // Filtro por posição
-    if (filterPosition !== "all") {
-      filtered = filtered.filter((p) => p.position === filterPosition);
-    }
-
-    setFilteredPlayers(filtered);
+  // Player actions
+  const handleEditPlayer = (player: Player) => {
+    setEditingPlayer(player);
+    setEditDialogOpen(true);
   };
 
-  const calculateAge = (birthDate: string | null) => {
-    if (!birthDate) return "-";
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  const formatBirthDate = (birthDate: string | null) => {
-    if (!birthDate) return "-";
-    const [year, month, day] = birthDate.split('-');
-    return `${day}/${month}/${year}`;
-  };
-
-  const updatePlayer = async (playerId: string, field: string, value: any) => {
+  const handleSavePlayer = async (updatedPlayer: Player) => {
     try {
-      // Input validation schema
-      const playerUpdateSchema = z.object({
-        nickname: z.string().trim().min(1, "Nome não pode estar vazio").max(50, "Nome deve ter no máximo 50 caracteres").optional(),
-        level: z.enum(['A', 'B', 'C', 'D', 'E'], { errorMap: () => ({ message: "Nível inválido" }) }).optional(),
-        position: z.enum(['goleiro', 'defensor', 'meio-campista', 'atacante'], { errorMap: () => ({ message: "Posição inválida" }) }).optional(),
-        status: z.enum(['pendente', 'aprovado', 'congelado', 'rejeitado'], { errorMap: () => ({ message: "Status inválido" }) }).optional(),
-        player_type_detail: z.enum(['mensal', 'avulso', 'avulso_fixo'], { errorMap: () => ({ message: "Tipo de jogador inválido" }) }).optional(),
-      });
-
-      // Validate input
-      const validation = playerUpdateSchema.safeParse({ [field]: value });
-      if (!validation.success) {
-        sonnerToast.error(validation.error.errors[0].message);
-        return;
-      }
-
       const { error } = await supabase
         .from("profiles")
-        .update({ [field]: validation.data[field as keyof typeof validation.data] })
-        .eq("id", playerId);
+        .update({
+          nickname: updatedPlayer.nickname,
+          email: updatedPlayer.email,
+          birth_date: updatedPlayer.birth_date,
+          level: updatedPlayer.level as any,
+          position: updatedPlayer.position as any,
+          status: updatedPlayer.status as any,
+        })
+        .eq("id", updatedPlayer.id);
 
       if (error) throw error;
+      
+      setAllPlayers(prev => prev.map(p => p.id === updatedPlayer.id ? updatedPlayer : p));
+      sonnerToast.success("Jogador atualizado!");
+    } catch (error: any) {
+      sonnerToast.error(getUserFriendlyError(error));
+      throw error;
+    }
+  };
 
-      setPlayers(
-        players.map((p) => (p.id === playerId ? { ...p, [field]: value } : p))
-      );
+  const handleDeletePlayer = async (player: Player) => {
+    const confirmDialog = document.createElement('div');
+    document.body.appendChild(confirmDialog);
+    const root = document.createElement('div');
+    confirmDialog.appendChild(root);
 
-      sonnerToast.success("Jogador atualizado com sucesso!");
+    const cleanup = () => document.body.removeChild(confirmDialog);
+
+    const { createRoot } = await import('react-dom/client');
+    const reactRoot = createRoot(root);
+    
+    reactRoot.render(
+      <AlertDialogIcon
+        icon={AlertTriangle}
+        title="Excluir Jogador"
+        description={`Tem certeza que deseja excluir ${player.nickname || player.name}? TODOS os dados associados serão removidos permanentemente.`}
+        actionText="Excluir"
+        cancelText="Cancelar"
+        variant="destructive"
+        open={true}
+        onOpenChange={(open) => { if (!open) { reactRoot.unmount(); cleanup(); }}}
+        onAction={async () => {
+          try {
+            const { error } = await supabase.rpc("delete_player_complete", { p_profile_id: player.id });
+            if (error) throw error;
+            
+            await supabase.rpc('recalc_all_player_rankings');
+            setAllPlayers(prev => prev.filter(p => p.id !== player.id));
+            sonnerToast.success("Jogador excluído!");
+            setEditDialogOpen(false);
+          } catch (error: any) {
+            sonnerToast.error(getUserFriendlyError(error));
+          }
+          reactRoot.unmount();
+          cleanup();
+        }}
+        onCancel={() => { reactRoot.unmount(); cleanup(); }}
+      />
+    );
+  };
+
+  const handleApprovePlayer = async (player: Player) => {
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ status: "aprovado" })
+        .eq("id", player.id);
+      if (error) throw error;
+      setAllPlayers(prev => prev.map(p => p.id === player.id ? { ...p, status: "aprovado" } : p));
+      sonnerToast.success(`${player.nickname || player.name} aprovado!`);
     } catch (error: any) {
       sonnerToast.error(getUserFriendlyError(error));
     }
   };
 
-  const approvePlayer = (playerId: string, playerName: string) => {
-    return new Promise<void>((resolve) => {
-      const dialog = document.createElement('div');
-      document.body.appendChild(dialog);
-      
-      const root = document.createElement('div');
-      dialog.appendChild(root);
-      
-      const cleanup = () => {
-        document.body.removeChild(dialog);
-        resolve();
-      };
-
-      import('react-dom/client').then(({ createRoot }) => {
-        const reactRoot = createRoot(root);
-        reactRoot.render(
-          <AlertDialogIcon
-            icon={UserCheck}
-            title="Aprovar Jogador"
-            description={`Deseja aprovar ${playerName}? Ele poderá ser escalado em times após a aprovação.`}
-            actionText="Aprovar"
-            cancelText="Cancelar"
-            variant="default"
-            open={true}
-            onOpenChange={(open) => {
-              if (!open) {
-                reactRoot.unmount();
-                cleanup();
-              }
-            }}
-            onAction={async () => {
-              await updatePlayer(playerId, "status", "aprovado");
-              reactRoot.unmount();
-              cleanup();
-            }}
-            onCancel={() => {
-              reactRoot.unmount();
-              cleanup();
-            }}
-          />
-        );
-      });
-    });
+  const handleRejectPlayer = async (player: Player) => {
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ status: "rejeitado" })
+        .eq("id", player.id);
+      if (error) throw error;
+      setAllPlayers(prev => prev.map(p => p.id === player.id ? { ...p, status: "rejeitado" } : p));
+      sonnerToast.success(`${player.nickname || player.name} rejeitado`);
+    } catch (error: any) {
+      sonnerToast.error(getUserFriendlyError(error));
+    }
   };
 
-  const rejectPlayer = (playerId: string, playerName: string) => {
-    return new Promise<void>((resolve) => {
-      const dialog = document.createElement('div');
-      document.body.appendChild(dialog);
-      
-      const root = document.createElement('div');
-      dialog.appendChild(root);
-      
-      const cleanup = () => {
-        document.body.removeChild(dialog);
-        resolve();
-      };
-
-      import('react-dom/client').then(({ createRoot }) => {
-        const reactRoot = createRoot(root);
-        reactRoot.render(
-          <AlertDialogIcon
-            icon={UserX}
-            title="Rejeitar Jogador"
-            description={`Deseja rejeitar o cadastro de ${playerName}? Esta ação pode ser revertida posteriormente.`}
-            actionText="Rejeitar"
-            cancelText="Cancelar"
-            variant="destructive"
-            open={true}
-            onOpenChange={(open) => {
-              if (!open) {
-                reactRoot.unmount();
-                cleanup();
-              }
-            }}
-            onAction={async () => {
-              await updatePlayer(playerId, "status", "rejeitado");
-              reactRoot.unmount();
-              cleanup();
-            }}
-            onCancel={() => {
-              reactRoot.unmount();
-              cleanup();
-            }}
-          />
-        );
-      });
-    });
+  const handleLinkPlayer = (player: Player) => {
+    setSelectedPendingPlayer(player);
+    setLinkModalOpen(true);
   };
 
-  const deletePlayer = async (playerId: string, playerName: string, playerEmail: string | null) => {
-    return new Promise<void>((resolve) => {
-      const dialog = document.createElement('div');
-      document.body.appendChild(dialog);
-      
-      const root = document.createElement('div');
-      dialog.appendChild(root);
-      
-      const cleanup = () => {
-        document.body.removeChild(dialog);
-        resolve();
-      };
-
-      import('react-dom/client').then(({ createRoot }) => {
-        const reactRoot = createRoot(root);
-        reactRoot.render(
-          <AlertDialogIcon
-            icon={AlertTriangle}
-            title="Excluir Jogador"
-            description={`Tem certeza que deseja excluir ${playerName}? TODOS os dados associados (gols, assistências, cartões, estatísticas, presenças) serão removidos permanentemente. Esta ação NÃO pode ser desfeita.`}
-            actionText="Excluir Permanentemente"
-            cancelText="Cancelar"
-            variant="destructive"
-            open={true}
-            onOpenChange={(open) => {
-              if (!open) {
-                reactRoot.unmount();
-                cleanup();
-              }
-            }}
-            onAction={async () => {
-              reactRoot.unmount();
-              cleanup();
-              
-              try {
-                const { data: result, error } = await supabase.rpc("delete_player_complete", {
-                  p_profile_id: playerId,
-                });
-
-                if (error) throw error;
-
-                const resultData = result as any;
-
-                // Se houver user_id, opcionalmente deletar do auth
-                if (resultData?.user_id) {
-                  // Segundo dialog para confirmar remoção de auth
-                  const dialog2 = document.createElement('div');
-                  document.body.appendChild(dialog2);
-                  const root2 = document.createElement('div');
-                  dialog2.appendChild(root2);
-                  
-                  const cleanup2 = () => {
-                    document.body.removeChild(dialog2);
-                  };
-
-                  const reactRoot2 = createRoot(root2);
-                  reactRoot2.render(
-                    <AlertDialogIcon
-                      icon={AlertTriangle}
-                      title="Remover Acesso ao Sistema?"
-                      description={`Deseja também remover o acesso de autenticação de ${playerName}? Isso impedirá que ele faça login no sistema.`}
-                      actionText="Remover Acesso"
-                      cancelText="Manter Acesso"
-                      variant="destructive"
-                      open={true}
-                      onOpenChange={(open) => {
-                        if (!open) {
-                          reactRoot2.unmount();
-                          cleanup2();
-                        }
-                      }}
-                      onAction={async () => {
-                        const { error: authError } = await supabase.functions.invoke("delete-auth-user", {
-                          body: { user_id: resultData.user_id },
-                        });
-
-                        if (authError) {
-                          console.error("Erro ao remover acesso:", authError);
-                          sonnerToast.error("Jogador removido mas houve erro ao remover acesso de autenticação");
-                        } else {
-                          sonnerToast.success("Jogador e acesso de autenticação removidos com sucesso!");
-                        }
-                        
-                        reactRoot2.unmount();
-                        cleanup2();
-                      }}
-                      onCancel={() => {
-                        sonnerToast.success("Jogador removido com sucesso! Acesso de autenticação mantido.");
-                        reactRoot2.unmount();
-                        cleanup2();
-                      }}
-                    />
-                  );
-                } else {
-                  sonnerToast.success("Jogador removido com sucesso!");
-                }
-
-                // Recalcular classificação após exclusão
-                const { error: recalcError } = await supabase.rpc('recalc_all_player_rankings');
-                if (recalcError) {
-                  console.error('Erro ao recalcular classificação:', recalcError);
-                }
-
-                setPlayers(players.filter((p) => p.id !== playerId));
-              } catch (error: any) {
-                sonnerToast.error(getUserFriendlyError(error));
-              }
-            }}
-            onCancel={() => {
-              reactRoot.unmount();
-              cleanup();
-            }}
-          />
-        );
-      });
-    });
+  const handleEditAvatar = (player: Player) => {
+    setAvatarEditPlayer(player);
+    setAvatarDialogOpen(true);
   };
 
-  const handleNicknameEdit = (player: Player) => {
-    setEditingNickname(player.id);
-    setNicknameValue(player.nickname || "");
+  const handleCopyToken = async (token: string) => {
+    await navigator.clipboard.writeText(token);
+    sonnerToast.success("Token copiado!");
   };
 
-  const saveNickname = async (playerId: string) => {
-    await updatePlayer(playerId, "nickname", nicknameValue);
-    setEditingNickname(null);
+  const handleCopyInviteLink = async (token: string) => {
+    const link = `${window.location.origin}/auth?token=${token}`;
+    await navigator.clipboard.writeText(link);
+    sonnerToast.success("Link copiado!");
+  };
+
+  const handleGenerateToken = async (playerId: string) => {
+    try {
+      const { data: token, error } = await supabase.rpc('generate_claim_token', { p_profile_id: playerId });
+      if (error) throw error;
+      setAllPlayers(prev => prev.map(p => p.id === playerId ? { ...p, claim_token: token } : p));
+      await navigator.clipboard.writeText(token);
+      sonnerToast.success(`Token gerado e copiado!`);
+    } catch (error: any) {
+      sonnerToast.error(getUserFriendlyError(error));
+    }
   };
 
   const handleCreatePlayer = async () => {
-    // Validações simplificadas - apenas campos obrigatórios do formulário admin
     if (!formData.nickname || !formData.level || !formData.position) {
-      sonnerToast.error("Preencha todos os campos obrigatórios (Apelido, Nível e Posição)");
+      sonnerToast.error("Preencha todos os campos obrigatórios");
       return;
     }
 
     try {
-      // Inserir novo perfil simplificado
       const { data: newProfile, error } = await supabase
         .from("profiles")
         .insert([{
           nickname: formData.nickname.trim(),
-          name: formData.nickname.trim(), // Usar apelido como name também
-          level: formData.level as "A" | "B" | "C" | "D" | "E",
-          position: formData.position as "goleiro" | "defensor" | "meio-campista" | "atacante",
-          player_type_detail: formData.player_type_detail as "mensal" | "avulso" | "avulso_fixo",
+          name: formData.nickname.trim(),
+          level: formData.level as any,
+          position: formData.position as any,
+          player_type_detail: formData.player_type_detail as any,
           is_player: true,
-          status: "aprovado" as "aprovado",
+          status: "aprovado" as any,
           user_id: null,
           created_by_admin_simple: true,
         }])
@@ -500,157 +351,16 @@ export default function ManagePlayers() {
 
       if (error) throw error;
 
-      // Gerar token de reivindicação para o novo jogador
-      const { data: token, error: tokenError } = await supabase.rpc('generate_claim_token', {
-        p_profile_id: newProfile.id
-      });
+      const { data: token } = await supabase.rpc('generate_claim_token', { p_profile_id: newProfile.id });
+      if (token) setGeneratedToken(token);
 
-      if (tokenError) {
-        console.error("Erro ao gerar token:", tokenError);
-        sonnerToast.warning("Jogador cadastrado, mas houve erro ao gerar token de convite.");
-      } else {
-        setGeneratedToken(token);
-      }
-
-      sonnerToast.success("Jogador cadastrado com sucesso!");
+      sonnerToast.success("Jogador cadastrado!");
       setAddDialogOpen(false);
-      setFormData({
-        nickname: "",
-        level: "",
-        position: "",
-        player_type_detail: "mensal",
-      });
+      setFormData({ nickname: "", level: "", position: "", player_type_detail: "mensal" });
       loadPlayers();
     } catch (error: any) {
-      sonnerToast.error("Erro ao cadastrar jogador: " + error.message);
+      sonnerToast.error(getUserFriendlyError(error));
     }
-  };
-  
-  const generateTokenForPlayer = async (playerId: string) => {
-    try {
-      const { data: token, error } = await supabase.rpc('generate_claim_token', {
-        p_profile_id: playerId
-      });
-
-      if (error) throw error;
-
-      // Atualizar lista de jogadores
-      setPlayers(players.map(p => p.id === playerId ? { ...p, claim_token: token } : p));
-      
-      // Copiar para clipboard
-      await navigator.clipboard.writeText(token);
-      sonnerToast.success(`Token gerado: ${token} (copiado para área de transferência)`);
-    } catch (error: any) {
-      sonnerToast.error("Erro ao gerar token: " + error.message);
-    }
-  };
-  
-  const copyToken = async (token: string) => {
-    try {
-      await navigator.clipboard.writeText(token);
-      sonnerToast.success("Token copiado!");
-    } catch (error) {
-      sonnerToast.error("Erro ao copiar token");
-    }
-  };
-  
-  const copyInviteLink = async (token: string) => {
-    try {
-      const link = `${window.location.origin}/auth?token=${token}`;
-      await navigator.clipboard.writeText(link);
-      sonnerToast.success("Link de convite copiado!");
-    } catch (error) {
-      sonnerToast.error("Erro ao copiar link");
-    }
-  };
-  
-  const handleOpenLinkModal = (player: Player) => {
-    setSelectedPendingPlayer(player);
-    setLinkModalOpen(true);
-  };
-
-  // Funções para edição inline mobile
-  const handleEditPlayer = (player: Player) => {
-    setEditingPlayerId(player.id);
-    setEditingPlayerData({ ...player });
-  };
-
-  const handleCancelEdit = () => {
-    setEditingPlayerId(null);
-    setEditingPlayerData(null);
-  };
-
-  const handleSaveEdit = () => {
-    if (!editingPlayerData) return;
-
-    return new Promise<void>((resolve) => {
-      const dialog = document.createElement('div');
-      document.body.appendChild(dialog);
-      
-      const root = document.createElement('div');
-      dialog.appendChild(root);
-      
-      const cleanup = () => {
-        document.body.removeChild(dialog);
-        resolve();
-      };
-
-      import('react-dom/client').then(({ createRoot }) => {
-        const reactRoot = createRoot(root);
-        reactRoot.render(
-          <AlertDialogIcon
-            icon={UserCheck}
-            title="Salvar Alterações"
-            description="Deseja realmente salvar as alterações realizadas neste jogador?"
-            actionText="Salvar"
-            cancelText="Descartar"
-            variant="default"
-            open={true}
-            onOpenChange={(open) => {
-              if (!open) {
-                reactRoot.unmount();
-                cleanup();
-              }
-            }}
-            onAction={async () => {
-              try {
-                const { error } = await supabase
-                  .from("profiles")
-                  .update({
-                    nickname: editingPlayerData.nickname,
-                    level: editingPlayerData.level as "A" | "B" | "C" | "D" | "E" | null,
-                    position: editingPlayerData.position as "goleiro" | "defensor" | "meio-campista" | "atacante" | null,
-                    status: editingPlayerData.status as "pendente" | "aprovado" | "congelado" | "rejeitado" | null,
-                  })
-                  .eq("id", editingPlayerData.id);
-
-                if (error) throw error;
-
-                setPlayers(
-                  players.map((p) => (p.id === editingPlayerData.id ? editingPlayerData : p))
-                );
-
-                sonnerToast.success("Alterações salvas com sucesso!");
-                setEditingPlayerId(null);
-                setEditingPlayerData(null);
-              } catch (error: any) {
-                sonnerToast.error("Erro ao salvar: " + error.message);
-              }
-              
-              reactRoot.unmount();
-              cleanup();
-            }}
-            onCancel={() => {
-              sonnerToast.info("Alterações descartadas");
-              setEditingPlayerId(null);
-              setEditingPlayerData(null);
-              reactRoot.unmount();
-              cleanup();
-            }}
-          />
-        );
-      });
-    });
   };
 
   const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -660,24 +370,16 @@ export default function ManagePlayers() {
     setImporting(true);
     try {
       const fileExtension = file.name.split(".").pop()?.toLowerCase();
-
       if (fileExtension === "csv") {
         const text = await file.text();
-        Papa.parse(text, {
-          header: true,
-          complete: (results) => {
-            processImportedData(results.data);
-          },
-        });
+        Papa.parse(text, { header: true, complete: (results) => processImportedData(results.data) });
       } else if (fileExtension === "xlsx" || fileExtension === "xls") {
         const data = await file.arrayBuffer();
         const workbook = XLSX.read(data);
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        processImportedData(jsonData);
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        processImportedData(XLSX.utils.sheet_to_json(worksheet));
       } else {
-        sonnerToast.error("Formato inválido. Use arquivos .csv, .xlsx ou .xls");
+        sonnerToast.error("Formato inválido. Use .csv, .xlsx ou .xls");
       }
     } catch (error: any) {
       sonnerToast.error("Erro ao importar: " + error.message);
@@ -689,160 +391,30 @@ export default function ManagePlayers() {
 
   const processImportedData = async (data: any[]) => {
     if (data.length === 0) {
-      sonnerToast.error("❌ Arquivo vazio. O arquivo deve conter pelo menos uma linha de dados.");
-      return;
-    }
-
-    const firstRow = data[0];
-    const requiredColumns = ["Nome", "Sobrenome", "E-mail", "Data de Nascimento"];
-    const missingColumns = requiredColumns.filter(
-      col => !(col in firstRow) && !(col.toLowerCase() in firstRow)
-    );
-
-    if (missingColumns.length > 0) {
-      sonnerToast.error(
-        `❌ Colunas obrigatórias ausentes no arquivo Excel:\n\n` +
-        `Faltando: ${missingColumns.join(", ")}\n\n` +
-        `📋 Certifique-se que a primeira linha contém EXATAMENTE:\n` +
-        `Nome | Sobrenome | E-mail | Data de Nascimento | Apelido (opcional)\n\n` +
-        `💡 Clique no botão "❓" ao lado de "Importar Excel" para ver exemplo.`,
-        { duration: 8000 }
-      );
+      sonnerToast.error("Arquivo vazio");
       return;
     }
 
     const inserts: any[] = [];
-    const errors: { row: number; message: string; suggestion: string }[] = [];
-    let created = 0;
-    let skipped = 0;
+    let created = 0, skipped = 0;
 
-    for (let i = 0; i < data.length; i++) {
-      const row = data[i];
-      const rowNumber = i + 2; // +2 porque linha 1 é cabeçalho, linha 2 é primeira de dados
-      
+    for (const row of data) {
       const firstName = row["Nome"] || row["nome"];
       const lastName = row["Sobrenome"] || row["sobrenome"];
-      const nickname = row["Apelido"] || row["apelido"];
       const email = (row["E-mail"] || row["email"])?.toString().toLowerCase().trim();
       const birthDateStr = row["Data de Nascimento"] || row["data de nascimento"];
+      const nickname = row["Apelido"] || row["apelido"];
 
-      // Validação de campos obrigatórios
-      if (!firstName) {
-        errors.push({
-          row: rowNumber,
-          message: "Campo 'Nome' vazio",
-          suggestion: "Preencha o nome do jogador na coluna 'Nome'"
-        });
-        skipped++;
-        continue;
-      }
+      if (!firstName || !lastName || !email || !birthDateStr) { skipped++; continue; }
 
-      if (!lastName) {
-        errors.push({
-          row: rowNumber,
-          message: "Campo 'Sobrenome' vazio",
-          suggestion: "Preencha o sobrenome do jogador na coluna 'Sobrenome'"
-        });
-        skipped++;
-        continue;
-      }
-
-      if (!email) {
-        errors.push({
-          row: rowNumber,
-          message: "Campo 'E-mail' vazio",
-          suggestion: "Preencha o e-mail do jogador na coluna 'E-mail'"
-        });
-        skipped++;
-        continue;
-      }
-
-      // Validação formato de e-mail
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        errors.push({
-          row: rowNumber,
-          message: `E-mail inválido: ${email}`,
-          suggestion: "Use formato válido como: jogador@exemplo.com"
-        });
-        skipped++;
-        continue;
-      }
-
-      if (!birthDateStr) {
-        errors.push({
-          row: rowNumber,
-          message: "Campo 'Data de Nascimento' vazio",
-          suggestion: "Preencha a data no formato DD/MM/AAAA (ex: 15/03/1995)"
-        });
-        skipped++;
-        continue;
-      }
-
-      // Validação de data de nascimento
       let birthDate: string | null = null;
       try {
-        const dateString = birthDateStr.toString().trim();
-        const [day, month, year] = dateString.split("/");
-        
-        if (!day || !month || !year) {
-          throw new Error("Formato incorreto");
-        }
-
-        const dayNum = parseInt(day);
-        const monthNum = parseInt(month);
-        const yearNum = parseInt(year);
-
-        if (isNaN(dayNum) || isNaN(monthNum) || isNaN(yearNum)) {
-          throw new Error("Data contém valores não numéricos");
-        }
-
-        if (yearNum < 1900 || yearNum > new Date().getFullYear()) {
-          throw new Error("Ano inválido");
-        }
-
-        if (monthNum < 1 || monthNum > 12) {
-          throw new Error("Mês deve estar entre 1 e 12");
-        }
-
-        if (dayNum < 1 || dayNum > 31) {
-          throw new Error("Dia deve estar entre 1 e 31");
-        }
-
+        const [day, month, year] = birthDateStr.toString().trim().split("/");
         birthDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-        
-        // Verificar se a data é válida
-        const testDate = new Date(birthDate);
-        if (testDate.toString() === "Invalid Date") {
-          throw new Error("Data inválida no calendário");
-        }
+      } catch { skipped++; continue; }
 
-      } catch (err: any) {
-        errors.push({
-          row: rowNumber,
-          message: `Data de nascimento inválida (${firstName} ${lastName}): "${birthDateStr}"`,
-          suggestion: `Use formato DD/MM/AAAA. Exemplo: 15/03/1995. Erro: ${err.message}`
-        });
-        skipped++;
-        continue;
-      }
-
-      // Verificar e-mail duplicado no banco
-      const { data: existingProfile } = await supabase
-        .from("profiles")
-        .select("id, nickname, name")
-        .eq("email", email)
-        .maybeSingle();
-
-      if (existingProfile) {
-        errors.push({
-          row: rowNumber,
-          message: `E-mail já cadastrado: ${email}`,
-          suggestion: `Este e-mail já pertence a ${existingProfile.nickname || existingProfile.name}. Use outro e-mail ou remova esta linha.`
-        });
-        skipped++;
-        continue;
-      }
+      const { data: existing } = await supabase.from("profiles").select("id").eq("email", email).maybeSingle();
+      if (existing) { skipped++; continue; }
 
       inserts.push({
         id: crypto.randomUUID(),
@@ -850,62 +422,21 @@ export default function ManagePlayers() {
         last_name: lastName,
         name: `${firstName} ${lastName}`,
         nickname: nickname || null,
-        email: email,
+        email,
         birth_date: birthDate,
         is_player: true,
         status: 'pendente',
-        level: null,
-        position: null,
-        user_id: null,
       });
       created++;
     }
 
     if (inserts.length > 0) {
-      const { error } = await supabase
-        .from("profiles")
-        .insert(inserts);
-
-      if (error) {
-        sonnerToast.error("❌ Erro ao inserir jogadores no banco de dados: " + error.message);
-        return;
-      }
+      const { error } = await supabase.from("profiles").insert(inserts);
+      if (error) { sonnerToast.error("Erro: " + error.message); return; }
     }
 
     await loadPlayers();
-
-    // Mensagens de sucesso e erros detalhados
-    if (created > 0) {
-      sonnerToast.success(
-        `✅ ${created} jogador(es) importado(s) com sucesso!` +
-        (skipped > 0 ? ` (${skipped} linha(s) ignorada(s) por erros)` : ""),
-        { duration: 5000 }
-      );
-    }
-
-    if (errors.length > 0) {
-      console.group("📋 Detalhes dos Erros de Importação");
-      errors.forEach(err => {
-        console.error(`Linha ${err.row}: ${err.message}\n💡 ${err.suggestion}`);
-      });
-      console.groupEnd();
-
-      // Mostrar primeiros 3 erros no toast
-      const firstErrors = errors.slice(0, 3);
-      const errorMessage = firstErrors
-        .map(err => `• Linha ${err.row}: ${err.message}\n  💡 ${err.suggestion}`)
-        .join("\n\n");
-
-      sonnerToast.error(
-        `❌ ${errors.length} erro(s) encontrado(s):\n\n${errorMessage}` +
-        (errors.length > 3 ? `\n\n... e mais ${errors.length - 3} erro(s). Veja o console (F12) para detalhes completos.` : ""),
-        { duration: 10000 }
-      );
-    }
-
-    if (created === 0 && errors.length === 0) {
-      sonnerToast.warning("⚠️ Nenhum jogador foi importado. Verifique se o arquivo contém dados válidos.");
-    }
+    sonnerToast.success(`${created} jogador(es) importado(s)${skipped > 0 ? `, ${skipped} ignorado(s)` : ""}`);
   };
 
   if (!isAdmin) {
@@ -913,11 +444,7 @@ export default function ManagePlayers() {
       <div className="min-h-screen bg-background">
         <Header />
         <main className="container mx-auto px-4 py-8">
-          <Card>
-            <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground">Acesso restrito a administradores.</p>
-            </CardContent>
-          </Card>
+          <p className="text-center text-muted-foreground">Acesso restrito.</p>
         </main>
       </div>
     );
@@ -925,789 +452,124 @@ export default function ManagePlayers() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Pull to Refresh Indicator */}
+      {/* Pull to Refresh */}
       {(pullDistance > 0 || isRefreshing) && (
         <div 
           className="fixed top-0 left-0 right-0 flex justify-center items-center z-50 transition-all"
-          style={{ 
-            transform: `translateY(${Math.min(pullDistance, 60)}px)`,
-            opacity: Math.min(pullDistance / 60, 1)
-          }}
+          style={{ transform: `translateY(${Math.min(pullDistance, 60)}px)`, opacity: Math.min(pullDistance / 60, 1) }}
         >
           <div className="bg-primary/90 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="text-sm font-medium">
-              {isRefreshing ? 'Atualizando...' : 'Solte para atualizar'}
-            </span>
+            <span className="text-sm">{isRefreshing ? 'Atualizando...' : 'Solte para atualizar'}</span>
           </div>
         </div>
       )}
 
       <Header />
-      <main className="container mx-auto px-4 py-8">
-        <Card className="card-glow bg-card border-border">
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <CardTitle className="text-3xl font-bold text-primary glow-text">
-              Gerenciar Jogadores
-            </CardTitle>
-            
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => document.getElementById('excel-upload')?.click()}
-                  disabled={importing}
-                  variant="outline"
-                  className="flex-1 sm:flex-none min-h-[44px]"
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  {importing ? "Importando..." : "Importar Excel"}
-                </Button>
-                
-                <Button 
-                  onClick={() => setShowImportHelp(true)}
-                  variant="ghost"
-                  size="icon"
-                  className="min-h-[44px] min-w-[44px]"
-                  title="Como formatar o arquivo Excel"
-                >
-                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                </Button>
-              </div>
-              
-              <Button 
-                onClick={() => setAddDialogOpen(true)} 
-                className="w-full sm:w-auto min-h-[44px] bg-primary hover:bg-primary/90"
-              >
-                <UserPlus className="mr-2 h-4 w-4" />
-                Cadastrar Novo Jogador
-              </Button>
-            </div>
-            
-            <input
-              id="excel-upload"
-              type="file"
-              accept=".csv,.xlsx,.xls"
-              onChange={handleFileImport}
-              className="hidden"
-            />
-          </CardHeader>
-          <CardContent>
-            {/* Quick Filters - Mobile Only */}
-            <div className="md:hidden mb-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-semibold text-muted-foreground">Filtros Rápidos</span>
-              </div>
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth pb-2">
-                <Button
-                  variant={filterStatus === "all" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilterStatus("all")}
-                  className="whitespace-nowrap"
-                >
-                  Todos
-                </Button>
-                <Button
-                  variant={filterStatus === "pendente" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilterStatus("pendente")}
-                  className="whitespace-nowrap"
-                >
-                  Pendentes
-                </Button>
-                <Button
-                  variant={filterStatus === "aprovado" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilterStatus("aprovado")}
-                  className="whitespace-nowrap"
-                >
-                  Aprovados
-                </Button>
-                <Button
-                  variant={filterPosition === "goleiro" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilterPosition(filterPosition === "goleiro" ? "all" : "goleiro")}
-                  className="whitespace-nowrap"
-                >
-                  🥅 Goleiros
-                </Button>
-                <Button
-                  variant={filterPosition === "defensor" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilterPosition(filterPosition === "defensor" ? "all" : "defensor")}
-                  className="whitespace-nowrap"
-                >
-                  🛡️ Defensores
-                </Button>
-                <Button
-                  variant={filterPosition === "meio-campista" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilterPosition(filterPosition === "meio-campista" ? "all" : "meio-campista")}
-                  className="whitespace-nowrap"
-                >
-                  ⚙️ Meias
-                </Button>
-                <Button
-                  variant={filterPosition === "atacante" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilterPosition(filterPosition === "atacante" ? "all" : "atacante")}
-                  className="whitespace-nowrap"
-                >
-                  ⚽ Atacantes
-                </Button>
-              </div>
-            </div>
+      
+      <main className="container mx-auto px-4 py-4 pb-20 max-w-2xl">
+        {/* Header */}
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-primary mb-3">Jogadores</h1>
+          <PlayerQuickActions
+            onAddPlayer={() => setAddDialogOpen(true)}
+            onImportExcel={() => document.getElementById('excel-upload')?.click()}
+            onRefresh={handleRefresh}
+            onShowHelp={() => setShowImportHelp(true)}
+            importing={importing}
+            refreshing={refreshing}
+          />
+          <input id="excel-upload" type="file" accept=".csv,.xlsx,.xls" onChange={handleFileImport} className="hidden" />
+        </div>
 
-            {/* Filtros Completos - Desktop */}
-            <div className="mb-6 space-y-4 hidden md:block">
-              <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                <Filter className="h-5 w-5" />
-                <span className="font-semibold">Filtros</span>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Busca */}
-                <div className="space-y-2">
-                  <Label htmlFor="search">Buscar por Nome/Email</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="search"
-                      placeholder="Digite para buscar..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
+        {/* Filters */}
+        <div className="mb-4">
+          <PlayerFilters
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            filterStatus={filterStatus}
+            onStatusChange={setFilterStatus}
+            filterPosition={filterPosition}
+            onPositionChange={setFilterPosition}
+            totalCount={allPlayers.length}
+            filteredCount={filteredPlayers.length}
+          />
+        </div>
+
+        {/* Player List */}
+        <div className="space-y-2">
+          {loading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-card/50 border border-border/50">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
                 </div>
-
-                {/* Filtro Status */}
-                <div className="space-y-2">
-                  <Label htmlFor="filterStatus">Status</Label>
-                  <Select value={filterStatus} onValueChange={setFilterStatus}>
-                    <SelectTrigger id="filterStatus">
-                      <SelectValue placeholder="Todos os status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os status</SelectItem>
-                      <SelectItem value="pendente">Pendente</SelectItem>
-                      <SelectItem value="aprovado">Aprovado</SelectItem>
-                      <SelectItem value="congelado">Congelado</SelectItem>
-                      <SelectItem value="rejeitado">Rejeitado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Filtro Posição */}
-                <div className="space-y-2">
-                  <Label htmlFor="filterPosition">Posição</Label>
-                  <Select value={filterPosition} onValueChange={setFilterPosition}>
-                    <SelectTrigger id="filterPosition">
-                      <SelectValue placeholder="Todas as posições" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as posições</SelectItem>
-                      <SelectItem value="goleiro">Goleiro</SelectItem>
-                      <SelectItem value="defensor">Defensor</SelectItem>
-                      <SelectItem value="meio-campista">Meio-Campista</SelectItem>
-                      <SelectItem value="atacante">Atacante</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Skeleton className="h-9 w-9" />
               </div>
-
-              {/* Contador de resultados */}
-              <div className="text-sm text-muted-foreground">
-                {filteredPlayers.length === players.length
-                  ? `${players.length} jogador(es) total`
-                  : `${filteredPlayers.length} de ${players.length} jogador(es)`}
-              </div>
+            ))
+          ) : displayedPlayers.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>Nenhum jogador encontrado</p>
             </div>
-
-            {/* Desktop: Tabela completa */}
-            <div className="hidden md:block overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Apelido</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Idade</TableHead>
-                    <TableHead>Data Nasc.</TableHead>
-                    <TableHead>Nível</TableHead>
-                    <TableHead>Posição</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-center">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8">
-                        Carregando...
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredPlayers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                        Nenhum jogador encontrado
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredPlayers.map((player) => (
-                      <TableRow key={player.id}>
-                        {/* Nome */}
-                        <TableCell className="font-medium">
-                          {player.first_name && player.last_name
-                            ? `${player.first_name} ${player.last_name}`
-                            : player.name || "-"}
-                        </TableCell>
-
-                        {/* Apelido (editável) */}
-                        <TableCell>
-                          {editingNickname === player.id ? (
-                            <div className="flex gap-2 items-center">
-                              <Input
-                                value={nicknameValue}
-                                onChange={(e) => setNicknameValue(e.target.value)}
-                                className="max-w-[150px]"
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") saveNickname(player.id);
-                                  if (e.key === "Escape") setEditingNickname(null);
-                                }}
-                                autoFocus
-                              />
-                              <Button
-                                size="sm"
-                                onClick={() => saveNickname(player.id)}
-                              >
-                                ✓
-                              </Button>
-                            </div>
-                          ) : (
-                            <span
-                              className="cursor-pointer hover:underline"
-                              onClick={() => handleNicknameEdit(player)}
-                            >
-                              {player.nickname || "-"}
-                            </span>
-                          )}
-                        </TableCell>
-
-                        {/* Email */}
-                        <TableCell className="text-sm text-muted-foreground">
-                          {player.email || "-"}
-                        </TableCell>
-
-                        {/* Idade */}
-                        <TableCell>{calculateAge(player.birth_date)}</TableCell>
-
-                        {/* Data de Nascimento */}
-                        <TableCell className="text-sm text-muted-foreground">
-                          {formatBirthDate(player.birth_date)}
-                        </TableCell>
-
-                        {/* Nível (editável) */}
-                        <TableCell>
-                          <Select
-                            value={player.level || ""}
-                            onValueChange={(value) => updatePlayer(player.id, "level", value)}
-                          >
-                            <SelectTrigger className="w-[80px]">
-                              <SelectValue placeholder="-" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="A">A</SelectItem>
-                              <SelectItem value="B">B</SelectItem>
-                              <SelectItem value="C">C</SelectItem>
-                              <SelectItem value="D">D</SelectItem>
-                              <SelectItem value="E">E</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-
-                        {/* Posição (editável) */}
-                        <TableCell>
-                          <Select
-                            value={player.position || ""}
-                            onValueChange={(value) => updatePlayer(player.id, "position", value)}
-                          >
-                            <SelectTrigger className="w-[140px]">
-                              <SelectValue placeholder="-" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="goleiro">Goleiro</SelectItem>
-                              <SelectItem value="defensor">Defensor</SelectItem>
-                              <SelectItem value="meio-campista">Meio-Campista</SelectItem>
-                              <SelectItem value="atacante">Atacante</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-
-                        {/* Status */}
-                        <TableCell>
-                          <Select
-                            value={player.status || "pendente"}
-                            onValueChange={(value) => updatePlayer(player.id, "status", value)}
-                          >
-                            <SelectTrigger className="w-[130px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pendente">Pendente</SelectItem>
-                              <SelectItem value="aprovado">Aprovado</SelectItem>
-                              <SelectItem value="congelado">Congelado</SelectItem>
-                              <SelectItem value="rejeitado">Rejeitado</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-
-                        {/* Ações */}
-                        <TableCell>
-                          <div className="flex items-center justify-center gap-2 flex-wrap">
-                            {/* Jogador pendente: aprovar/rejeitar/vincular */}
-                            {player.status === "pendente" && player.user_id && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="default"
-                                  onClick={() => approvePlayer(player.id, player.name)}
-                                  className="bg-green-600 hover:bg-green-700"
-                                  title="Aprovar"
-                                >
-                                  <UserCheck className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleOpenLinkModal(player)}
-                                  title="Vincular a jogador existente"
-                                >
-                                  <Link2 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => rejectPlayer(player.id, player.name)}
-                                  title="Rejeitar"
-                                >
-                                  <UserX className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
-                            
-                            {/* Jogador admin-simple sem conta: gerar/copiar token */}
-                            {player.created_by_admin_simple && !player.user_id && (
-                              <>
-                                {player.claim_token ? (
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => player.claim_token && copyToken(player.claim_token)}
-                                      title="Copiar Token"
-                                    >
-                                      <Copy className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => player.claim_token && copyInviteLink(player.claim_token)}
-                                      title="Copiar Link de Convite"
-                                    >
-                                      <Link2 className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                ) : (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => generateTokenForPlayer(player.id)}
-                                    title="Gerar Token"
-                                  >
-                                    <Link2 className="h-4 w-4 mr-1" />
-                                    Token
-                                  </Button>
-                                )}
-                              </>
-                            )}
-                            
-                            {/* Botão de foto - sempre visível para admin */}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setAvatarEditPlayer(player);
-                                setAvatarDialogOpen(true);
-                              }}
-                              title="Alterar Foto"
-                            >
-                              <Camera className="h-4 w-4" />
-                            </Button>
-                            
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => deletePlayer(player.id, player.name, player.email)}
-                              title="Excluir"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Mobile: Cards */}
-            <div className="md:hidden space-y-3">
-              {loading ? (
-                // Skeleton Loading
-                Array.from({ length: 3 }).map((_, i) => (
-                  <Card key={i} className="border-border">
-                    <CardContent className="p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1 space-y-2">
-                          <Skeleton className="h-5 w-32" />
-                          <Skeleton className="h-4 w-48" />
-                        </div>
-                        <Skeleton className="h-6 w-20" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 mb-3">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-4 w-16" />
-                        <Skeleton className="h-4 w-32" />
-                      </div>
-                      <div className="flex gap-2">
-                        <Skeleton className="h-11 flex-1" />
-                        <Skeleton className="h-11 flex-1" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : filteredPlayers.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  Nenhum jogador encontrado
-                </div>
-              ) : (
-                filteredPlayers.map((player) => {
-                  const isEditing = editingPlayerId === player.id;
-                  const editData = isEditing && editingPlayerData ? editingPlayerData : player;
-
-                  return (
-                    <Card key={player.id} className="border-border">
-                      <CardContent className="p-4">
-                        {/* Cabeçalho */}
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex-1">
-                            <h3 className="font-bold text-base">
-                              {player.nickname || player.first_name || player.name}
-                            </h3>
-                            <p className="text-sm text-muted-foreground truncate">
-                              {player.email || "-"}
-                            </p>
-                            {/* Indicador de jogador admin-simple sem conta */}
-                            {player.created_by_admin_simple && !player.user_id && (
-                              <p className="text-xs text-yellow-600 mt-1">⚙ Criado pelo admin (sem conta)</p>
-                            )}
-                          </div>
-                          {!isEditing && (
-                            <Badge className={statusColors[player.status || "pendente"]}>
-                              {statusLabels[player.status || "pendente"]}
-                            </Badge>
-                          )}
-                        </div>
-                        
-                        {/* Campos - Modo Visualização ou Edição */}
-                        {!isEditing ? (
-                          <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-                            <div>
-                              <span className="text-muted-foreground">Idade:</span>{" "}
-                              <span className="font-medium">{calculateAge(player.birth_date)}</span>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Nasc.:</span>{" "}
-                              <span className="font-medium">{formatBirthDate(player.birth_date)}</span>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Nível:</span>{" "}
-                              <span className="font-medium">{player.level || "-"}</span>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Posição:</span>{" "}
-                              <span className="font-medium">{positionLabels[player.position || ""] || "-"}</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-3 mb-3">
-                            {/* Avatar Upload */}
-                            <div className="flex justify-center py-4">
-                              <AvatarUpload
-                                playerId={player.id}
-                                playerName={player.nickname || player.name}
-                                currentAvatarUrl={editData.avatar_url}
-                                onUploadComplete={(url) => setEditingPlayerData(prev => prev ? { ...prev, avatar_url: url } : null)}
-                              />
-                            </div>
-
-                            {/* Apelido */}
-                            <div className="space-y-1">
-                              <Label htmlFor={`nickname-${player.id}`} className="text-xs text-muted-foreground">
-                                Apelido
-                              </Label>
-                              <Input
-                                id={`nickname-${player.id}`}
-                                value={editData.nickname || ""}
-                                onChange={(e) => setEditingPlayerData(prev => prev ? { ...prev, nickname: e.target.value } : null)}
-                                className="h-11 text-base"
-                              />
-                            </div>
-
-                            {/* Nível */}
-                            <div className="space-y-1">
-                              <Label htmlFor={`level-${player.id}`} className="text-xs text-muted-foreground">
-                                Nível
-                              </Label>
-                              <Select
-                                value={editData.level || ""}
-                                onValueChange={(value) => setEditingPlayerData(prev => prev ? { ...prev, level: value } : null)}
-                              >
-                                <SelectTrigger id={`level-${player.id}`} className="h-11 text-base">
-                                  <SelectValue placeholder="Selecione o nível" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="A">A</SelectItem>
-                                  <SelectItem value="B">B</SelectItem>
-                                  <SelectItem value="C">C</SelectItem>
-                                  <SelectItem value="D">D</SelectItem>
-                                  <SelectItem value="E">E</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            {/* Posição */}
-                            <div className="space-y-1">
-                              <Label htmlFor={`position-${player.id}`} className="text-xs text-muted-foreground">
-                                Posição
-                              </Label>
-                              <Select
-                                value={editData.position || ""}
-                                onValueChange={(value) => setEditingPlayerData(prev => prev ? { ...prev, position: value } : null)}
-                              >
-                                <SelectTrigger id={`position-${player.id}`} className="h-11 text-base">
-                                  <SelectValue placeholder="Selecione a posição" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="goleiro">Goleiro</SelectItem>
-                                  <SelectItem value="defensor">Defensor</SelectItem>
-                                  <SelectItem value="meio-campista">Meio-Campista</SelectItem>
-                                  <SelectItem value="atacante">Atacante</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            {/* Status */}
-                            <div className="space-y-1">
-                              <Label htmlFor={`status-${player.id}`} className="text-xs text-muted-foreground">
-                                Status
-                              </Label>
-                              <Select
-                                value={editData.status || "pendente"}
-                                onValueChange={(value) => setEditingPlayerData(prev => prev ? { ...prev, status: value } : null)}
-                              >
-                                <SelectTrigger id={`status-${player.id}`} className="h-11 text-base">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="pendente">Pendente</SelectItem>
-                                  <SelectItem value="aprovado">Aprovado</SelectItem>
-                                  <SelectItem value="congelado">Congelado</SelectItem>
-                                  <SelectItem value="rejeitado">Rejeitado</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Botões */}
-                        <div className="flex gap-2 flex-wrap">
-                          {!isEditing ? (
-                            <>
-                              {/* Pendente com conta de usuário: aprovar/vincular/rejeitar */}
-                              {player.status === "pendente" && player.user_id && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="default"
-                                    onClick={() => approvePlayer(player.id, player.name)}
-                                    className="bg-green-600 hover:bg-green-700 flex-1 min-h-[44px]"
-                                  >
-                                    <UserCheck className="h-4 w-4 mr-1" />
-                                    Aprovar
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleOpenLinkModal(player)}
-                                    className="flex-1 min-h-[44px]"
-                                  >
-                                    <Link2 className="h-4 w-4 mr-1" />
-                                    Vincular
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    onClick={() => rejectPlayer(player.id, player.name)}
-                                    className="flex-1 min-h-[44px]"
-                                  >
-                                    <UserX className="h-4 w-4 mr-1" />
-                                    Rejeitar
-                                  </Button>
-                                </>
-                              )}
-                              
-                              {/* Admin-simple sem conta: botões de token */}
-                              {player.created_by_admin_simple && !player.user_id && (
-                                <div className="w-full flex gap-2 mb-2">
-                                  {player.claim_token ? (
-                                    <>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => player.claim_token && copyToken(player.claim_token)}
-                                        className="flex-1 min-h-[44px]"
-                                      >
-                                        <Copy className="h-4 w-4 mr-1" />
-                                        Token
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => player.claim_token && copyInviteLink(player.claim_token)}
-                                        className="flex-1 min-h-[44px]"
-                                      >
-                                        <Link2 className="h-4 w-4 mr-1" />
-                                        Link
-                                      </Button>
-                                    </>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => generateTokenForPlayer(player.id)}
-                                      className="w-full min-h-[44px]"
-                                    >
-                                      <Link2 className="h-4 w-4 mr-1" />
-                                      Gerar Token
-                                    </Button>
-                                  )}
-                                </div>
-                              )}
-                              
-                              {/* Botão de foto - sempre visível para admin */}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setAvatarEditPlayer(player);
-                                  setAvatarDialogOpen(true);
-                                }}
-                                className="min-h-[44px]"
-                                title="Alterar Foto"
-                              >
-                                <Camera className="h-4 w-4" />
-                              </Button>
-                              
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleEditPlayer(player)}
-                                className={`min-h-[44px] ${player.status === "pendente" && player.user_id ? "w-full" : "flex-1"}`}
-                              >
-                                Editar
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => deletePlayer(player.id, player.name, player.email)}
-                                className={`min-h-[44px] ${player.status === "pendente" && player.user_id ? "w-full" : "flex-1"}`}
-                              >
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Excluir
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="default"
-                                onClick={handleSaveEdit}
-                                className="flex-1 min-h-[44px] bg-primary hover:bg-primary/90"
-                              >
-                                Salvar
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={handleCancelEdit}
-                                className="flex-1 min-h-[44px]"
-                              >
-                                Cancelar
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Dialog de Cadastro Simplificado */}
-        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold text-primary">
-                Cadastrar Novo Jogador
-              </DialogTitle>
-              <DialogDescription>
-                Cadastro simplificado. O jogador será aprovado e poderá ser escalado imediatamente.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              {/* Apelido */}
-              <div className="space-y-2">
-                <Label htmlFor="nickname">
-                  Apelido <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="nickname"
-                  placeholder="Ex: Joãozinho"
-                  value={formData.nickname}
-                  onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
-                  className="h-12 text-base"
+          ) : (
+            <>
+              {displayedPlayers.map((player) => (
+                <PlayerCompactCard
+                  key={player.id}
+                  player={player}
+                  onEdit={handleEditPlayer}
+                  onDelete={handleDeletePlayer}
+                  onApprove={handleApprovePlayer}
+                  onReject={handleRejectPlayer}
+                  onLinkPlayer={handleLinkPlayer}
+                  onEditAvatar={handleEditAvatar}
+                  onCopyToken={handleCopyToken}
+                  onCopyInviteLink={handleCopyInviteLink}
+                  onGenerateToken={handleGenerateToken}
                 />
+              ))}
+              
+              {/* Load more trigger */}
+              <div ref={loadMoreRef} className="py-4">
+                {loadingMore && (
+                  <div className="flex justify-center">
+                    <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                )}
               </div>
+            </>
+          )}
+        </div>
+      </main>
 
-              {/* Posição */}
+      {/* Edit Dialog */}
+      <PlayerEditDialog
+        player={editingPlayer}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSave={handleSavePlayer}
+        onDelete={handleDeletePlayer}
+      />
+
+      {/* Add Dialog */}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Novo Jogador</DialogTitle>
+            <DialogDescription>Cadastro rápido - aprovado automaticamente</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Apelido *</Label>
+              <Input value={formData.nickname} onChange={(e) => setFormData({ ...formData, nickname: e.target.value })} placeholder="Ex: Joãozinho" className="h-11" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="position">
-                  Posição <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                  value={formData.position}
-                  onValueChange={(value) => setFormData({ ...formData, position: value })}
-                >
-                  <SelectTrigger id="position" className="h-12 text-base">
-                    <SelectValue placeholder="Selecione a posição" />
-                  </SelectTrigger>
+                <Label>Posição *</Label>
+                <Select value={formData.position} onValueChange={(v) => setFormData({ ...formData, position: v })}>
+                  <SelectTrigger className="h-11"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="goleiro">Goleiro</SelectItem>
                     <SelectItem value="defensor">Defensor</SelectItem>
@@ -1716,19 +578,10 @@ export default function ManagePlayers() {
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Nível */}
               <div className="space-y-2">
-                <Label htmlFor="level">
-                  Nível <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                  value={formData.level}
-                  onValueChange={(value) => setFormData({ ...formData, level: value })}
-                >
-                  <SelectTrigger id="level" className="h-12 text-base">
-                    <SelectValue placeholder="Selecione o nível" />
-                  </SelectTrigger>
+                <Label>Nível *</Label>
+                <Select value={formData.level} onValueChange={(v) => setFormData({ ...formData, level: v })}>
+                  <SelectTrigger className="h-11"><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="A">A</SelectItem>
                     <SelectItem value="B">B</SelectItem>
@@ -1738,294 +591,95 @@ export default function ManagePlayers() {
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Tipo */}
-              <div className="space-y-2">
-                <Label htmlFor="player_type">Tipo</Label>
-                <Select
-                  value={formData.player_type_detail}
-                  onValueChange={(value) => setFormData({ ...formData, player_type_detail: value as "mensal" | "avulso" | "avulso_fixo" })}
-                >
-                  <SelectTrigger id="player_type" className="h-12 text-base">
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mensal">Mensalista</SelectItem>
-                    <SelectItem value="avulso">Avulso</SelectItem>
-                    <SelectItem value="avulso_fixo">Avulso Fixo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
-
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setAddDialogOpen(false);
-                  setFormData({ nickname: "", level: "", position: "", player_type_detail: "mensal" });
-                }}
-                className="h-12 text-base w-full sm:w-auto"
-              >
-                Cancelar
-              </Button>
-              <Button onClick={handleCreatePlayer} className="h-12 text-base w-full sm:w-auto">
-                Cadastrar Jogador
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        
-        {/* Dialog de Token Gerado */}
-        <Dialog open={!!generatedToken} onOpenChange={() => setGeneratedToken(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Link2 className="h-5 w-5 text-primary" />
-                Token de Convite Gerado
-              </DialogTitle>
-              <DialogDescription>
-                Envie este token ou link para o jogador vincular sua conta.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="flex items-center gap-2">
-                <Input value={generatedToken || ""} readOnly className="font-mono text-lg" />
-                <Button size="icon" onClick={() => generatedToken && copyToken(generatedToken)}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-              <Button 
-                variant="outline" 
-                className="w-full" 
-                onClick={() => generatedToken && copyInviteLink(generatedToken)}
-              >
-                <Link2 className="h-4 w-4 mr-2" />
-                Copiar Link de Convite
-              </Button>
+            <div className="space-y-2">
+              <Label>Tipo</Label>
+              <Select value={formData.player_type_detail} onValueChange={(v) => setFormData({ ...formData, player_type_detail: v as any })}>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mensal">Mensalista</SelectItem>
+                  <SelectItem value="avulso">Avulso</SelectItem>
+                  <SelectItem value="avulso_fixo">Avulso Fixo</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <DialogFooter>
-              <Button onClick={() => setGeneratedToken(null)}>Fechar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        
-        {/* Modal de Vinculação de Pendentes */}
-        <LinkPendingPlayerModal
-          open={linkModalOpen}
-          onOpenChange={setLinkModalOpen}
-          pendingProfile={selectedPendingPlayer}
-          onLinked={() => loadPlayers()}
-        />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setAddDialogOpen(false)} className="flex-1 h-11">Cancelar</Button>
+            <Button onClick={handleCreatePlayer} className="flex-1 h-11">Cadastrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        {/* Dialog de Ajuda para Importação Excel */}
-        <Dialog open={showImportHelp} onOpenChange={setShowImportHelp}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-2xl">
-                <AlertTriangle className="h-6 w-6 text-yellow-600" />
-                Como Formatar o Arquivo Excel
-              </DialogTitle>
-              <DialogDescription className="text-base">
-                Siga estas instruções para importar jogadores sem erros
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-6 py-4">
-              {/* Formato Esperado */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg">📋 Formato do Arquivo</h3>
-                <p className="text-sm text-muted-foreground">
-                  A primeira linha do arquivo deve conter EXATAMENTE estes cabeçalhos:
-                </p>
-                
-                <div className="bg-muted/30 p-4 rounded-lg border border-border">
-                  <div className="grid grid-cols-5 gap-2 text-sm font-mono">
-                    <div className="bg-primary/10 p-2 rounded text-center border border-primary/30">
-                      <strong>Nome</strong>
-                    </div>
-                    <div className="bg-primary/10 p-2 rounded text-center border border-primary/30">
-                      <strong>Sobrenome</strong>
-                    </div>
-                    <div className="bg-primary/10 p-2 rounded text-center border border-primary/30">
-                      <strong>E-mail</strong>
-                    </div>
-                    <div className="bg-primary/10 p-2 rounded text-center border border-primary/30">
-                      <strong>Data de Nascimento</strong>
-                    </div>
-                    <div className="bg-muted/50 p-2 rounded text-center border border-border">
-                      <span className="text-muted-foreground">Apelido</span>
-                      <br />
-                      <span className="text-xs">(opcional)</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
-                  <p className="text-sm text-yellow-800 dark:text-yellow-200 flex items-start gap-2">
-                    <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                    <span>
-                      <strong>Importante:</strong> Os nomes das colunas devem estar EXATAMENTE como mostrado acima, 
-                      incluindo acentos e maiúsculas/minúsculas.
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Exemplo de Dados */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg">✅ Exemplo Correto</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-sm">
-                    <thead>
-                      <tr className="bg-primary/10 border-b-2 border-primary/30">
-                        <th className="p-2 text-left border border-border">Nome</th>
-                        <th className="p-2 text-left border border-border">Sobrenome</th>
-                        <th className="p-2 text-left border border-border">E-mail</th>
-                        <th className="p-2 text-left border border-border">Data de Nascimento</th>
-                        <th className="p-2 text-left border border-border">Apelido</th>
-                      </tr>
-                    </thead>
-                    <tbody className="font-mono text-xs">
-                      <tr className="border-b border-border">
-                        <td className="p-2 border border-border">João</td>
-                        <td className="p-2 border border-border">Silva</td>
-                        <td className="p-2 border border-border">joao.silva@email.com</td>
-                        <td className="p-2 border border-border">15/03/1995</td>
-                        <td className="p-2 border border-border">Joãozinho</td>
-                      </tr>
-                      <tr className="border-b border-border">
-                        <td className="p-2 border border-border">Maria</td>
-                        <td className="p-2 border border-border">Santos</td>
-                        <td className="p-2 border border-border">maria@email.com</td>
-                        <td className="p-2 border border-border">22/07/1998</td>
-                        <td className="p-2 border border-border text-muted-foreground italic">-</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 border border-border">Pedro</td>
-                        <td className="p-2 border border-border">Oliveira</td>
-                        <td className="p-2 border border-border">pedro.oli@email.com</td>
-                        <td className="p-2 border border-border">10/12/2000</td>
-                        <td className="p-2 border border-border">Pedrinho</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Regras de Validação */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg">🔍 Regras de Validação</h3>
-                <ul className="space-y-2 text-sm">
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary font-bold">•</span>
-                    <span><strong>Data de Nascimento:</strong> Formato obrigatório <code className="bg-muted px-1.5 py-0.5 rounded">DD/MM/AAAA</code> (ex: 15/03/1995)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary font-bold">•</span>
-                    <span><strong>E-mail:</strong> Deve ser válido e único (não pode estar cadastrado)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary font-bold">•</span>
-                    <span><strong>Nome e Sobrenome:</strong> Campos obrigatórios, não podem estar vazios</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary font-bold">•</span>
-                    <span><strong>Apelido:</strong> Opcional, pode ficar em branco</span>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Erros Comuns */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg text-red-600 dark:text-red-400">❌ Erros Comuns</h3>
-                <div className="space-y-2">
-                  <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded p-3">
-                    <p className="text-sm font-semibold text-red-800 dark:text-red-200">Data em formato americano</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <code className="text-xs bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded">1995-03-15</code>
-                      <span className="text-xs text-red-600 dark:text-red-300">❌ Errado</span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <code className="text-xs bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">15/03/1995</code>
-                      <span className="text-xs text-green-600 dark:text-green-300">✅ Correto</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded p-3">
-                    <p className="text-sm font-semibold text-red-800 dark:text-red-200">E-mail duplicado</p>
-                    <p className="text-xs text-red-600 dark:text-red-300 mt-1">
-                      Cada e-mail só pode ser cadastrado uma vez no sistema
-                    </p>
-                  </div>
-
-                  <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded p-3">
-                    <p className="text-sm font-semibold text-red-800 dark:text-red-200">Nomes de colunas diferentes</p>
-                    <p className="text-xs text-red-600 dark:text-red-300 mt-1">
-                      "Name" ou "First Name" não funciona. Deve ser exatamente "Nome"
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Dicas */}
-              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <h3 className="font-semibold text-sm text-blue-800 dark:text-blue-200 mb-2">💡 Dicas</h3>
-                <ul className="space-y-1 text-xs text-blue-700 dark:text-blue-300">
-                  <li>• Remova linhas vazias do arquivo antes de importar</li>
-                  <li>• Verifique se não há espaços extras nos e-mails</li>
-                  <li>• Se houver erro, abra o Console do navegador (F12) para ver detalhes</li>
-                  <li>• Formatos aceitos: .xlsx, .xls, .csv</li>
-                </ul>
-              </div>
+      {/* Token Generated Dialog */}
+      <Dialog open={!!generatedToken} onOpenChange={() => setGeneratedToken(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Link2 className="h-5 w-5 text-primary" />Token Gerado</DialogTitle>
+            <DialogDescription>Envie para o jogador vincular sua conta</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="flex gap-2">
+              <Input value={generatedToken || ""} readOnly className="font-mono" />
+              <Button size="icon" onClick={() => generatedToken && handleCopyToken(generatedToken)}><Copy className="h-4 w-4" /></Button>
             </div>
+            <Button variant="outline" className="w-full" onClick={() => generatedToken && handleCopyInviteLink(generatedToken)}>
+              <Link2 className="h-4 w-4 mr-2" />Copiar Link
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setGeneratedToken(null)} className="w-full">Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-            <DialogFooter>
-              <Button onClick={() => setShowImportHelp(false)} className="w-full sm:w-auto">
-                Entendi
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      {/* Link Modal */}
+      <LinkPendingPlayerModal open={linkModalOpen} onOpenChange={setLinkModalOpen} pendingProfile={selectedPendingPlayer} onLinked={() => loadPlayers()} />
 
-        {/* Dialog de Edição de Avatar (Desktop) */}
-        <Dialog open={avatarDialogOpen} onOpenChange={setAvatarDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-xl">
-                <Camera className="h-5 w-5 text-primary" />
-                Foto do Jogador
-              </DialogTitle>
-              <DialogDescription>
-                {avatarEditPlayer?.nickname || avatarEditPlayer?.name}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-              {avatarEditPlayer && (
-                <AvatarUpload
-                  playerId={avatarEditPlayer.id}
-                  playerName={avatarEditPlayer.nickname || avatarEditPlayer.name}
-                  currentAvatarUrl={avatarEditPlayer.avatar_url}
-                  onUploadComplete={(url) => {
-                    setPlayers(players.map(p => 
-                      p.id === avatarEditPlayer.id ? { ...p, avatar_url: url } : p
-                    ));
-                    setAvatarEditPlayer(prev => prev ? { ...prev, avatar_url: url } : null);
-                  }}
-                />
-              )}
-            </div>
-            <DialogFooter>
-              <Button onClick={() => {
+      {/* Avatar Dialog */}
+      <Dialog open={avatarDialogOpen} onOpenChange={setAvatarDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Alterar Foto</DialogTitle></DialogHeader>
+          {avatarEditPlayer && (
+            <AvatarUpload
+              playerId={avatarEditPlayer.id}
+              playerName={avatarEditPlayer.nickname || avatarEditPlayer.name}
+              currentAvatarUrl={avatarEditPlayer.avatar_url}
+              onUploadComplete={(url) => {
+                setAllPlayers(prev => prev.map(p => p.id === avatarEditPlayer.id ? { ...p, avatar_url: url } : p));
                 setAvatarDialogOpen(false);
-                setAvatarEditPlayer(null);
-              }}>
-                Fechar
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </main>
+                sonnerToast.success("Foto atualizada!");
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Help Dialog */}
+      <Dialog open={showImportHelp} onOpenChange={setShowImportHelp}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-yellow-500" />Formato do Excel</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <p className="text-muted-foreground">A primeira linha deve conter:</p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="bg-primary/10 p-2 rounded border border-primary/30 text-center font-medium">Nome</div>
+              <div className="bg-primary/10 p-2 rounded border border-primary/30 text-center font-medium">Sobrenome</div>
+              <div className="bg-primary/10 p-2 rounded border border-primary/30 text-center font-medium">E-mail</div>
+              <div className="bg-primary/10 p-2 rounded border border-primary/30 text-center font-medium">Data de Nascimento</div>
+              <div className="bg-muted/50 p-2 rounded border col-span-2 text-center">Apelido (opcional)</div>
+            </div>
+            <div className="bg-muted/30 p-3 rounded">
+              <p className="font-medium mb-2">Exemplo:</p>
+              <code className="text-xs">João | Silva | joao@email.com | 15/03/1995</code>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowImportHelp(false)} className="w-full">Entendi</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
