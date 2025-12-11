@@ -428,18 +428,29 @@ export default function ManageMatch() {
     if (!roundId || !match) return;
 
     try {
+      // Buscar jogadores de times que NÃO estão jogando nesta partida
       const { data: otherTeamPlayers } = await supabase
         .from("round_team_players")
-        .select("player_id, profiles!inner(id, name, nickname, avatar_url)")
+        .select("player_id, team_color, profiles!inner(id, name, nickname, avatar_url, position)")
         .eq("round_id", roundId)
         .not("team_color", "in", `(${match.team_home},${match.team_away})`);
 
-      const playersAlreadyIn = substitutions.map(s => s.player_in_id);
+      // IDs de jogadores que já entraram em alguma substituição DESTA partida
+      const playersAlreadyIn = new Set(substitutions.map(s => s.player_in_id));
 
       const availablePlayers = (otherTeamPlayers || [])
         .map((p: any) => p.profiles)
         .filter(Boolean)
-        .filter((p: Player) => !playersAlreadyIn.includes(p.id));
+        .filter((p: Player) => !playersAlreadyIn.has(p.id));
+
+      console.log('[ManageMatch] loadAvailablePlayersIn:', {
+        roundId,
+        teamsNotPlaying: `NOT in (${match.team_home},${match.team_away})`,
+        totalFromOtherTeams: otherTeamPlayers?.length || 0,
+        alreadyEnteredIds: Array.from(playersAlreadyIn),
+        availableCount: availablePlayers.length,
+        availableNames: availablePlayers.map((p: Player) => p.nickname || p.name)
+      });
 
       setAvailablePlayersIn(availablePlayers);
     } catch (error) {
@@ -450,17 +461,31 @@ export default function ManageMatch() {
   const getPlayersOnField = (teamColor: string): Player[] => {
     const starters = players[teamColor] || [];
     
+    // Jogadores que entraram via substituição para este time
     const playersIn = substitutions
       .filter(s => s.team_color === teamColor)
       .map(s => s.player_in)
       .filter(Boolean) as Player[];
     
-    const playersOutIds = substitutions
-      .filter(s => s.team_color === teamColor)
-      .map(s => s.player_out_id);
+    // IDs de jogadores que saíram via substituição deste time
+    const playersOutIds = new Set(
+      substitutions
+        .filter(s => s.team_color === teamColor)
+        .map(s => s.player_out_id)
+    );
     
+    // Todos em campo = titulares + entraram - saíram
     const allPlayers = [...starters, ...playersIn];
-    return allPlayers.filter(p => !playersOutIds.includes(p.id));
+    const onField = allPlayers.filter(p => !playersOutIds.has(p.id));
+
+    console.log(`[ManageMatch] getPlayersOnField(${teamColor}):`, {
+      starters: starters.map(p => p.nickname || p.name),
+      playersIn: playersIn.map(p => p.nickname || p.name),
+      playersOut: Array.from(playersOutIds),
+      onField: onField.map(p => p.nickname || p.name)
+    });
+
+    return onField;
   };
 
   const addSubstitution = async () => {
