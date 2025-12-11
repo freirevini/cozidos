@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -6,10 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Plus, AlertCircle, Save } from "lucide-react";
+import { Trash2, Plus, AlertCircle, Save, X, Loader2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { EVENT_ICONS, formatMinute } from "@/components/ui/event-item";
+import { TeamLogo } from "@/components/match/TeamLogo";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
 
 interface Match {
   id: string;
@@ -41,20 +45,14 @@ interface Goal {
   assists?: Array<{ id: string; player_id: string; player?: Player }>;
 }
 
-interface Card {
+interface CardEvent {
   id: string;
   player_id: string;
   card_type: string;
   minute: number;
   player?: Player;
+  team_color?: string;
 }
-
-const teamColors: Record<string, string> = {
-  branco: "bg-white text-black border border-gray-300",
-  vermelho: "bg-red-600 text-white",
-  azul: "bg-blue-600 text-white",
-  laranja: "bg-orange-500 text-white",
-};
 
 const teamNames: Record<string, string> = {
   branco: "Branco",
@@ -63,38 +61,25 @@ const teamNames: Record<string, string> = {
   laranja: "Laranja",
 };
 
-interface Attendance {
-  id: string;
-  player_id: string;
-  team_color: string;
-  status: 'presente' | 'atrasado' | 'falta';
-}
-
-interface RoundPlayer {
-  id: string;
-  name: string;
-  nickname: string | null;
-  team_color: string;
-}
-
 interface ManageMatchDialogProps {
   matchId: string;
   roundId: string;
+  roundNumber?: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }
 
-export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange, onSaved }: ManageMatchDialogProps) {
+export default function ManageMatchDialog({ matchId, roundId, roundNumber, open, onOpenChange, onSaved }: ManageMatchDialogProps) {
   const { toast } = useToast();
   const [match, setMatch] = useState<Match | null>(null);
   const [players, setPlayers] = useState<Record<string, Player[]>>({});
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [cards, setCards] = useState<Card[]>([]);
-  const [roundPlayers, setRoundPlayers] = useState<RoundPlayer[]>([]);
-  const [attendanceData, setAttendanceData] = useState<Record<string, string>>({});
+  const [cards, setCards] = useState<CardEvent[]>([]);
   const [addingGoal, setAddingGoal] = useState(false);
   const [addingCard, setAddingCard] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [goalData, setGoalData] = useState({
@@ -113,8 +98,6 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
   useEffect(() => {
     if (open) {
       loadMatchData();
-      loadRoundPlayers();
-      loadAttendance();
     }
   }, [open, matchId, roundId]);
 
@@ -124,12 +107,34 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     }
   }, [match, roundId]);
 
+  // Realtime subscriptions
+  useEffect(() => {
+    if (!open || !matchId) return;
+
+    const channel = supabase
+      .channel(`dialog-match-${matchId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "goals", filter: `match_id=eq.${matchId}` }, () => {
+        loadGoals();
+        recalculateMatchScore();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "cards", filter: `match_id=eq.${matchId}` }, () => {
+        loadCards();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "assists" }, () => {
+        loadGoals();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [open, matchId]);
+
   const loadMatchData = async () => {
+    setIsLoading(true);
     try {
-      // 1. Primeiro recalcular placar baseado nos gols existentes
       await recalculateMatchScore();
       
-      // 2. Depois carregar partida com placar já atualizado
       const { data: matchData, error } = await supabase
         .from("matches")
         .select("*")
@@ -139,53 +144,40 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
       if (error) throw error;
       setMatch(matchData);
 
-      // 3. Carregar eventos
-      await loadGoals();
-      await loadCards();
-      
-      // 4. Resetar flag de alterações ao abrir
+      await Promise.all([loadGoals(), loadCards()]);
       setHasUnsavedChanges(false);
     } catch (error: any) {
       console.error("Erro ao carregar partida:", error);
       toast({
         title: "Erro ao carregar dados",
-        description: "Erro ao carregar dados da partida",
+        description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const loadPlayers = async () => {
+    if (!match) return;
+
     try {
-      if (!match) return;
-
-      const { data: attendance } = await supabase
-        .from("player_attendance")
-        .select(`
-          player_id,
-          team_color,
-          profiles!inner(id, name, nickname)
-        `)
+      const { data: homePlayers } = await supabase
+        .from("round_team_players")
+        .select("player_id, profiles!inner(id, name, nickname)")
         .eq("round_id", roundId)
-        .eq("status", "presente");
+        .eq("team_color", match.team_home as "azul" | "branco" | "laranja" | "vermelho");
 
-      const playersByTeam: Record<string, Player[]> = {
-        [match.team_home]: [],
-        [match.team_away]: [],
-      };
+      const { data: awayPlayers } = await supabase
+        .from("round_team_players")
+        .select("player_id, profiles!inner(id, name, nickname)")
+        .eq("round_id", roundId)
+        .eq("team_color", match.team_away as "azul" | "branco" | "laranja" | "vermelho");
 
-      attendance?.forEach((att: any) => {
-        const player = {
-          id: att.profiles.id,
-          name: att.profiles.name,
-          nickname: att.profiles.nickname,
-        };
-        if (playersByTeam[att.team_color]) {
-          playersByTeam[att.team_color].push(player);
-        }
+      setPlayers({
+        [match.team_home]: (homePlayers || []).map((p: any) => p.profiles),
+        [match.team_away]: (awayPlayers || []).map((p: any) => p.profiles),
       });
-
-      setPlayers(playersByTeam);
     } catch (error) {
       console.error("Erro ao carregar jogadores:", error);
     }
@@ -195,41 +187,19 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     try {
       const { data: goalsData } = await supabase
         .from("goals")
-        .select("*")
+        .select(`
+          id, player_id, minute, is_own_goal, team_color,
+          player:profiles!goals_player_id_fkey(id, name, nickname),
+          assists(id, player_id, player:profiles!assists_player_id_fkey(id, name, nickname))
+        `)
         .eq("match_id", matchId)
         .order("minute", { ascending: true });
 
-      if (!goalsData) return;
-
-      const goalsWithDetails = await Promise.all(
-        goalsData.map(async (goal) => {
-          const { data: player } = await supabase
-            .from("profiles")
-            .select("id, name, nickname")
-            .eq("id", goal.player_id)
-            .maybeSingle();
-
-          const { data: assistsData } = await supabase
-            .from("assists")
-            .select("id, player_id")
-            .eq("goal_id", goal.id);
-
-          const assists = await Promise.all(
-            (assistsData || []).map(async (assist) => {
-              const { data: assistPlayer } = await supabase
-                .from("profiles")
-                .select("id, name, nickname")
-                .eq("id", assist.player_id)
-                .maybeSingle();
-              return { ...assist, player: assistPlayer };
-            })
-          );
-
-          return { ...goal, player, assists };
-        })
-      );
-
-      setGoals(goalsWithDetails);
+      setGoals((goalsData || []).map((g: any) => ({
+        ...g,
+        player: g.player,
+        assists: g.assists,
+      })));
     } catch (error) {
       console.error("Erro ao carregar gols:", error);
     }
@@ -239,75 +209,33 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     try {
       const { data: cardsData } = await supabase
         .from("cards")
-        .select("*")
+        .select(`
+          id, player_id, card_type, minute,
+          player:profiles!cards_player_id_fkey(id, name, nickname)
+        `)
         .eq("match_id", matchId)
         .order("minute", { ascending: true });
 
-      if (!cardsData) return;
+      // Get team colors for cards
+      const cardsWithTeam: CardEvent[] = [];
+      for (const card of cardsData || []) {
+        const { data: teamData } = await supabase
+          .from("round_team_players")
+          .select("team_color")
+          .eq("player_id", card.player_id)
+          .eq("round_id", roundId)
+          .maybeSingle();
 
-      const cardsWithPlayers = await Promise.all(
-        cardsData.map(async (card) => {
-          const { data: player } = await supabase
-            .from("profiles")
-            .select("id, name, nickname")
-            .eq("id", card.player_id)
-            .maybeSingle();
-          return { ...card, player };
-        })
-      );
+        cardsWithTeam.push({ ...card, team_color: teamData?.team_color });
+      }
 
-      setCards(cardsWithPlayers);
+      setCards(cardsWithTeam);
     } catch (error) {
       console.error("Erro ao carregar cartões:", error);
     }
   };
 
-  const loadRoundPlayers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('round_team_players')
-        .select(`
-          player_id,
-          team_color,
-          profiles:player_id (id, name, nickname)
-        `)
-        .eq('round_id', roundId);
-        
-      if (!error && data) {
-        const playersData = data.map((d: any) => ({ 
-          id: d.profiles.id,
-          name: d.profiles.name,
-          nickname: d.profiles.nickname,
-          team_color: d.team_color 
-        }));
-        setRoundPlayers(playersData);
-      }
-    } catch (error) {
-      console.error("Erro ao carregar jogadores da rodada:", error);
-    }
-  };
-
-  const loadAttendance = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('player_attendance')
-        .select('*')
-        .eq('round_id', roundId);
-        
-      if (!error && data) {
-        const statusMap: Record<string, string> = {};
-        data.forEach((att: Attendance) => {
-          statusMap[att.player_id] = att.status;
-        });
-        setAttendanceData(statusMap);
-      }
-    } catch (error) {
-      console.error("Erro ao carregar presença:", error);
-    }
-  };
-
-  // Função para calcular placar esperado baseado nos gols
-  const calculateExpectedScore = (goalsData: Goal[], teamHome: string, teamAway: string) => {
+  const calculateExpectedScore = useCallback((goalsData: Goal[], teamHome: string, teamAway: string) => {
     let scoreHome = 0;
     let scoreAway = 0;
     
@@ -322,29 +250,10 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     });
     
     return { scoreHome, scoreAway };
-  };
-
-  // Validar se placar está consistente com gols registrados
-  const validateScoreConsistency = () => {
-    if (!match || !goals) return { isValid: true, message: '' };
-    
-    const expected = calculateExpectedScore(goals, match.team_home, match.team_away);
-    const isValid = match.score_home === expected.scoreHome && match.score_away === expected.scoreAway;
-    
-    if (!isValid) {
-      return {
-        isValid: false,
-        message: `Placar inconsistente! Esperado: ${expected.scoreHome}x${expected.scoreAway}, Exibido: ${match.score_home}x${match.score_away}`,
-        expected
-      };
-    }
-    
-    return { isValid: true, message: '' };
-  };
+  }, []);
 
   const recalculateMatchScore = async () => {
     try {
-      // Buscar dados atualizados da partida e gols diretamente do banco
       const [{ data: matchData }, { data: allGoals }] = await Promise.all([
         supabase.from("matches").select("team_home, team_away, score_home, score_away").eq("id", matchId).single(),
         supabase.from("goals").select("team_color, is_own_goal").eq("match_id", matchId)
@@ -353,92 +262,42 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
       if (!matchData) return;
       
       const expected = calculateExpectedScore(
-        allGoals?.map(g => ({ ...g, id: '', match_id: matchId, player_id: null, minute: 0, created_at: '' })) || [],
+        (allGoals || []).map(g => ({ ...g, id: '', match_id: matchId, player_id: '', minute: 0 })),
         matchData.team_home,
         matchData.team_away
       );
       
-      // Verificar se há inconsistência antes de corrigir
-      const wasInconsistent = matchData.score_home !== expected.scoreHome || matchData.score_away !== expected.scoreAway;
+      const needsUpdate = matchData.score_home !== expected.scoreHome || matchData.score_away !== expected.scoreAway;
       
-      if (wasInconsistent) {
-        console.warn(`Placar inconsistente detectado e corrigido: ${matchData.score_home}x${matchData.score_away} → ${expected.scoreHome}x${expected.scoreAway}`);
+      if (needsUpdate) {
+        await supabase
+          .from("matches")
+          .update({ score_home: expected.scoreHome, score_away: expected.scoreAway })
+          .eq("id", matchId);
       }
       
-      // Atualizar placar na tabela matches
-      await supabase
-        .from("matches")
-        .update({ score_home: expected.scoreHome, score_away: expected.scoreAway })
-        .eq("id", matchId);
-      
-      // Atualizar estado local COM os dados frescos do banco
       if (match) {
-        setMatch({ ...match, score_home: expected.scoreHome, score_away: expected.scoreAway });
+        setMatch(prev => prev ? { ...prev, score_home: expected.scoreHome, score_away: expected.scoreAway } : null);
       }
-      
-      return { wasInconsistent, expected };
     } catch (error) {
       console.error("Erro ao recalcular placar:", error);
     }
-  };
-
-  const updateAttendance = async (playerId: string, status: string) => {
-    const player = roundPlayers.find(p => p.id === playerId);
-    if (!player) return;
-    
-    try {
-      const { error } = await supabase
-        .from('player_attendance')
-        .upsert({
-          round_id: roundId,
-          player_id: playerId,
-          team_color: player.team_color as "azul" | "branco" | "laranja" | "vermelho",
-          status: status as 'presente' | 'atrasado' | 'falta'
-        }, {
-          onConflict: 'round_id,player_id'
-        });
-        
-      if (!error) {
-        setAttendanceData({ ...attendanceData, [playerId]: status });
-        setHasUnsavedChanges(true);
-        toast({
-          title: "✅ Status alterado",
-          description: "Clique em 'Salvar Partida' para confirmar",
-        });
-      } else {
-        toast({
-          title: "Erro ao atualizar presença",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Erro ao atualizar presença:", error);
-      toast({
-        title: "Erro ao atualizar presença",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const getAttendanceStatus = (playerId: string) => {
-    return attendanceData[playerId] || 'presente';
   };
 
   const handleAddGoal = async () => {
     if (!match || !goalData.team || (!goalData.player_id && !goalData.is_own_goal)) {
       toast({
         title: "Campos obrigatórios",
-        description: "Preencha todos os campos obrigatórios",
+        description: "Selecione o time e o jogador",
         variant: "destructive",
       });
       return;
     }
 
+    setIsSaving(true);
     try {
-      // Padrão: minuto 12' (final da partida de 12 minutos)
       let currentMinute = 12;
       
-      // Só calcula tempo real se a partida está em andamento
       if (match.status === 'in_progress' && match.match_timer_started_at) {
         const startTime = new Date(match.match_timer_started_at).getTime();
         const now = Date.now();
@@ -447,13 +306,11 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
         const effectiveSeconds = elapsedSeconds - totalPausedSeconds;
         const calculatedMinute = Math.ceil(effectiveSeconds / 60);
         
-        // Usa o valor calculado (permite acréscimos além de 12')
         if (calculatedMinute >= 1) {
           currentMinute = calculatedMinute;
         }
       }
       
-      // BLOCO C: Usar RPC atômica para garantir consistência gol + assistência
       const { data: result, error: rpcError } = await supabase.rpc('record_goal_with_assist', {
         p_match_id: matchId,
         p_team_color: goalData.team,
@@ -467,18 +324,18 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
       if (rpcError) throw rpcError;
 
-      const rpcResult = result as { success: boolean; error?: string; goal_id?: string; assist_id?: string };
+      const rpcResult = result as { success: boolean; error?: string };
       
       if (!rpcResult.success) {
         throw new Error(rpcResult.error || 'Erro ao registrar gol');
       }
 
       setHasUnsavedChanges(true);
-      const assistMsg = rpcResult.assist_id ? ' (com assistência)' : '';
       toast({
-        title: `✅ Gol adicionado${assistMsg}!`,
-        description: "Clique em 'Salvar Partida' para confirmar",
+        title: "✅ Gol registrado!",
+        description: "Lembre-se de salvar as alterações",
       });
+      
       setGoalData({ team: "", player_id: "", has_assist: false, assist_player_id: "", is_own_goal: false });
       setAddingGoal(false);
       await loadMatchData();
@@ -489,30 +346,26 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDeleteGoal = async (goalId: string) => {
+    setIsSaving(true);
     try {
-      // 1. Deletar assistências associadas
       await supabase.from("assists").delete().eq("goal_id", goalId);
-      
-      // 2. Deletar o gol específico
-      const { error } = await supabase
-        .from("goals")
-        .delete()
-        .eq("id", goalId);
+      const { error } = await supabase.from("goals").delete().eq("id", goalId);
       
       if (error) throw error;
       
-      // 3. Recalcular placar baseado nos gols restantes
       await recalculateMatchScore();
-      
       setHasUnsavedChanges(true);
+      
       toast({
         title: "✅ Gol excluído!",
-        description: "Clique em 'Salvar Partida' para confirmar",
       });
+      
       await loadMatchData();
     } catch (error: any) {
       console.error("Erro ao excluir gol:", error);
@@ -520,21 +373,9 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
         title: "Erro ao excluir gol",
         variant: "destructive",
       });
+    } finally {
+      setIsSaving(false);
     }
-  };
-
-  const handleDeleteLastGoal = async () => {
-    if (goals.length === 0) {
-      toast({
-        title: "Sem gols",
-        description: "Não há gols para excluir",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const lastGoal = goals[goals.length - 1];
-    await handleDeleteGoal(lastGoal.id);
   };
 
   const handleAddCard = async () => {
@@ -547,11 +388,10 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
       return;
     }
 
+    setIsSaving(true);
     try {
-      // Padrão: minuto 12' (final da partida de 12 minutos)
       let currentMinute = 12;
       
-      // Só calcula tempo real se a partida está em andamento
       if (match?.status === 'in_progress' && match.match_timer_started_at) {
         const startTime = new Date(match.match_timer_started_at).getTime();
         const now = Date.now();
@@ -560,7 +400,6 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
         const effectiveSeconds = elapsedSeconds - totalPausedSeconds;
         const calculatedMinute = Math.ceil(effectiveSeconds / 60);
         
-        // Usa o valor calculado (permite acréscimos além de 12')
         if (calculatedMinute >= 1) {
           currentMinute = calculatedMinute;
         }
@@ -577,10 +416,11 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
       setHasUnsavedChanges(true);
       toast({
-        title: "✅ Cartão adicionado!",
-        description: "Clique em 'Salvar Partida' para confirmar",
+        title: "✅ Cartão registrado!",
       });
+      
       setCardData({ team: "", player_id: "", card_type: "" });
+      setAddingCard(false);
       await loadCards();
     } catch (error: any) {
       console.error("Erro ao adicionar cartão:", error);
@@ -588,52 +428,38 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
         title: "Erro ao adicionar cartão",
         variant: "destructive",
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleDeleteLastCard = async () => {
-    if (cards.length === 0) {
-      toast({
-        title: "Sem cartões",
-        description: "Não há cartões para excluir",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleDeleteCard = async (cardId: string) => {
+    setIsSaving(true);
     try {
-      const lastCard = cards[cards.length - 1];
-      const { error } = await supabase
-        .from("cards")
-        .delete()
-        .eq("id", lastCard.id);
-
+      const { error } = await supabase.from("cards").delete().eq("id", cardId);
       if (error) throw error;
 
       setHasUnsavedChanges(true);
-      toast({
-        title: "✅ Cartão excluído!",
-        description: "Clique em 'Salvar Partida' para confirmar",
-      });
+      toast({ title: "✅ Cartão excluído!" });
       await loadCards();
     } catch (error: any) {
       console.error("Erro ao excluir cartão:", error);
-      toast({
-        title: "Erro ao excluir cartão",
-        variant: "destructive",
-      });
+      toast({ title: "Erro ao excluir cartão", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleSaveMatch = async () => {
+    setIsSaving(true);
     try {
-      // Recalcular stats da rodada
+      // Recalcular pontos da rodada
       const { error: recalcError } = await supabase.rpc('recalc_round_aggregates', {
         p_round_id: roundId
       });
 
       if (recalcError) {
-        console.error("Erro ao recalcular stats da rodada:", recalcError);
+        console.error("Erro ao recalcular stats:", recalcError);
       }
 
       // Recalcular rankings globais
@@ -645,13 +471,13 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
 
       if (recalcError || rankError) {
         toast({
-          title: "⚠️ Partida salva com aviso",
+          title: "⚠️ Salvo com aviso",
           description: "Dados salvos, mas houve erro ao recalcular pontos.",
         });
       } else {
         toast({
-          title: "✅ Partida salva com sucesso!",
-          description: "Todos os dados foram atualizados e pontos recalculados.",
+          title: "✅ Partida salva!",
+          description: "Todos os dados foram atualizados.",
         });
       }
 
@@ -665,30 +491,37 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleCloseDialog = async () => {
-    // Sempre recalcular ao fechar, pois eventos podem ter sido adicionados
-    try {
-      await supabase.rpc('recalc_round_aggregates', { p_round_id: roundId });
-      await supabase.rpc('recalc_all_player_rankings');
-    } catch (error) {
-      console.error("Erro ao recalcular ao fechar:", error);
-    }
-    
     if (hasUnsavedChanges) {
       setShowCloseConfirm(true);
     } else {
-      onSaved(); // Notificar parent para refresh
+      // Sempre recalcular ao fechar para garantir consistência
+      try {
+        await supabase.rpc('recalc_round_aggregates', { p_round_id: roundId });
+        await supabase.rpc('recalc_all_player_rankings');
+      } catch (error) {
+        console.error("Erro ao recalcular ao fechar:", error);
+      }
+      onSaved();
       onOpenChange(false);
     }
   };
 
-  const handleDiscardChanges = async () => {
-    setHasUnsavedChanges(false);
+  const handleDiscardAndClose = async () => {
     setShowCloseConfirm(false);
-    onSaved(); // Notificar parent para refresh
+    try {
+      await supabase.rpc('recalc_round_aggregates', { p_round_id: roundId });
+      await supabase.rpc('recalc_all_player_rankings');
+    } catch (error) {
+      console.error("Erro ao recalcular:", error);
+    }
+    setHasUnsavedChanges(false);
+    onSaved();
     onOpenChange(false);
   };
 
@@ -697,402 +530,368 @@ export default function ManageMatchDialog({ matchId, roundId, open, onOpenChange
     await handleSaveMatch();
   };
 
+  // Combine and sort all events for timeline
+  const timelineEvents = [
+    ...goals.map(g => ({
+      id: g.id,
+      type: 'goal' as const,
+      minute: g.minute,
+      team_color: g.team_color,
+      player: g.player,
+      assist: g.assists?.[0]?.player,
+      is_own_goal: g.is_own_goal,
+    })),
+    ...cards.map(c => ({
+      id: c.id,
+      type: c.card_type as 'amarelo' | 'azul',
+      minute: c.minute,
+      team_color: c.team_color,
+      player: c.player,
+    })),
+  ].sort((a, b) => a.minute - b.minute);
+
   if (!match) return null;
 
   return (
     <>
       <Dialog open={open} onOpenChange={handleCloseDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-center text-2xl">
-              Editar Partida
-            </DialogTitle>
+        <DialogContent className="max-w-lg max-h-[95vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="p-4 pb-2 border-b border-border">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-lg font-semibold">
+                {roundNumber ? `Rodada ${roundNumber} — ` : ''}Jogo {match.match_number}
+              </DialogTitle>
+              <Button variant="ghost" size="icon" onClick={handleCloseDialog} className="h-8 w-8">
+                <X size={18} />
+              </Button>
+            </div>
           </DialogHeader>
 
+          {/* Score Display */}
+          <div className="px-4 py-3 bg-muted/30">
+            <div className="flex items-center justify-center gap-6">
+              <div className="flex flex-col items-center gap-1">
+                <TeamLogo teamColor={match.team_home as TeamColor} size="md" />
+                <span className="text-xs text-muted-foreground">{teamNames[match.team_home]}</span>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <span className="text-4xl font-bold">{match.score_home}</span>
+                <span className="text-xl text-muted-foreground">:</span>
+                <span className="text-4xl font-bold">{match.score_away}</span>
+              </div>
+              
+              <div className="flex flex-col items-center gap-1">
+                <TeamLogo teamColor={match.team_away as TeamColor} size="md" />
+                <span className="text-xs text-muted-foreground">{teamNames[match.team_away]}</span>
+              </div>
+            </div>
+            
+            <div className="text-center mt-2">
+              <Badge variant="outline" className="text-xs">
+                {goals.length} gol(s) • {cards.length} cartão(ões)
+              </Badge>
+            </div>
+          </div>
+
+          {/* Alerts */}
           {hasUnsavedChanges && (
-            <Alert className="bg-yellow-500/10 border-yellow-500/50 sticky top-0 z-10">
-              <AlertCircle className="h-5 w-5 text-yellow-600" />
-              <AlertDescription className="text-yellow-600 font-medium">
-                ⚠️ Você tem alterações não salvas. Clique em "Salvar Partida" para confirmar.
+            <Alert className="mx-4 mt-2 bg-amber-500/10 border-amber-500/30">
+              <AlertCircle className="h-4 w-4 text-amber-500" />
+              <AlertDescription className="text-amber-500 text-sm">
+                Alterações não salvas
               </AlertDescription>
             </Alert>
           )}
 
-          {(() => {
-            const validation = validateScoreConsistency();
-            if (!validation.isValid) {
-              return (
-                <Alert className="bg-destructive/10 border-destructive/50">
-                  <AlertCircle className="h-5 w-5 text-destructive" />
-                  <AlertDescription className="text-destructive font-medium">
-                    ⚠️ {validation.message}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="ml-3"
-                      onClick={async () => {
-                        await recalculateMatchScore();
-                        toast({ title: "✅ Placar corrigido automaticamente" });
-                      }}
-                    >
-                      Corrigir Agora
-                    </Button>
-                  </AlertDescription>
-                </Alert>
-              );
-            }
-            return null;
-          })()}
+          {/* Tabs Content */}
+          <Tabs defaultValue="events" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="mx-4 mt-2 grid grid-cols-2">
+              <TabsTrigger value="events">Eventos</TabsTrigger>
+              <TabsTrigger value="add">Adicionar</TabsTrigger>
+            </TabsList>
 
-        <Card className="bg-gradient-to-br from-primary/10 to-secondary/10 border-primary/20">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-center gap-8">
-              <div className="flex flex-col items-center space-y-2">
-                <Badge className={teamColors[match.team_home] + " py-2 px-6"}>
-                  {teamNames[match.team_home]}
-                </Badge>
-                <span className="text-5xl font-bold text-primary">
-                  {match.score_home}
-                </span>
-              </div>
-
-              <div className="text-3xl text-muted-foreground font-bold">×</div>
-
-              <div className="flex flex-col items-center space-y-2">
-                <Badge className={teamColors[match.team_away] + " py-2 px-6"}>
-                  {teamNames[match.team_away]}
-                </Badge>
-                <span className="text-5xl font-bold text-primary">
-                  {match.score_away}
-                </span>
-              </div>
-            </div>
-            
-            {/* Indicador visual de placar válido */}
-            <div className="text-center mt-3 text-xs text-muted-foreground">
-              {goals.length} gol(is) registrado(s) ✓
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Gols ({goals.length})</h3>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => setAddingGoal(!addingGoal)}
-                  size="sm"
-                  className="bg-primary hover:bg-secondary"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar Gol
-                </Button>
-                <Button
-                  onClick={handleDeleteLastGoal}
-                  size="sm"
-                  variant="destructive"
-                  disabled={goals.length === 0}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Excluir Último
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {addingGoal && (
-              <Card className="bg-muted/20 p-4 space-y-3">
-                <Select
-                  value={goalData.team}
-                  onValueChange={(value) => setGoalData({ ...goalData, team: value, player_id: "" })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={match.team_home}>{teamNames[match.team_home]}</SelectItem>
-                    <SelectItem value={match.team_away}>{teamNames[match.team_away]}</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="is_own_goal"
-                    checked={goalData.is_own_goal}
-                    onChange={(e) => setGoalData({ ...goalData, is_own_goal: e.target.checked, player_id: "" })}
-                    className="h-4 w-4"
-                  />
-                  <label htmlFor="is_own_goal" className="text-sm">Gol Contra</label>
+            <TabsContent value="events" className="flex-1 overflow-y-auto px-4 pb-4 mt-2">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="animate-spin text-primary" size={24} />
                 </div>
-
-                {!goalData.is_own_goal && goalData.team && (
-                  <>
-                    <Select
-                      value={goalData.player_id}
-                      onValueChange={(value) => setGoalData({ ...goalData, player_id: value })}
+              ) : timelineEvents.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nenhum evento registrado
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {timelineEvents.map((event) => (
+                    <div
+                      key={event.id}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors group"
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Jogador que marcou" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(players[goalData.team] || []).map((player) => (
-                          <SelectItem key={player.id} value={player.id}>
-                            {player.nickname || player.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="has_assist"
-                        checked={goalData.has_assist}
-                        onChange={(e) => setGoalData({ ...goalData, has_assist: e.target.checked })}
-                        className="h-4 w-4"
-                      />
-                      <label htmlFor="has_assist" className="text-sm">Adicionar assistência</label>
-                    </div>
-
-                    {goalData.has_assist && (
-                      <Select
-                        value={goalData.assist_player_id}
-                        onValueChange={(value) => setGoalData({ ...goalData, assist_player_id: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Jogador da assistência" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(players[goalData.team] || [])
-                            .filter(p => p.id !== goalData.player_id)
-                            .map((player) => (
-                              <SelectItem key={player.id} value={player.id}>
-                                {player.nickname || player.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </>
-                )}
-
-                <Button onClick={handleAddGoal} className="w-full bg-primary hover:bg-secondary">
-                  Confirmar Gol
-                </Button>
-              </Card>
-            )}
-
-            <div className="space-y-2">
-              {goals.map((goal) => (
-                <div key={goal.id} className="flex items-center justify-between p-3 bg-muted/10 rounded-lg hover:bg-muted/20 transition-colors">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-3">
-                      <Badge className={teamColors[goal.team_color]}>
-                        {teamNames[goal.team_color]}
-                      </Badge>
-                      <span className="font-medium">
-                        {EVENT_ICONS.goal} {formatMinute(goal.minute)} {goal.is_own_goal ? "GC" : (goal.player?.nickname || goal.player?.name)}
-                      </span>
-                    </div>
-                    {goal.assists && goal.assists.length > 0 && goal.assists[0].player && (
-                      <div className="flex items-center gap-2 ml-2 text-sm">
-                        <span className="text-muted-foreground">
-                          Assist: <span className="font-medium text-foreground">{goal.assists[0].player.nickname || goal.assists[0].player.name}</span>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <TeamLogo teamColor={event.team_color as TeamColor} size="sm" />
+                        <span className="text-lg">
+                          {event.type === 'goal' ? EVENT_ICONS.goal : 
+                           event.type === 'amarelo' ? EVENT_ICONS.amarelo : EVENT_ICONS.azul}
                         </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">
+                              {formatMinute(event.minute)}
+                            </span>
+                            <span className="truncate text-sm">
+                              {event.type === 'goal' && event.is_own_goal 
+                                ? 'Gol Contra' 
+                                : event.player?.nickname || event.player?.name || '—'}
+                            </span>
+                          </div>
+                          {event.type === 'goal' && event.assist && (
+                            <div className="text-xs text-muted-foreground truncate">
+                              Assist: {event.assist.nickname || event.assist.name}
+                            </div>
+                          )}
+                        </div>
                       </div>
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => event.type === 'goal' ? handleDeleteGoal(event.id) : handleDeleteCard(event.id)}
+                        disabled={isSaving}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="add" className="flex-1 overflow-y-auto px-4 pb-4 mt-2 space-y-4">
+              {/* Add Goal Section */}
+              <Card className="border-emerald-500/30 bg-emerald-500/5">
+                <CardHeader className="p-3 pb-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-emerald-500 flex items-center gap-2">
+                      {EVENT_ICONS.goal} Adicionar Gol
+                    </span>
+                    {addingGoal && (
+                      <Button variant="ghost" size="sm" onClick={() => setAddingGoal(false)} className="h-7 px-2">
+                        Cancelar
+                      </Button>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (confirm(`Excluir gol de ${goal.is_own_goal ? "gol contra" : (goal.player?.nickname || goal.player?.name)}?`)) {
-                        handleDeleteGoal(goal.id);
-                      }
-                    }}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-3">
+                  {!addingGoal ? (
+                    <Button onClick={() => setAddingGoal(true)} variant="outline" className="w-full border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10">
+                      <Plus size={16} className="mr-2" />
+                      Registrar Gol
+                    </Button>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[match.team_home, match.team_away].map((team) => (
+                          <Button
+                            key={team}
+                            variant={goalData.team === team ? "default" : "outline"}
+                            className={`h-10 ${goalData.team === team ? "bg-emerald-600" : ""}`}
+                            onClick={() => setGoalData({ ...goalData, team, player_id: "", assist_player_id: "" })}
+                          >
+                            <TeamLogo teamColor={team as TeamColor} size="sm" className="mr-1" />
+                            {teamNames[team]}
+                          </Button>
+                        ))}
+                      </div>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Cartões ({cards.length})</h3>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => setAddingCard(!addingCard)}
-                  size="sm"
-                  className="bg-primary hover:bg-secondary"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar Cartão
-                </Button>
-                <Button
-                  onClick={handleDeleteLastCard}
-                  size="sm"
-                  variant="destructive"
-                  disabled={cards.length === 0}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Excluir Último
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {addingCard && (
-              <Card className="bg-muted/20 p-4 space-y-3">
-                <Select
-                  value={cardData.team}
-                  onValueChange={(value) => setCardData({ ...cardData, team: value, player_id: "" })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={match.team_home}>{teamNames[match.team_home]}</SelectItem>
-                    <SelectItem value={match.team_away}>{teamNames[match.team_away]}</SelectItem>
-                  </SelectContent>
-                </Select>
+                      {goalData.team && (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id="is_own_goal"
+                              checked={goalData.is_own_goal}
+                              onChange={(e) => setGoalData({ ...goalData, is_own_goal: e.target.checked, player_id: "" })}
+                              className="h-4 w-4"
+                            />
+                            <label htmlFor="is_own_goal" className="text-sm">Gol Contra</label>
+                          </div>
 
-                {cardData.team && (
-                  <Select
-                    value={cardData.player_id}
-                    onValueChange={(value) => setCardData({ ...cardData, player_id: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o jogador" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(players[cardData.team] || []).map((player) => (
-                        <SelectItem key={player.id} value={player.id}>
-                          {player.nickname || player.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                          {!goalData.is_own_goal && (
+                            <Select value={goalData.player_id} onValueChange={(v) => setGoalData({ ...goalData, player_id: v })}>
+                              <SelectTrigger className="h-10">
+                                <SelectValue placeholder="Quem marcou?" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(players[goalData.team] || []).map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>{p.nickname || p.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
 
-                <Select
-                  value={cardData.card_type}
-                  onValueChange={(value) => setCardData({ ...cardData, card_type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Tipo de cartão" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="amarelo">{EVENT_ICONS.amarelo} Amarelo</SelectItem>
-                    <SelectItem value="azul">{EVENT_ICONS.azul} Azul</SelectItem>
-                  </SelectContent>
-                </Select>
+                          {goalData.player_id && !goalData.is_own_goal && (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  id="has_assist"
+                                  checked={goalData.has_assist}
+                                  onChange={(e) => setGoalData({ ...goalData, has_assist: e.target.checked, assist_player_id: "" })}
+                                  className="h-4 w-4"
+                                />
+                                <label htmlFor="has_assist" className="text-sm">Houve assistência?</label>
+                              </div>
 
-                <Button onClick={handleAddCard} className="w-full bg-primary hover:bg-secondary">
-                  Confirmar Cartão
-                </Button>
+                              {goalData.has_assist && (
+                                <Select value={goalData.assist_player_id} onValueChange={(v) => setGoalData({ ...goalData, assist_player_id: v })}>
+                                  <SelectTrigger className="h-10">
+                                    <SelectValue placeholder="Quem assistiu?" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {(players[goalData.team] || []).filter(p => p.id !== goalData.player_id).map((p) => (
+                                      <SelectItem key={p.id} value={p.id}>{p.nickname || p.name}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                            </>
+                          )}
+
+                          <Button 
+                            onClick={handleAddGoal} 
+                            disabled={isSaving || (!goalData.player_id && !goalData.is_own_goal)}
+                            className="w-full bg-emerald-600 hover:bg-emerald-700"
+                          >
+                            {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
+                            Confirmar Gol
+                          </Button>
+                        </>
+                      )}
+                    </>
+                  )}
+                </CardContent>
               </Card>
-            )}
 
-            <div className="space-y-2">
-              {cards.map((card) => (
-                <div key={card.id} className="flex items-center justify-between p-3 bg-muted/10 rounded-lg">
-                  <span>
-                    {EVENT_ICONS[card.card_type as 'amarelo' | 'azul']} {card.player?.nickname || card.player?.name}
-                  </span>
-                  <span className="text-sm text-muted-foreground">{formatMinute(card.minute)}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              {/* Add Card Section */}
+              <Card className="border-amber-500/30 bg-amber-500/5">
+                <CardHeader className="p-3 pb-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-amber-500 flex items-center gap-2">
+                      {EVENT_ICONS.amarelo} Adicionar Cartão
+                    </span>
+                    {addingCard && (
+                      <Button variant="ghost" size="sm" onClick={() => setAddingCard(false)} className="h-7 px-2">
+                        Cancelar
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="p-3 pt-0 space-y-3">
+                  {!addingCard ? (
+                    <Button onClick={() => setAddingCard(true)} variant="outline" className="w-full border-amber-500/30 text-amber-500 hover:bg-amber-500/10">
+                      <Plus size={16} className="mr-2" />
+                      Registrar Cartão
+                    </Button>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[match.team_home, match.team_away].map((team) => (
+                          <Button
+                            key={team}
+                            variant={cardData.team === team ? "default" : "outline"}
+                            className={`h-10 ${cardData.team === team ? "bg-amber-600" : ""}`}
+                            onClick={() => setCardData({ ...cardData, team, player_id: "" })}
+                          >
+                            <TeamLogo teamColor={team as TeamColor} size="sm" className="mr-1" />
+                            {teamNames[team]}
+                          </Button>
+                        ))}
+                      </div>
 
-        <Card>
-          <CardHeader>
-            <h3 className="text-lg font-semibold">Presença e Atrasos</h3>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {roundPlayers.map((player) => (
-              <div key={player.id} className="flex items-center justify-between border-b border-border pb-2">
-                <div className="flex items-center gap-2">
-                  <Badge className={teamColors[player.team_color]}>
-                    {teamNames[player.team_color]}
-                  </Badge>
-                  <span>{player.nickname || player.name}</span>
-                </div>
-                <Select
-                  value={getAttendanceStatus(player.id)}
-                  onValueChange={(status) => updateAttendance(player.id, status)}
-                >
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="presente">✅ Presente</SelectItem>
-                    <SelectItem value="atrasado">⏰ Atrasado</SelectItem>
-                    <SelectItem value="falta">❌ Falta</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+                      {cardData.team && (
+                        <>
+                          <Select value={cardData.player_id} onValueChange={(v) => setCardData({ ...cardData, player_id: v })}>
+                            <SelectTrigger className="h-10">
+                              <SelectValue placeholder="Selecione o jogador" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(players[cardData.team] || []).map((p) => (
+                                <SelectItem key={p.id} value={p.id}>{p.nickname || p.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
 
-          <div className="sticky bottom-0 bg-background pt-4 pb-2 border-t border-border mt-4 space-y-3">
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              variant={cardData.card_type === "amarelo" ? "default" : "outline"}
+                              className={`h-10 ${cardData.card_type === "amarelo" ? "bg-yellow-500 text-black" : ""}`}
+                              onClick={() => setCardData({ ...cardData, card_type: "amarelo" })}
+                            >
+                              🟨 Amarelo
+                            </Button>
+                            <Button
+                              variant={cardData.card_type === "azul" ? "default" : "outline"}
+                              className={`h-10 ${cardData.card_type === "azul" ? "bg-blue-600" : ""}`}
+                              onClick={() => setCardData({ ...cardData, card_type: "azul" })}
+                            >
+                              🟦 Azul
+                            </Button>
+                          </div>
+
+                          <Button 
+                            onClick={handleAddCard} 
+                            disabled={isSaving || !cardData.player_id || !cardData.card_type}
+                            className="w-full bg-amber-600 hover:bg-amber-700 text-black"
+                          >
+                            {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
+                            Confirmar Cartão
+                          </Button>
+                        </>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
+          {/* Sticky Save Button */}
+          <div className="p-4 border-t border-border bg-background">
             <Button 
-              onClick={handleSaveMatch}
-              disabled={!hasUnsavedChanges}
-              className={`w-full text-lg py-6 transition-all ${
-                hasUnsavedChanges 
-                  ? 'bg-primary hover:bg-primary/90 animate-pulse shadow-lg shadow-primary/50' 
-                  : 'bg-muted text-muted-foreground cursor-not-allowed'
-              }`}
+              onClick={handleSaveMatch} 
+              disabled={isSaving}
+              className="w-full min-h-[48px] gap-2"
             >
-              <Save className="h-5 w-5 mr-2" />
-              Salvar Partida {hasUnsavedChanges && '(alterações pendentes)'}
+              {isSaving ? (
+                <Loader2 className="animate-spin" size={18} />
+              ) : (
+                <Save size={18} />
+              )}
+              Salvar Partida
             </Button>
-            {hasUnsavedChanges && (
-              <p className="text-xs text-center text-muted-foreground">
-                {goals.length + cards.length} evento(s) pendente(s)
-              </p>
-            )}
           </div>
         </DialogContent>
       </Dialog>
 
+      {/* Close Confirmation */}
       <AlertDialog open={showCloseConfirm} onOpenChange={setShowCloseConfirm}>
-        <AlertDialogContent className="max-w-md">
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-yellow-600" />
-              Alterações não salvas
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-base">
-              Você tem alterações pendentes que não foram salvas. O que deseja fazer?
+            <AlertDialogTitle>Alterações não salvas</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você tem alterações não salvas. O que deseja fazer?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel onClick={() => setShowCloseConfirm(false)} className="w-full sm:w-auto">
-              Continuar Editando
+            <AlertDialogCancel onClick={() => setShowCloseConfirm(false)}>
+              Voltar
             </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDiscardChanges}
-              className="w-full sm:w-auto bg-destructive hover:bg-destructive/90"
-            >
-              Descartar Alterações
+            <AlertDialogAction onClick={handleDiscardAndClose} className="bg-destructive hover:bg-destructive/90">
+              Descartar
             </AlertDialogAction>
-            <AlertDialogAction 
-              onClick={handleSaveAndClose}
-              className="w-full sm:w-auto bg-primary hover:bg-primary/90"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              Salvar e Sair
+            <AlertDialogAction onClick={handleSaveAndClose} className="bg-primary">
+              Salvar e Fechar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
