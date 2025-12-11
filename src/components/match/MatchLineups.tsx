@@ -327,6 +327,43 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
   const { getPlayerEvents } = useMatchPlayerEvents(matchId);
   const { substitutions } = useMatchSubstitutions(matchId);
 
+  // Mapa de jogadores que entraram via substituição -> minuto de entrada
+  const subInMinuteMap = useMemo(() => {
+    const map = new Map<string, number>();
+    substitutions.forEach(s => {
+      map.set(s.player_in_id, s.minute);
+    });
+    return map;
+  }, [substitutions]);
+
+  // Função que combina eventos do hook com dados de substituição
+  const getPlayerEventsWithSub = (playerId: string): PlayerEventCounts | null => {
+    const baseEvents = getPlayerEvents(playerId);
+    const subMinute = subInMinuteMap.get(playerId);
+    
+    if (baseEvents) {
+      // Se já tem eventos, adiciona sub_in_minute se não tiver
+      return {
+        ...baseEvents,
+        sub_in_minute: baseEvents.sub_in_minute ?? subMinute ?? null
+      };
+    }
+    
+    // Se não tem eventos mas entrou via substituição, cria objeto mínimo
+    if (subMinute !== undefined) {
+      return {
+        player_id: playerId,
+        goals_count: 0,
+        yellow_count: 0,
+        blue_count: 0,
+        sub_in_minute: subMinute,
+        is_starter: false
+      };
+    }
+    
+    return null;
+  };
+
   // Calcula jogadores em campo considerando substituições
   const getPlayersOnField = (originalPlayers: Player[], teamColor: string): Player[] => {
     // IDs dos jogadores que saíram
@@ -353,8 +390,6 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
       ...originalPlayers.filter(p => !playersOutIds.has(p.id)),
       ...playersIn
     ];
-
-    console.log(`[MatchLineups] ${teamColor} - Original: ${originalPlayers.length}, Out: ${playersOutIds.size}, In: ${playersIn.length}, OnField: ${onField.length}`);
     
     return onField;
   };
@@ -410,7 +445,7 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
 
       {/* 3D Field with players */}
       <div className="w-full px-2">
-        <FieldFormation players={currentPlayers} getPlayerEvents={getPlayerEvents} />
+        <FieldFormation players={currentPlayers} getPlayerEvents={getPlayerEventsWithSub} />
       </div>
     </div>
   );
