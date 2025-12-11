@@ -256,6 +256,46 @@ export function AdminMatchCard({
   );
 }
 
+// Hook for swipe gesture detection
+function useSwipeGesture(
+  onSwipeLeft: () => void,
+  onSwipeRight: () => void,
+  threshold: number = 50
+) {
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    
+    const deltaX = touchEndX - touchStartX.current;
+    const deltaY = touchEndY - touchStartY.current;
+
+    // Only trigger swipe if horizontal movement is greater than vertical
+    // This prevents conflicts with vertical scrolling
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > threshold) {
+      if (deltaX > 0) {
+        onSwipeRight();
+      } else {
+        onSwipeLeft();
+      }
+    }
+
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
+  return { handleTouchStart, handleTouchEnd };
+}
+
 export function AdminMatchMiniNav({
   matches,
   selectedMatchId,
@@ -268,6 +308,29 @@ export function AdminMatchMiniNav({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const navigateMatch = (direction: 'prev' | 'next') => {
+    if (!selectedMatchId) {
+      if (matches.length > 0) {
+        onSelectMatch(matches[0].id);
+      }
+      return;
+    }
+    const currentIndex = matches.findIndex(m => m.id === selectedMatchId);
+    const newIndex = direction === 'prev' 
+      ? Math.max(0, currentIndex - 1)
+      : Math.min(matches.length - 1, currentIndex + 1);
+    
+    if (newIndex !== currentIndex) {
+      onSelectMatch(matches[newIndex].id);
+    }
+  };
+
+  // Swipe gesture handlers for full card area
+  const { handleTouchStart, handleTouchEnd } = useSwipeGesture(
+    () => navigateMatch('next'),  // Swipe left = next match
+    () => navigateMatch('prev')   // Swipe right = previous match
+  );
 
   // Check scroll position and update arrow states
   const checkScrollPosition = () => {
@@ -326,24 +389,16 @@ export function AdminMatchMiniNav({
     setTimeout(checkScrollPosition, 350);
   };
 
-  const navigateMatch = (direction: 'prev' | 'next') => {
-    if (!selectedMatchId) return;
-    const currentIndex = matches.findIndex(m => m.id === selectedMatchId);
-    const newIndex = direction === 'prev' 
-      ? Math.max(0, currentIndex - 1)
-      : Math.min(matches.length - 1, currentIndex + 1);
-    
-    if (newIndex !== currentIndex) {
-      onSelectMatch(matches[newIndex].id);
-    }
-  };
-
   const currentIndex = matches.findIndex(m => m.id === selectedMatchId);
   const isFirstMatch = currentIndex === 0;
   const isLastMatch = currentIndex === matches.length - 1;
 
   return (
-    <div className="relative bg-muted/30 rounded-xl p-2 border border-border/50">
+    <div 
+      className="relative bg-muted/30 rounded-xl p-2 border border-border/50"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Navigation Arrows - Desktop */}
       <div className="hidden sm:block">
         {canScrollLeft && (
@@ -386,7 +441,7 @@ export function AdminMatchMiniNav({
         ))}
       </div>
 
-      {/* Quick Navigation Footer */}
+      {/* Quick Navigation Footer with swipe hint on mobile */}
       <div className="flex items-center justify-between mt-2 px-1 pt-2 border-t border-border/30">
         <Button
           variant="ghost"
@@ -399,9 +454,14 @@ export function AdminMatchMiniNav({
           <span className="hidden xs:inline">Anterior</span>
         </Button>
         
-        <span className="text-xs font-medium text-muted-foreground">
-          {currentIndex + 1} / {matches.length}
-        </span>
+        <div className="flex flex-col items-center">
+          <span className="text-xs font-medium text-muted-foreground">
+            {currentIndex + 1} / {matches.length}
+          </span>
+          <span className="text-[10px] text-muted-foreground/60 sm:hidden">
+            ← Deslize para navegar →
+          </span>
+        </div>
         
         <Button
           variant="ghost"
@@ -417,3 +477,6 @@ export function AdminMatchMiniNav({
     </div>
   );
 }
+
+// Export hook for use in parent components (for card swipe area)
+export { useSwipeGesture };
