@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { TeamLogo } from "./TeamLogo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { PlayerEventBadges } from "./PlayerEventBadges";
 import { useMatchPlayerEvents, PlayerEventCounts } from "@/hooks/useMatchPlayerEvents";
+import { useMatchSubstitutions, Substitution } from "@/hooks/useMatchSubstitutions";
 
 type Position = "goleiro" | "defensor" | "meio-campista" | "atacante";
 
@@ -324,8 +325,51 @@ function FieldFormation({ players, getPlayerEvents }: FieldFormationProps) {
 export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, matchId, className }: MatchLineupsProps) {
   const [selectedTeam, setSelectedTeam] = useState<"home" | "away">("home");
   const { getPlayerEvents } = useMatchPlayerEvents(matchId);
+  const { substitutions } = useMatchSubstitutions(matchId);
 
-  const currentPlayers = selectedTeam === "home" ? homePlayers : awayPlayers;
+  // Calcula jogadores em campo considerando substituições
+  const getPlayersOnField = (originalPlayers: Player[], teamColor: string): Player[] => {
+    // IDs dos jogadores que saíram
+    const playersOutIds = new Set(
+      substitutions
+        .filter(s => s.team_color === teamColor)
+        .map(s => s.player_out_id)
+    );
+
+    // Jogadores que entraram (com dados completos)
+    const playersIn = substitutions
+      .filter(s => s.team_color === teamColor && s.player_in)
+      .map(s => ({
+        id: s.player_in!.id,
+        name: s.player_in!.name,
+        nickname: s.player_in!.nickname,
+        position: s.player_in!.position as Position | null,
+        level: s.player_in!.level,
+        avatar_url: s.player_in!.avatar_url,
+      }));
+
+    // Titulares que não saíram + jogadores que entraram
+    const onField = [
+      ...originalPlayers.filter(p => !playersOutIds.has(p.id)),
+      ...playersIn
+    ];
+
+    console.log(`[MatchLineups] ${teamColor} - Original: ${originalPlayers.length}, Out: ${playersOutIds.size}, In: ${playersIn.length}, OnField: ${onField.length}`);
+    
+    return onField;
+  };
+
+  const homeOnField = useMemo(() => 
+    getPlayersOnField(homePlayers, teamHome), 
+    [homePlayers, teamHome, substitutions]
+  );
+  
+  const awayOnField = useMemo(() => 
+    getPlayersOnField(awayPlayers, teamAway), 
+    [awayPlayers, teamAway, substitutions]
+  );
+
+  const currentPlayers = selectedTeam === "home" ? homeOnField : awayOnField;
 
   return (
     <div className={cn("space-y-4", className)}>
