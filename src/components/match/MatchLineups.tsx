@@ -1,11 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { TeamLogo } from "./TeamLogo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { PlayerEventBadges } from "./PlayerEventBadges";
 import { useMatchPlayerEvents, PlayerEventCounts } from "@/hooks/useMatchPlayerEvents";
-import { useMatchSubstitutions, Substitution } from "@/hooks/useMatchSubstitutions";
-
+import { useMatchSubstitutions } from "@/hooks/useMatchSubstitutions";
+import { Skeleton } from "@/components/ui/skeleton";
 type Position = "goleiro" | "defensor" | "meio-campista" | "atacante";
 
 interface Player {
@@ -325,7 +325,7 @@ function FieldFormation({ players, getPlayerEvents }: FieldFormationProps) {
 export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, matchId, className }: MatchLineupsProps) {
   const [selectedTeam, setSelectedTeam] = useState<"home" | "away">("home");
   const { getPlayerEvents } = useMatchPlayerEvents(matchId);
-  const { substitutions } = useMatchSubstitutions(matchId);
+  const { substitutions, loading: subsLoading } = useMatchSubstitutions(matchId);
 
   // Mapa de jogadores que entraram via substituição -> minuto de entrada
   const subInMinuteMap = useMemo(() => {
@@ -333,24 +333,25 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
     substitutions.forEach(s => {
       map.set(s.player_in_id, s.minute);
     });
+    console.log('[MatchLineups] subInMinuteMap:', Array.from(map.entries()));
     return map;
   }, [substitutions]);
 
   // Função que combina eventos do hook com dados de substituição
-  const getPlayerEventsWithSub = (playerId: string): PlayerEventCounts | null => {
+  const getPlayerEventsWithSub = useCallback((playerId: string): PlayerEventCounts | null => {
     const baseEvents = getPlayerEvents(playerId);
     const subMinute = subInMinuteMap.get(playerId);
     
     if (baseEvents) {
-      // Se já tem eventos, adiciona sub_in_minute se não tiver
       return {
         ...baseEvents,
         sub_in_minute: baseEvents.sub_in_minute ?? subMinute ?? null
       };
     }
     
-    // Se não tem eventos mas entrou via substituição, cria objeto mínimo
+    // Se não tem eventos mas entrou via substituição, cria objeto mínimo com badge
     if (subMinute !== undefined) {
+      console.log(`[MatchLineups] Creating sub badge for player ${playerId}, minute: ${subMinute}`);
       return {
         player_id: playerId,
         goals_count: 0,
@@ -362,10 +363,10 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
     }
     
     return null;
-  };
+  }, [getPlayerEvents, subInMinuteMap]);
 
-  // Calcula jogadores em campo considerando substituições
-  const getPlayersOnField = (originalPlayers: Player[], teamColor: string): Player[] => {
+  // Calcula jogadores em campo considerando substituições - usando useCallback
+  const getPlayersOnField = useCallback((originalPlayers: Player[], teamColor: string): Player[] => {
     // IDs dos jogadores que saíram
     const playersOutIds = new Set(
       substitutions
@@ -390,21 +391,41 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
       ...originalPlayers.filter(p => !playersOutIds.has(p.id)),
       ...playersIn
     ];
+
+    console.log(`[MatchLineups] ${teamColor} - Out: ${Array.from(playersOutIds)}, In: ${playersIn.map(p => p.nickname || p.name)}, OnField: ${onField.map(p => p.nickname || p.name)}`);
     
     return onField;
-  };
+  }, [substitutions]);
 
+  // Jogadores em campo calculados com useMemo usando a função callback
   const homeOnField = useMemo(() => 
     getPlayersOnField(homePlayers, teamHome), 
-    [homePlayers, teamHome, substitutions]
+    [homePlayers, teamHome, getPlayersOnField]
   );
   
   const awayOnField = useMemo(() => 
     getPlayersOnField(awayPlayers, teamAway), 
-    [awayPlayers, teamAway, substitutions]
+    [awayPlayers, teamAway, getPlayersOnField]
   );
 
   const currentPlayers = selectedTeam === "home" ? homeOnField : awayOnField;
+
+  // Loading state enquanto carrega substituições
+  if (subsLoading) {
+    return (
+      <div className={cn("space-y-4", className)}>
+        <div className="flex justify-center">
+          <Skeleton className="h-12 w-48 rounded-full" />
+        </div>
+        <div className="flex justify-center">
+          <Skeleton className="h-8 w-16" />
+        </div>
+        <div className="w-full px-2 flex justify-center">
+          <Skeleton className="w-full max-w-[420px] h-[340px] rounded-2xl" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("space-y-4", className)}>
