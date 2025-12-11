@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, PlayCircle, Edit3, Trash2, CheckCircle, Clock, AlertCircle, PlusCircle, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowLeft, PlayCircle, Edit3, Trash2, CheckCircle, Clock, AlertCircle, PlusCircle, Loader2 } from "lucide-react";
 import ManageMatchDialog from "@/components/ManageMatchDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -151,14 +151,6 @@ export default function ManageRounds() {
 
   const selectedMatch = matches.find(m => m.id === selectedMatchId);
   
-  const navigateMatch = (direction: "prev" | "next") => {
-    if (!selectedMatchId) return;
-    const currentIndex = matches.findIndex(m => m.id === selectedMatchId);
-    const newIndex = direction === "prev" 
-      ? Math.max(0, currentIndex - 1)
-      : Math.min(matches.length - 1, currentIndex + 1);
-    setSelectedMatchId(matches[newIndex].id);
-  };
 
   const handleEditMatch = async (matchId: string) => {
     if (round?.status === 'finalizada') {
@@ -565,56 +557,27 @@ export default function ManageRounds() {
             </CardContent>
           </Card>
         ) : (
-          <>
-            {/* Mini Navigation */}
-            <div className="mb-4">
-              <AdminMatchMiniNav
-                matches={matches}
-                selectedMatchId={selectedMatchId}
-                onSelectMatch={setSelectedMatchId}
-              />
-            </div>
+        <>
+            {/* Mini Navigation with integrated arrows */}
+            <AdminMatchMiniNav
+              matches={matches}
+              selectedMatchId={selectedMatchId}
+              onSelectMatch={setSelectedMatchId}
+            />
 
             {/* Selected Match Card */}
             {selectedMatch && (
-              <AdminMatchCard
-                match={selectedMatch}
-                isSelected={true}
-                onStart={() => startMatch(selectedMatch.id)}
-                onManage={() => openMatchPage(selectedMatch)}
-                onEdit={() => handleEditMatch(selectedMatch.id)}
-                onDelete={() => setDeleteConfirmMatch(selectedMatch)}
-              />
+              <div className="mt-4">
+                <AdminMatchCard
+                  match={selectedMatch}
+                  isSelected={true}
+                  onStart={() => startMatch(selectedMatch.id)}
+                  onManage={() => openMatchPage(selectedMatch)}
+                  onEdit={() => handleEditMatch(selectedMatch.id)}
+                  onDelete={() => setDeleteConfirmMatch(selectedMatch)}
+                />
+              </div>
             )}
-
-            {/* Match Navigation */}
-            <div className="flex items-center justify-between mt-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigateMatch("prev")}
-                disabled={!selectedMatchId || matches.findIndex(m => m.id === selectedMatchId) === 0}
-                className="gap-1"
-              >
-                <ChevronLeft size={16} />
-                Anterior
-              </Button>
-              
-              <span className="text-sm text-muted-foreground">
-                {selectedMatch ? `Jogo ${selectedMatch.match_number} de ${matches.length}` : ''}
-              </span>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigateMatch("next")}
-                disabled={!selectedMatchId || matches.findIndex(m => m.id === selectedMatchId) === matches.length - 1}
-                className="gap-1"
-              >
-                Próximo
-                <ChevronRight size={16} />
-              </Button>
-            </div>
           </>
         )}
       </main>
