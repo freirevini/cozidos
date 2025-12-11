@@ -551,6 +551,7 @@ export default function ManagePlayers() {
         onOpenChange={setEditDialogOpen}
         onSave={handleSavePlayer}
         onDelete={handleDeletePlayer}
+        onAvatarEdit={handleEditAvatar}
       />
 
       {/* Add Dialog */}
