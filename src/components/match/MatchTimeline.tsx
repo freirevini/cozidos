@@ -39,30 +39,18 @@ interface MatchTimelineProps {
   className?: string;
 }
 
-// Soccer ball icon - clean white on dark circle with green border
+// Soccer ball emoji icon - clean on dark circle with green border
 function GoalIcon() {
   return (
     <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#1a1a1a] border-2 border-emerald-500 flex items-center justify-center z-10 shadow-lg shadow-emerald-500/30">
-      <svg 
-        viewBox="0 0 24 24" 
-        className="w-5 h-5 sm:w-6 sm:h-6"
-        fill="none"
-        stroke="white"
-        strokeWidth="1.5"
+      <span 
+        role="img" 
+        aria-label="gol"
+        className="text-xl sm:text-2xl leading-none"
+        style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}
       >
-        {/* Pentagon pattern soccer ball */}
-        <circle cx="12" cy="12" r="10" stroke="white" fill="none" />
-        <path 
-          d="M12 2 L12 6 M12 18 L12 22 M2 12 L6 12 M18 12 L22 12" 
-          stroke="white" 
-          strokeWidth="1"
-        />
-        <polygon 
-          points="12,7 15,10 14,14 10,14 9,10" 
-          fill="white" 
-          stroke="white"
-        />
-      </svg>
+        ⚽
+      </span>
     </div>
   );
 }

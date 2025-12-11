@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import iconGoal from "@/assets/icon-goal.png";
 
 interface PlayerEventBadgesProps {
   goals: number;
@@ -82,11 +81,14 @@ export function PlayerEventBadges({
           style={{ width: "14px", height: "14px" }}
         >
           {type === "goal" && (
-            <img
-              src={iconGoal}
-              alt=""
-              className="w-3.5 h-3.5 brightness-0 invert drop-shadow-sm"
-            />
+            <span 
+              role="img" 
+              aria-hidden="true"
+              className="text-[14px] leading-none drop-shadow-sm"
+              style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}
+            >
+              ⚽
+            </span>
           )}
           {type === "yellow" && (
             <span 
