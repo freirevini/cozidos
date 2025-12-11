@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { AdminMatchCard, AdminMatchMiniNav } from "@/components/admin/AdminMatchCard";
+import { AdminMatchCard, AdminMatchMiniNav, useSwipeGesture } from "@/components/admin/AdminMatchCard";
 
 interface Match {
   id: string;
@@ -34,6 +34,61 @@ interface Round {
   round_number: number;
   scheduled_date: string;
   status: string;
+}
+
+// Swipeable card wrapper component
+function SwipeableMatchCard({
+  match,
+  matches,
+  selectedMatchId,
+  onSelectMatch,
+  onStart,
+  onManage,
+  onEdit,
+  onDelete,
+}: {
+  match: Match;
+  matches: Match[];
+  selectedMatchId: string | null;
+  onSelectMatch: (id: string) => void;
+  onStart: () => void;
+  onManage: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const navigateMatch = (direction: 'prev' | 'next') => {
+    if (!selectedMatchId) return;
+    const currentIndex = matches.findIndex(m => m.id === selectedMatchId);
+    const newIndex = direction === 'prev' 
+      ? Math.max(0, currentIndex - 1)
+      : Math.min(matches.length - 1, currentIndex + 1);
+    
+    if (newIndex !== currentIndex) {
+      onSelectMatch(matches[newIndex].id);
+    }
+  };
+
+  const { handleTouchStart, handleTouchEnd } = useSwipeGesture(
+    () => navigateMatch('next'),  // Swipe left = next
+    () => navigateMatch('prev')   // Swipe right = previous
+  );
+
+  return (
+    <div 
+      className="mt-4 touch-pan-y"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      <AdminMatchCard
+        match={match}
+        isSelected={true}
+        onStart={onStart}
+        onManage={onManage}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
+    </div>
+  );
 }
 
 export default function ManageRounds() {
@@ -150,8 +205,6 @@ export default function ManageRounds() {
   };
 
   const selectedMatch = matches.find(m => m.id === selectedMatchId);
-  
-
   const handleEditMatch = async (matchId: string) => {
     if (round?.status === 'finalizada') {
       try {
@@ -565,18 +618,18 @@ export default function ManageRounds() {
               onSelectMatch={setSelectedMatchId}
             />
 
-            {/* Selected Match Card */}
+            {/* Selected Match Card with Swipe Support */}
             {selectedMatch && (
-              <div className="mt-4">
-                <AdminMatchCard
-                  match={selectedMatch}
-                  isSelected={true}
-                  onStart={() => startMatch(selectedMatch.id)}
-                  onManage={() => openMatchPage(selectedMatch)}
-                  onEdit={() => handleEditMatch(selectedMatch.id)}
-                  onDelete={() => setDeleteConfirmMatch(selectedMatch)}
-                />
-              </div>
+              <SwipeableMatchCard
+                match={selectedMatch}
+                matches={matches}
+                selectedMatchId={selectedMatchId}
+                onSelectMatch={setSelectedMatchId}
+                onStart={() => startMatch(selectedMatch.id)}
+                onManage={() => openMatchPage(selectedMatch)}
+                onEdit={() => handleEditMatch(selectedMatch.id)}
+                onDelete={() => setDeleteConfirmMatch(selectedMatch)}
+              />
             )}
           </>
         )}
