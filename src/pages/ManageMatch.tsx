@@ -933,7 +933,7 @@ export default function ManageMatch() {
                 <div>
                   <p className="text-xs text-muted-foreground mb-2">Quem marcou?</p>
                   <div className="grid grid-cols-3 gap-2">
-                    {players[goalData.team]?.map((player) => (
+                    {getPlayersOnField(goalData.team).map((player) => (
                       <Button
                         key={player.id}
                         variant={goalData.player_id === player.id ? "default" : "outline"}
@@ -970,8 +970,8 @@ export default function ManageMatch() {
                 <div>
                   <p className="text-xs text-muted-foreground mb-2">Quem assistiu?</p>
                   <div className="grid grid-cols-3 gap-2">
-                    {players[goalData.team]
-                      ?.filter(p => p.id !== goalData.player_id)
+                    {getPlayersOnField(goalData.team)
+                      .filter(p => p.id !== goalData.player_id)
                       .map((player) => (
                         <Button
                           key={player.id}
@@ -1033,7 +1033,7 @@ export default function ManageMatch() {
                 <div>
                   <p className="text-xs text-muted-foreground mb-2">Jogador:</p>
                   <div className="grid grid-cols-3 gap-2">
-                    {players[cardData.team]?.map((player) => (
+                    {getPlayersOnField(cardData.team).map((player) => (
                       <Button
                         key={player.id}
                         variant={cardData.player_id === player.id ? "default" : "outline"}
