@@ -7,15 +7,13 @@ import { Button } from "@/components/ui/button";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, PlayCircle, Edit3, Trash2, CheckCircle, Clock, AlertCircle, PlusCircle } from "lucide-react";
+import { ArrowLeft, PlayCircle, Edit3, Trash2, CheckCircle, Clock, AlertCircle, PlusCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import ManageMatchDialog from "@/components/ManageMatchDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { Skeleton } from "@/components/ui/skeleton";
-import EventsFilterPanel from "@/components/EventsFilterPanel";
 import { cn } from "@/lib/utils";
-import { TeamLogo } from "@/components/match/TeamLogo";
-
+import { AdminMatchCard, AdminMatchMiniNav } from "@/components/admin/AdminMatchCard";
 
 interface Match {
   id: string;
@@ -26,6 +24,9 @@ interface Match {
   score_away: number;
   scheduled_time: string;
   status: string;
+  match_timer_started_at?: string | null;
+  match_timer_paused_at?: string | null;
+  match_timer_total_paused_seconds?: number | null;
 }
 
 interface Round {
@@ -58,6 +59,7 @@ export default function ManageRounds() {
   const [loading, setLoading] = useState(true);
   const [round, setRound] = useState<Round | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const [deleteConfirmMatch, setDeleteConfirmMatch] = useState<Match | null>(null);
   const [finishAllConfirm, setFinishAllConfirm] = useState(false);
@@ -79,6 +81,16 @@ export default function ManageRounds() {
       loadRoundData();
     }
   }, [isAdmin, roundId, navigate]);
+
+  // Set initial selected match
+  useEffect(() => {
+    if (matches.length > 0 && !selectedMatchId) {
+      // Select first in-progress match, or first not-started, or first match
+      const inProgress = matches.find(m => m.status === "in_progress");
+      const notStarted = matches.find(m => m.status === "not_started");
+      setSelectedMatchId(inProgress?.id || notStarted?.id || matches[0].id);
+    }
+  }, [matches, selectedMatchId]);
 
   const loadRoundData = async () => {
     if (!roundId) return;
@@ -107,6 +119,33 @@ export default function ManageRounds() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatDate = (dateString: string | null | undefined): string => {
+    if (!dateString) return "A definir";
+    try {
+      const date = new Date(dateString + "T00:00:00");
+      if (isNaN(date.getTime())) return "A definir";
+      return date.toLocaleDateString('pt-BR', { 
+        weekday: 'long', 
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch {
+      return "A definir";
+    }
+  };
+
+  const selectedMatch = matches.find(m => m.id === selectedMatchId);
+  
+  const navigateMatch = (direction: "prev" | "next") => {
+    if (!selectedMatchId) return;
+    const currentIndex = matches.findIndex(m => m.id === selectedMatchId);
+    const newIndex = direction === "prev" 
+      ? Math.max(0, currentIndex - 1)
+      : Math.min(matches.length - 1, currentIndex + 1);
+    setSelectedMatchId(matches[newIndex].id);
   };
 
   const handleEditMatch = async (matchId: string) => {
@@ -833,15 +872,6 @@ export default function ManageRounds() {
           </CardContent>
         </Card>
 
-        {/* Painel de Filtros de Eventos */}
-        {matches.length > 0 && (
-          <div className="mt-4">
-            <EventsFilterPanel 
-              roundId={roundId} 
-              onEventClick={(matchId) => handleEditMatch(matchId)}
-            />
-          </div>
-        )}
       </main>
 
       {/* Dialog de edição */}
