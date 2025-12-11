@@ -1,8 +1,9 @@
+import { useRef, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TeamLogo } from "@/components/match/TeamLogo";
-import { PlayCircle, Edit3, Trash2, Clock } from "lucide-react";
+import { PlayCircle, Edit3, Trash2, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Match {
@@ -110,25 +111,30 @@ export function AdminMatchCard({
       <button
         onClick={onSelect}
         className={cn(
-          "flex flex-col items-center p-3 rounded-lg border-2 transition-all min-w-[80px] snap-center",
+          "flex flex-col items-center p-2.5 rounded-xl border-2 transition-all min-w-[72px] snap-center shrink-0",
           isSelected
-            ? "border-primary bg-primary/20 shadow-lg shadow-primary/20"
-            : "border-border bg-card hover:border-primary/50 hover:bg-muted/30"
+            ? "border-primary bg-primary/20 shadow-lg shadow-primary/30 scale-105"
+            : "border-border/60 bg-card/80 hover:border-primary/50 hover:bg-muted/40"
         )}
       >
-        <div className="flex items-center gap-2 mb-1">
-          <TeamLogo teamColor={match.team_home as any} size="sm" />
-          <span className="text-xs text-muted-foreground">×</span>
-          <TeamLogo teamColor={match.team_away as any} size="sm" />
-        </div>
-        <span className="text-xs font-medium text-muted-foreground">
-          {match.score_home} - {match.score_away}
+        <span className="text-[10px] font-semibold text-muted-foreground mb-1.5">
+          Jogo {match.match_number}
         </span>
+        <div className="flex items-center gap-1.5">
+          <TeamLogo teamColor={match.team_home as any} size="xs" />
+          <span className="text-sm font-bold text-foreground">
+            {match.score_home}-{match.score_away}
+          </span>
+          <TeamLogo teamColor={match.team_away as any} size="xs" />
+        </div>
         <span className={cn(
-          "text-[10px] mt-1 font-medium",
+          "text-[9px] mt-1 font-semibold uppercase tracking-wide",
           status.variant === "live" ? "text-primary" :
-          status.variant === "finished" ? "text-green-500" : "text-muted-foreground"
+          status.variant === "finished" ? "text-emerald-400" : "text-muted-foreground"
         )}>
+          {status.variant === "live" && (
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mr-1 animate-pulse" />
+          )}
           {status.text}
         </span>
       </button>
@@ -182,7 +188,7 @@ export function AdminMatchCard({
                 status.variant === "live" 
                   ? "bg-primary/20 text-primary border border-primary/40" 
                   : status.variant === "finished"
-                  ? "bg-green-500/20 text-green-400 border border-green-500/40"
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
                   : "bg-muted text-muted-foreground border border-border"
               )}>
                 {status.variant === "live" && (
@@ -259,18 +265,154 @@ export function AdminMatchMiniNav({
   selectedMatchId: string | null;
   onSelectMatch: (matchId: string) => void;
 }) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  // Check scroll position and update arrow states
+  const checkScrollPosition = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    setCanScrollLeft(container.scrollLeft > 10);
+    setCanScrollRight(
+      container.scrollLeft < container.scrollWidth - container.clientWidth - 10
+    );
+  };
+
+  // Auto-scroll to selected item
+  useEffect(() => {
+    if (!selectedMatchId || !scrollContainerRef.current) return;
+    
+    const container = scrollContainerRef.current;
+    const selectedIndex = matches.findIndex(m => m.id === selectedMatchId);
+    if (selectedIndex === -1) return;
+
+    const items = container.querySelectorAll('[data-match-item]');
+    const selectedItem = items[selectedIndex] as HTMLElement;
+    
+    if (selectedItem) {
+      const containerRect = container.getBoundingClientRect();
+      const itemRect = selectedItem.getBoundingClientRect();
+      
+      // Check if item is not fully visible
+      if (itemRect.left < containerRect.left || itemRect.right > containerRect.right) {
+        selectedItem.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'nearest', 
+          inline: 'center' 
+        });
+      }
+    }
+    
+    // Check scroll position after animation
+    setTimeout(checkScrollPosition, 350);
+  }, [selectedMatchId, matches]);
+
+  // Initial scroll check
+  useEffect(() => {
+    checkScrollPosition();
+    window.addEventListener('resize', checkScrollPosition);
+    return () => window.removeEventListener('resize', checkScrollPosition);
+  }, [matches]);
+
+  const scrollBy = (direction: 'left' | 'right') => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const scrollAmount = direction === 'left' ? -160 : 160;
+    container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    
+    setTimeout(checkScrollPosition, 350);
+  };
+
+  const navigateMatch = (direction: 'prev' | 'next') => {
+    if (!selectedMatchId) return;
+    const currentIndex = matches.findIndex(m => m.id === selectedMatchId);
+    const newIndex = direction === 'prev' 
+      ? Math.max(0, currentIndex - 1)
+      : Math.min(matches.length - 1, currentIndex + 1);
+    
+    if (newIndex !== currentIndex) {
+      onSelectMatch(matches[newIndex].id);
+    }
+  };
+
+  const currentIndex = matches.findIndex(m => m.id === selectedMatchId);
+  const isFirstMatch = currentIndex === 0;
+  const isLastMatch = currentIndex === matches.length - 1;
+
   return (
-    <div className="w-full overflow-x-auto scrollbar-hide">
-      <div className="flex gap-2 p-2 snap-x snap-mandatory">
+    <div className="relative bg-muted/30 rounded-xl p-2 border border-border/50">
+      {/* Navigation Arrows - Desktop */}
+      <div className="hidden sm:block">
+        {canScrollLeft && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => scrollBy('left')}
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-full w-10 rounded-l-xl bg-gradient-to-r from-muted via-muted/80 to-transparent hover:from-muted hover:via-muted/90"
+          >
+            <ChevronLeft size={20} className="text-foreground" />
+          </Button>
+        )}
+        {canScrollRight && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => scrollBy('right')}
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-full w-10 rounded-r-xl bg-gradient-to-l from-muted via-muted/80 to-transparent hover:from-muted hover:via-muted/90"
+          >
+            <ChevronRight size={20} className="text-foreground" />
+          </Button>
+        )}
+      </div>
+
+      {/* Mini Cards Container */}
+      <div 
+        ref={scrollContainerRef}
+        className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory px-1 py-1"
+        onScroll={checkScrollPosition}
+      >
         {matches.map((match) => (
-          <AdminMatchCard
-            key={match.id}
-            match={match}
-            isSelected={match.id === selectedMatchId}
-            onSelect={() => onSelectMatch(match.id)}
-            compact
-          />
+          <div key={match.id} data-match-item>
+            <AdminMatchCard
+              match={match}
+              isSelected={match.id === selectedMatchId}
+              onSelect={() => onSelectMatch(match.id)}
+              compact
+            />
+          </div>
         ))}
+      </div>
+
+      {/* Quick Navigation Footer */}
+      <div className="flex items-center justify-between mt-2 px-1 pt-2 border-t border-border/30">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigateMatch('prev')}
+          disabled={isFirstMatch}
+          className="h-8 px-2 gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-30"
+        >
+          <ChevronLeft size={14} />
+          <span className="hidden xs:inline">Anterior</span>
+        </Button>
+        
+        <span className="text-xs font-medium text-muted-foreground">
+          {currentIndex + 1} / {matches.length}
+        </span>
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigateMatch('next')}
+          disabled={isLastMatch}
+          className="h-8 px-2 gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-30"
+        >
+          <span className="hidden xs:inline">Próximo</span>
+          <ChevronRight size={14} />
+        </Button>
       </div>
     </div>
   );
