@@ -1,4 +1,12 @@
 import { TeamLogo } from "./TeamLogo";
+import { formatMatchTimer, formatEventMinute } from "@/lib/matchTimer";
+
+interface MatchTimerData {
+  match_timer_started_at: string | null;
+  match_timer_paused_at: string | null;
+  match_timer_total_paused_seconds: number | null;
+  status: string;
+}
 
 interface MatchHeaderProps {
   teamHome: string;
@@ -10,15 +18,9 @@ interface MatchHeaderProps {
   status: "not_started" | "in_progress" | "finished";
   scheduledTime?: string;
   currentMinute?: number | null;
+  matchTimerData?: MatchTimerData;
   className?: string;
 }
-
-// Format minute with overtime display (base 12 minutes)
-const formatMinuteDisplay = (minute: number | null | undefined): string => {
-  if (minute === null || minute === undefined) return "--:--";
-  if (minute <= 12) return `${minute}'`;
-  return `12' + ${minute - 12}`;
-};
 
 export function MatchHeader({
   teamHome,
@@ -30,6 +32,7 @@ export function MatchHeader({
   status,
   scheduledTime,
   currentMinute,
+  matchTimerData,
   className,
 }: MatchHeaderProps) {
   // Safe time formatting - handles both ISO strings and time-only strings
@@ -54,14 +57,22 @@ export function MatchHeader({
     }
   };
 
-  // Get the status chip content
+  // Get the status chip content - now supports MM:SS format
   const getStatusChipContent = () => {
     if (status === "finished") {
       return "Encerrado";
     }
-    if (status === "in_progress" && currentMinute !== null && currentMinute !== undefined) {
-      return formatMinuteDisplay(currentMinute);
+    
+    // Use matchTimerData for MM:SS format if available
+    if (status === "in_progress" && matchTimerData) {
+      return formatMatchTimer(matchTimerData);
     }
+    
+    // Fallback to legacy minute format (X' or 12' + Y)
+    if (status === "in_progress" && currentMinute !== null && currentMinute !== undefined) {
+      return formatEventMinute(currentMinute, 12);
+    }
+    
     // Not started - show scheduled time
     return formatTime(scheduledTime);
   };
@@ -98,7 +109,7 @@ export function MatchHeader({
           </span>
         </div>
 
-        {/* Status Chip - Central */}
+        {/* Status Chip - Central with MM:SS timer */}
         <div 
           className={`
             px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border text-xs sm:text-sm font-medium

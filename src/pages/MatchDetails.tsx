@@ -294,6 +294,12 @@ const MatchDetails = () => {
               status={match.status}
               scheduledTime={match.scheduled_time}
               currentMinute={currentMinute}
+              matchTimerData={{
+                match_timer_started_at: match.match_timer_started_at,
+                match_timer_paused_at: match.match_timer_paused_at,
+                match_timer_total_paused_seconds: match.match_timer_total_paused_seconds,
+                status: match.status,
+              }}
               className="mb-6"
             />
 

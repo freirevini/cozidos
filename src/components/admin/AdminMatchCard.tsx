@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { TeamLogo } from "@/components/match/TeamLogo";
 import { PlayCircle, Edit3, Trash2, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatMatchTimer, formatEventMinute, getMatchCurrentMinute } from "@/lib/matchTimer";
 
 interface Match {
   id: string;
@@ -51,39 +52,18 @@ function formatTime(scheduledTime: string): string {
   }
 }
 
-function getCurrentMinute(match: Match): number {
-  if (!match.match_timer_started_at) return 0;
-  try {
-    const startTime = new Date(match.match_timer_started_at).getTime();
-    if (isNaN(startTime)) return 0;
-    const now = Date.now();
-    let pausedSeconds = match.match_timer_total_paused_seconds || 0;
-    if (match.match_timer_paused_at) {
-      const pausedAt = new Date(match.match_timer_paused_at).getTime();
-      if (!isNaN(pausedAt)) {
-        pausedSeconds += Math.floor((now - pausedAt) / 1000);
-      }
-    }
-    const elapsedSeconds = Math.max(0, Math.floor((now - startTime) / 1000) - pausedSeconds);
-    return Math.floor(elapsedSeconds / 60);
-  } catch {
-    return 0;
-  }
-}
-
-function formatMinuteDisplay(minute: number, maxMinute: number = 12): string {
-  if (minute <= maxMinute) {
-    return `${minute}'`;
-  }
-  const extra = minute - maxMinute;
-  return `${maxMinute}' + ${extra}`;
-}
-
 function getStatusDisplay(match: Match): { text: string; variant: "live" | "scheduled" | "finished" } {
   if (match.status === "in_progress") {
-    const minute = getCurrentMinute(match);
+    // Use centralized MM:SS timer format
+    const timerData = {
+      match_timer_started_at: match.match_timer_started_at || null,
+      match_timer_paused_at: match.match_timer_paused_at || null,
+      match_timer_total_paused_seconds: match.match_timer_total_paused_seconds || null,
+      status: match.status,
+    };
+    const timerText = formatMatchTimer(timerData);
     return { 
-      text: minute > 0 ? formatMinuteDisplay(minute) : "Ao Vivo", 
+      text: timerText !== '--:--' ? timerText : "Ao Vivo", 
       variant: "live" 
     };
   }

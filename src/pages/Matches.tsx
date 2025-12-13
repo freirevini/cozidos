@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import { TeamLogo } from "@/components/match/TeamLogo";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { formatMatchTimer, formatEventMinute, getMatchCurrentMinute } from "@/lib/matchTimer";
 
 interface Match {
   id: string;
@@ -161,49 +162,15 @@ export default function Matches() {
     }
   };
 
-  // Calculate current minute for live matches
-  const getCurrentMinute = (match: Match): number | null => {
-    if (match.status !== "in_progress" || !match.match_timer_started_at) return null;
-
-    try {
-      const startTime = new Date(match.match_timer_started_at).getTime();
-      if (isNaN(startTime)) return null;
-      
-      const now = Date.now();
-      let pausedSeconds = match.match_timer_total_paused_seconds || 0;
-      
-      if (match.match_timer_paused_at) {
-        const pausedAt = new Date(match.match_timer_paused_at).getTime();
-        if (!isNaN(pausedAt)) {
-          pausedSeconds += Math.floor((now - pausedAt) / 1000);
-        }
-      }
-      
-      const elapsedSeconds = Math.max(0, Math.floor((now - startTime) / 1000) - pausedSeconds);
-      return Math.floor(elapsedSeconds / 60);
-    } catch {
-      return null;
-    }
-  };
-
-  // Format minute with overtime display (base 12 minutes)
-  const formatMinuteDisplay = (minute: number): string => {
-    if (minute <= 12) return `${minute}'`;
-    return `12' + ${minute - 12}`;
-  };
-
-  // Get status chip content based on match state
+  // Get status chip content based on match state - now uses centralized timer
   const getStatusContent = (match: Match): string => {
     if (match.status === "finished") {
       return "Encerrado";
     }
     
     if (match.status === "in_progress") {
-      const minute = getCurrentMinute(match);
-      if (minute !== null) {
-        return formatMinuteDisplay(minute);
-      }
-      return "Em andamento";
+      // Use centralized timer for MM:SS format
+      return formatMatchTimer(match);
     }
     
     // Not started - show scheduled time
