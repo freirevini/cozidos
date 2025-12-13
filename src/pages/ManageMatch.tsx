@@ -37,6 +37,11 @@ interface Player {
   avatar_url?: string | null;
 }
 
+interface AssistData {
+  player_id?: string;
+  player?: Player;
+}
+
 interface GoalData {
   id: string;
   player_id: string;
@@ -44,8 +49,18 @@ interface GoalData {
   is_own_goal: boolean;
   team_color: string;
   player?: Player;
-  assists?: Array<{ player_id: string; player?: Player }>;
+  assists?: AssistData[] | AssistData;
 }
+
+// Helper para normalizar assists (pode ser objeto ou array)
+const getAssistData = (assists: AssistData[] | AssistData | undefined): AssistData | null => {
+  if (!assists) return null;
+  if (Array.isArray(assists)) {
+    return assists.length > 0 ? assists[0] : null;
+  }
+  // Se for objeto direto (Supabase às vezes retorna assim para relação 1:1)
+  return assists.player ? assists : null;
+};
 
 interface CardEvent {
   id: string;
@@ -181,7 +196,13 @@ export default function ManageMatch() {
     }
     
     goals.forEach((goal) => {
-      const assistData = goal.assists && goal.assists.length > 0 ? goal.assists[0] : null;
+      const assistData = getAssistData(goal.assists);
+      console.log('[ManageMatch] Goal timeline transform:', {
+        goalId: goal.id,
+        rawAssists: goal.assists,
+        normalizedAssist: assistData,
+        assistPlayer: assistData?.player
+      });
       events.push({
         id: goal.id,
         type: "goal",
