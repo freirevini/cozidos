@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { formatEventMinute } from "@/lib/matchTimer";
 
 export type EventType = "goal" | "amarelo" | "azul" | "match_start" | "match_end";
 
@@ -31,14 +32,8 @@ export const EVENT_LABELS: Record<EventType, string> = {
   match_end: "Final da partida",
 };
 
-// Formatar minuto com acréscimos (partidas de 12 min)
-// Format: "MM'" for regular time, "12' + X" for stoppage time
-export const formatMinute = (minute: number, matchDuration: number = 12): string => {
-  if (minute > matchDuration) {
-    return `${matchDuration}' + ${minute - matchDuration}`;
-  }
-  return `${minute}'`;
-};
+// Re-export formatMinute from centralized location for backward compatibility
+export const formatMinute = formatEventMinute;
 
 // Tamanhos de ícone por variante
 const iconSizes: Record<"sm" | "md" | "lg", string> = {

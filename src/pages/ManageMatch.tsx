@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Play, Pause, Goal, Square, Undo2, Flag, ArrowLeftRight, X, Check } from "lucide-react";
 import { MatchTimeline, TimelineEvent } from "@/components/match/MatchTimeline";
 import { TeamLogo } from "@/components/match/TeamLogo";
+import { formatMatchTimer, formatEventMinute, getMatchCurrentMinute, getMatchElapsedSeconds } from "@/lib/matchTimer";
 
 type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
 
@@ -197,12 +198,6 @@ export default function ManageMatch() {
     
     goals.forEach((goal) => {
       const assistData = getAssistData(goal.assists);
-      console.log('[ManageMatch] Goal timeline transform:', {
-        goalId: goal.id,
-        rawAssists: goal.assists,
-        normalizedAssist: assistData,
-        assistPlayer: assistData?.player
-      });
       events.push({
         id: goal.id,
         type: "goal",
@@ -835,10 +830,11 @@ export default function ManageMatch() {
     return "bg-muted text-muted-foreground border-border";
   };
 
+  // Get timer text - now uses centralized MM:SS format
   const getStatusText = () => {
-    if (match.status === 'in_progress') return `${currentMinute || 0}'`;
     if (match.status === 'finished') return "Encerrado";
-    return "A iniciar";
+    if (match.status !== 'in_progress') return "A iniciar";
+    return formatMatchTimer(match);
   };
 
   return (

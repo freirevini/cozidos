@@ -106,6 +106,15 @@ export default function ManageRounds() {
   const [deleteConfirmMatch, setDeleteConfirmMatch] = useState<Match | null>(null);
   const [finishAllConfirm, setFinishAllConfirm] = useState(false);
   const [finalizeConfirm, setFinalizeConfirm] = useState(false);
+  const [, setTick] = useState(0); // For timer updates
+
+  // Timer update every second for live matches
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const { pullDistance, isRefreshing } = usePullToRefresh({
     onRefresh: async () => {
