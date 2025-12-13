@@ -1,23 +1,47 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { RefreshCw, Eye, Edit, Trash2 } from "lucide-react";
+import { RefreshCw, Eye, Edit, Trash2, ArrowLeft, Download, Share2 } from "lucide-react";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { TeamLogo } from "@/components/match/TeamLogo";
+import { ShareableTeamsView } from "@/components/teams";
+import { toPng } from "html-to-image";
+
+type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
 
 interface RoundWithTeams {
   id: string;
   round_number: number;
   scheduled_date: string;
   status: string;
-  teamsCount: number;
+  teamColors: TeamColor[];
+}
+
+interface TeamPlayer {
+  id: string;
+  player_id: string;
+  team_color: string;
+  profiles: {
+    name: string;
+    nickname: string | null;
+    position: string | null;
+    level: string | null;
+  };
+}
+
+interface Match {
+  id: string;
+  match_number: number;
+  team_home: TeamColor;
+  team_away: TeamColor;
+  scheduled_time: string;
 }
 
 export default function ManageTeams() {
@@ -25,6 +49,13 @@ export default function ManageTeams() {
   const navigate = useNavigate();
   const [rounds, setRounds] = useState<RoundWithTeams[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
+  const [shareData, setShareData] = useState<{
+    teamsByColor: Record<string, TeamPlayer[]>;
+    matches: Match[];
+  } | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const shareRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -38,7 +69,6 @@ export default function ManageTeams() {
   const loadRoundsWithTeams = async () => {
     setLoading(true);
     try {
-      // Buscar todas as rodadas (sem filtro de status)
       const { data: roundsData, error: roundsError } = await supabase
         .from("rounds")
         .select("*")
@@ -47,26 +77,25 @@ export default function ManageTeams() {
 
       if (roundsError) throw roundsError;
 
-      // Buscar contagem de times por rodada
       const { data: teamsData, error: teamsError } = await supabase
         .from("round_teams")
         .select("round_id, team_color");
 
       if (teamsError) throw teamsError;
 
-      // Combinar dados - contar times por rodada
-      const roundsWithTeams: RoundWithTeams[] = (roundsData || []).map(round => {
-        const teamsCount = teamsData?.filter(t => t.round_id === round.id).length || 0;
-        return {
-          ...round,
-          teamsCount
-        };
-      });
+      const roundsWithTeams: RoundWithTeams[] = (roundsData || [])
+        .map(round => {
+          const teamColors = teamsData
+            ?.filter(t => t.round_id === round.id)
+            .map(t => t.team_color as TeamColor) || [];
+          return {
+            ...round,
+            teamColors
+          };
+        })
+        .filter(r => r.teamColors.length > 0);
 
-      // Filtrar apenas rodadas que têm times gerados
-      const roundsWithGeneratedTeams = roundsWithTeams.filter(r => r.teamsCount > 0);
-      
-      setRounds(roundsWithGeneratedTeams);
+      setRounds(roundsWithTeams);
     } catch (error) {
       console.error("Erro ao carregar rodadas:", error);
       toast.error("Erro ao carregar histórico de times");
@@ -89,11 +118,11 @@ export default function ManageTeams() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'a_iniciar':
-        return <Badge className="bg-gray-600 text-white hover:bg-gray-600">A Iniciar</Badge>;
+        return <Badge className="bg-muted text-muted-foreground">A Iniciar</Badge>;
       case 'em_andamento':
-        return <Badge className="bg-yellow-600 text-white hover:bg-yellow-600">Em Andamento</Badge>;
+        return <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30">Em Andamento</Badge>;
       case 'finalizada':
-        return <Badge className="bg-green-600 text-white hover:bg-green-600">Finalizada</Badge>;
+        return <Badge className="bg-green-500/20 text-green-500 border-green-500/30">Finalizada</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -101,7 +130,6 @@ export default function ManageTeams() {
 
   const deleteRound = async (roundId: string, roundNumber: number) => {
     try {
-      // Verificar quantos registros serão afetados
       const { count: teamPlayersCount } = await supabase
         .from("round_team_players")
         .select("*", { count: 'exact', head: true })
@@ -139,9 +167,92 @@ export default function ManageTeams() {
     }
   };
 
+  const loadShareData = async (roundId: string) => {
+    try {
+      const [playersRes, matchesRes] = await Promise.all([
+        supabase
+          .from("round_team_players")
+          .select(`
+            id,
+            player_id,
+            team_color,
+            profiles!inner (name, nickname, position, level)
+          `)
+          .eq("round_id", roundId),
+        supabase
+          .from("matches")
+          .select("id, match_number, team_home, team_away, scheduled_time")
+          .eq("round_id", roundId)
+          .order("match_number", { ascending: true })
+      ]);
+
+      if (playersRes.error) throw playersRes.error;
+
+      const teamsByColor = (playersRes.data || []).reduce((acc, player) => {
+        if (!acc[player.team_color]) acc[player.team_color] = [];
+        acc[player.team_color].push(player);
+        return acc;
+      }, {} as Record<string, TeamPlayer[]>);
+
+      setShareData({
+        teamsByColor,
+        matches: (matchesRes.data as Match[]) || []
+      });
+      setSelectedRoundId(roundId);
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error);
+      toast.error("Erro ao carregar dados para compartilhar");
+    }
+  };
+
+  const handleGenerateImage = async (round: RoundWithTeams) => {
+    if (!shareRef.current) {
+      await loadShareData(round.id);
+      // Aguardar um tick para o componente renderizar
+      setTimeout(() => generateImage(round), 100);
+      return;
+    }
+    generateImage(round);
+  };
+
+  const generateImage = async (round: RoundWithTeams) => {
+    if (!shareRef.current) return;
+    
+    setGenerating(true);
+    try {
+      const dataUrl = await toPng(shareRef.current, {
+        quality: 1,
+        pixelRatio: 2,
+        backgroundColor: "#0a0a0a",
+      });
+      
+      const link = document.createElement("a");
+      link.download = `cozidos-rodada-${round.round_number}.png`;
+      link.href = dataUrl;
+      link.click();
+      
+      toast.success("Imagem gerada com sucesso!");
+    } catch (error) {
+      console.error("Erro ao gerar imagem:", error);
+      toast.error("Erro ao gerar imagem");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString + "T00:00:00");
+    return date.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "short"
+    });
+  };
+
+  const selectedRound = rounds.find(r => r.id === selectedRoundId);
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Pull to Refresh Indicator */}
+      {/* Pull to Refresh */}
       {(pullDistance > 0 || isRefreshing) && (
         <div 
           className="fixed top-0 left-0 right-0 flex justify-center items-center z-50 transition-all"
@@ -160,181 +271,162 @@ export default function ManageTeams() {
       )}
 
       <Header />
-      <main className="container mx-auto px-4 py-8">
-        <Card className="card-glow bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-3xl font-bold text-primary glow-text text-center">
-              GERENCIAR TIMES
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Card key={i} className="border-border">
-                    <CardContent className="p-4">
-                      <div className="flex justify-between items-center mb-3">
-                        <div className="space-y-2">
-                          <Skeleton className="h-4 w-24" />
-                          <Skeleton className="h-5 w-32" />
-                        </div>
-                        <Skeleton className="h-6 w-20" />
-                      </div>
-                      <div className="flex gap-2">
-                        <Skeleton className="h-10 w-24" />
-                        <Skeleton className="h-10 w-24" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : rounds.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground mb-4">
-                  Nenhum time gerado ainda
-                </p>
-                <Button onClick={() => navigate("/admin/teams")} variant="outline"> 
-                  Voltar para Times
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Desktop: Tabela */}
-                <div className="hidden md:block overflow-x-auto scrollbar-hide scroll-smooth">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-border">
-                        <TableHead>Data</TableHead>
-                        <TableHead>Times</TableHead>
-                        <TableHead>Rodada</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-center">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {rounds.map((round) => (
-                        <TableRow key={round.id} className="border-border hover:bg-muted/30">
-                          <TableCell>
-                            {new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-primary font-medium">{round.teamsCount} times</span>
-                          </TableCell>
-                          <TableCell>
-                            <Button 
-                              variant="link" 
-                              className="p-0 h-auto text-primary"
-                              onClick={() => navigate(`/admin/round/manage?round=${round.id}`)}
-                            >
-                              Rodada {round.round_number}
-                            </Button>
-                          </TableCell>
-                          <TableCell>{getStatusBadge(round.status)}</TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-2 justify-center">
-                              <Button 
-                                onClick={() => navigate(`/admin/round/${round.id}/view`)}
-                                variant="outline"
-                                size="sm"
-                                className="min-w-[90px]"
-                              >
-                                <Eye className="h-4 w-4 mr-1" />
-                                Ver
-                              </Button>
-                              {canEdit(round.status) && (
-                                <Button 
-                                  onClick={() => navigate(`/admin/round/${round.id}/edit`)}
-                                  variant="outline"
-                                  size="sm"
-                                  className="min-w-[90px]"
-                                >
-                                  <Edit className="h-4 w-4 mr-1" />
-                                  Editar
-                                </Button>
-                              )}
-                              {canDelete(round.status) && (
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => deleteRound(round.id, round.round_number)}
-                                  className="min-w-[90px]"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-1" />
-                                  Excluir
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+      <main className="container mx-auto px-4 py-6">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/admin/teams")}
+            className="shrink-0"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-2xl md:text-3xl font-bold text-primary">
+            Gerenciar Times
+          </h1>
+        </div>
 
-                {/* Mobile: Cards */}
-                <div className="md:hidden space-y-3">
-                  {rounds.map((round) => (
-                    <Card key={round.id} className="border-border">
-                      <CardContent className="p-4">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Rodada {round.round_number}</p>
-                            <p className="font-medium">
-                              {new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
-                            </p>
-                            <p className="text-sm text-primary font-medium mt-1">
-                              {round.teamsCount} times
-                            </p>
-                          </div>
-                          {getStatusBadge(round.status)}
-                        </div>
-                        
-                        <div className="flex flex-col gap-2">
-                          <Button 
-                            onClick={() => navigate(`/admin/round/${round.id}/view`)}
-                            variant="outline"
-                            className="w-full min-h-[44px]"
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            Ver Times
-                          </Button>
-                          {canEdit(round.status) && (
-                            <Button 
-                              onClick={() => navigate(`/admin/round/${round.id}/edit`)}
-                              variant="outline"
-                              className="w-full min-h-[44px]"
-                            >
-                              <Edit className="h-4 w-4 mr-2" />
-                              Editar Times
-                            </Button>
-                          )}
-                          {canDelete(round.status) && (
-                            <Button
-                              variant="destructive"
-                              className="w-full min-h-[44px]"
-                              onClick={() => deleteRound(round.id, round.round_number)}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Excluir
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+        {loading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i} className="border-border/30">
+                <CardContent className="p-4">
+                  <Skeleton className="h-20 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : rounds.length === 0 ? (
+          <Card className="bg-card/50 border-border/30">
+            <CardContent className="py-12 text-center">
+              <p className="text-muted-foreground mb-4">
+                Nenhum time gerado ainda
+              </p>
+              <Button onClick={() => navigate("/admin/teams/define")}>
+                Definir Times
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {rounds.map((round) => (
+              <Card 
+                key={round.id} 
+                className="bg-gradient-to-br from-card/90 to-card/50 border-border/30 overflow-hidden"
+              >
+                <CardContent className="p-4">
+                  {/* Header do card */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-lg font-bold text-foreground">
+                          Rodada {round.round_number}
+                        </span>
+                        {getStatusBadge(round.status)}
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {formatDate(round.scheduled_date)}
+                      </span>
+                    </div>
+                  </div>
 
-                <Button 
-                  onClick={() => navigate("/admin/teams")} 
-                  variant="outline" 
-                  className="w-full mt-4 min-h-[44px]"
+                  {/* Logos dos times */}
+                  <div className="flex gap-3 mb-4">
+                    {round.teamColors.map((color) => (
+                      <TeamLogo key={color} teamColor={color} size="md" />
+                    ))}
+                  </div>
+
+                  {/* Botões de ação */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={() => navigate(`/admin/round/${round.id}/view`)}
+                      variant="outline"
+                      className="h-11 gap-2"
+                    >
+                      <Eye className="h-4 w-4" />
+                      Ver
+                    </Button>
+                    
+                    <Button
+                      onClick={() => loadShareData(round.id)}
+                      variant="outline"
+                      className="h-11 gap-2"
+                    >
+                      <Share2 className="h-4 w-4" />
+                      Compartilhar
+                    </Button>
+
+                    {canEdit(round.status) && (
+                      <Button
+                        onClick={() => navigate(`/admin/round/${round.id}/edit`)}
+                        variant="outline"
+                        className="h-11 gap-2"
+                      >
+                        <Edit className="h-4 w-4" />
+                        Editar
+                      </Button>
+                    )}
+
+                    {canDelete(round.status) && (
+                      <Button
+                        onClick={() => deleteRound(round.id, round.round_number)}
+                        variant="destructive"
+                        className="h-11 gap-2"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Excluir
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Modal/View de compartilhamento */}
+        {selectedRoundId && shareData && selectedRound && (
+          <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm overflow-y-auto">
+            <div className="container mx-auto px-4 py-6">
+              <div className="flex items-center justify-between mb-6">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setSelectedRoundId(null);
+                    setShareData(null);
+                  }}
+                  className="gap-2"
                 >
-                  Voltar para Times
+                  <ArrowLeft className="h-4 w-4" />
+                  Voltar
                 </Button>
+                
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleGenerateImage(selectedRound)}
+                    disabled={generating}
+                    className="gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    {generating ? "Gerando..." : "Baixar"}
+                  </Button>
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+
+              <div className="max-w-lg mx-auto">
+                <ShareableTeamsView
+                  ref={shareRef}
+                  roundNumber={selectedRound.round_number}
+                  scheduledDate={selectedRound.scheduled_date}
+                  teamsByColor={shareData.teamsByColor}
+                  matches={shareData.matches}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

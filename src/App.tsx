@@ -73,6 +73,7 @@ function AnimatedRoutes() {
         <Route path="/admin/round/manage" element={<ProtectedRoute><PageTransition><ManageRounds /></PageTransition></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><PageTransition><Profile /></PageTransition></ProtectedRoute>} />
         <Route path="/times" element={<ProtectedRoute><PageTransition><ViewTeams /></PageTransition></ProtectedRoute>} />
+        <Route path="/teams/view" element={<ProtectedRoute><PageTransition><ViewTeams /></PageTransition></ProtectedRoute>} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
