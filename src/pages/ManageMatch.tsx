@@ -254,7 +254,9 @@ export default function ManageMatch() {
       .on("postgres_changes", { event: "*", schema: "public", table: "substitutions", filter: `match_id=eq.${matchId}` }, () => loadMatchData())
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { 
+      supabase.removeChannel(channel); 
+    };
   }, [matchId]);
 
   const checkAdminAndLoad = async () => {
@@ -443,14 +445,6 @@ export default function ManageMatch() {
         .filter(Boolean)
         .filter((p: Player) => !playersAlreadyIn.has(p.id));
 
-      console.log('[ManageMatch] loadAvailablePlayersIn:', {
-        roundId,
-        teamsNotPlaying: `NOT in (${match.team_home},${match.team_away})`,
-        totalFromOtherTeams: otherTeamPlayers?.length || 0,
-        alreadyEnteredIds: Array.from(playersAlreadyIn),
-        availableCount: availablePlayers.length,
-        availableNames: availablePlayers.map((p: Player) => p.nickname || p.name)
-      });
 
       setAvailablePlayersIn(availablePlayers);
     } catch (error) {
@@ -478,12 +472,6 @@ export default function ManageMatch() {
     const allPlayers = [...starters, ...playersIn];
     const onField = allPlayers.filter(p => !playersOutIds.has(p.id));
 
-    console.log(`[ManageMatch] getPlayersOnField(${teamColor}):`, {
-      starters: starters.map(p => p.nickname || p.name),
-      playersIn: playersIn.map(p => p.nickname || p.name),
-      playersOut: Array.from(playersOutIds),
-      onField: onField.map(p => p.nickname || p.name)
-    });
 
     return onField;
   };
@@ -614,6 +602,16 @@ export default function ManageMatch() {
     try {
       const isOwnGoal = goalData.player_id === "own_goal";
       
+      // Buscar dados do jogador marcador para atualização otimista
+      const scorer = !isOwnGoal 
+        ? getPlayersOnField(goalData.team).find(p => p.id === goalData.player_id)
+        : null;
+      
+      // Buscar dados do assistente para atualização otimista
+      const assister = goalData.has_assist && goalData.assist_player_id
+        ? getPlayersOnField(goalData.team).find(p => p.id === goalData.assist_player_id)
+        : null;
+      
       const { data: result, error: rpcError } = await supabase.rpc('record_goal_with_assist', {
         p_match_id: match.id,
         p_team_color: goalData.team,
@@ -625,15 +623,39 @@ export default function ManageMatch() {
 
       if (rpcError) throw rpcError;
 
-      const rpcResult = result as { success: boolean; error?: string };
+      const rpcResult = result as { success: boolean; error?: string; goal_id?: string; assist_id?: string };
       
       if (!rpcResult.success) {
         throw new Error(rpcResult.error || 'Erro ao registrar gol');
       }
 
+      // Atualização otimista: adicionar gol ao estado local imediatamente
+      if (rpcResult.goal_id) {
+        const newGoal: GoalData = {
+          id: rpcResult.goal_id,
+          player_id: goalData.player_id,
+          minute: currentMin,
+          is_own_goal: isOwnGoal,
+          team_color: goalData.team,
+          player: scorer || undefined,
+          assists: rpcResult.assist_id && assister ? [{
+            player_id: goalData.assist_player_id,
+            player: assister
+          }] : []
+        };
+        
+        
+        setGoals(prev => [...prev, newGoal].sort((a, b) => a.minute - b.minute));
+      }
+
       toast.success(`Gol registrado!`);
       closeForm();
-      loadMatchData();
+      
+      // Recarregar dados do servidor para garantir consistência
+      // (o realtime também irá disparar, mas isso garante dados completos)
+      setTimeout(() => {
+        loadMatchData();
+      }, 300);
     } catch (error: any) {
       toast.error("Erro ao registrar gol: " + error.message);
     } finally {
