@@ -10,7 +10,11 @@ import { TeamCardModern, ShareableTeamsGrid } from "@/components/teams";
 import { ArrowLeft, Download, Share2, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toPng } from "html-to-image";
-import logoCozidos from "@/assets/logo-cozidos.png";
+import logoCozidosNovo from "@/assets/logo-cozidos-novo.png";
+import teamBranco from "@/assets/team-branco.png";
+import teamVermelho from "@/assets/team-vermelho.png";
+import teamAzul from "@/assets/team-azul.png";
+import teamLaranja from "@/assets/team-laranja.png";
 
 type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
 
@@ -41,11 +45,19 @@ interface Match {
   scheduled_time: string;
 }
 
+const teamLogos: Record<TeamColor, string> = {
+  branco: teamBranco,
+  vermelho: teamVermelho,
+  azul: teamAzul,
+  laranja: teamLaranja,
+};
+
 export default function ViewTeams() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [rounds, setRounds] = useState<Round[]>([]);
   const [selectedRound, setSelectedRound] = useState<string>("");
+  const [selectedTeam, setSelectedTeam] = useState<TeamColor | null>(null);
   const [teamPlayers, setTeamPlayers] = useState<TeamPlayer[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +76,14 @@ export default function ViewTeams() {
       loadMatches();
     }
   }, [selectedRound]);
+
+  // Selecionar primeiro time quando times são carregados
+  useEffect(() => {
+    if (Object.keys(teamsByColor).length > 0 && !selectedTeam) {
+      const firstTeam = orderedTeamColors[0];
+      if (firstTeam) setSelectedTeam(firstTeam);
+    }
+  }, [teamPlayers]);
 
   const loadRounds = async () => {
     try {
@@ -108,6 +128,7 @@ export default function ViewTeams() {
 
       if (error) throw error;
       setTeamPlayers(data || []);
+      setSelectedTeam(null); // Reset para re-selecionar o primeiro time
     } catch (error: any) {
       toast({
         title: "Erro ao carregar times",
@@ -148,7 +169,7 @@ export default function ViewTeams() {
     return acc;
   }, {} as Record<string, TeamPlayer[]>);
 
-  // Ordenar times: branco, azul, laranja, vermelho (ou ordem alfabética)
+  // Ordenar times: branco, azul, laranja, vermelho
   const orderedTeamColors = ["branco", "azul", "laranja", "vermelho"].filter(
     color => teamsByColor[color]?.length > 0
   ) as TeamColor[];
@@ -161,7 +182,7 @@ export default function ViewTeams() {
       const dataUrl = await toPng(shareRef.current, {
         quality: 1,
         pixelRatio: 2,
-        backgroundColor: "#ffffff",
+        backgroundColor: "#0a0a0a",
       });
       
       const link = document.createElement("a");
@@ -193,7 +214,7 @@ export default function ViewTeams() {
       const dataUrl = await toPng(shareRef.current, {
         quality: 1,
         pixelRatio: 2,
-        backgroundColor: "#ffffff",
+        backgroundColor: "#0a0a0a",
       });
       
       const response = await fetch(dataUrl);
@@ -222,9 +243,9 @@ export default function ViewTeams() {
       <Header />
       <main className="container mx-auto px-4 py-6 max-w-4xl">
         {/* Header com informações da rodada */}
-        <div className="flex flex-col items-center mb-8">
+        <div className="flex flex-col items-center mb-6">
           <img 
-            src={logoCozidos} 
+            src={logoCozidosNovo} 
             alt="Cozidos FC" 
             className="h-20 w-auto object-contain mb-4"
           />
@@ -282,19 +303,42 @@ export default function ViewTeams() {
           </Card>
         ) : (
           <div className="space-y-6">
-            {/* Cards dos times - empilhados verticalmente */}
-            <div className="space-y-4">
+            {/* Navegação por cards de times */}
+            <div className="flex justify-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
               {orderedTeamColors.map((color) => (
-                <TeamCardModern
+                <button
                   key={color}
-                  teamColor={color}
-                  players={teamsByColor[color]}
-                />
+                  onClick={() => setSelectedTeam(color)}
+                  className={`
+                    flex-shrink-0 p-2 rounded-xl transition-all duration-200
+                    ${selectedTeam === color 
+                      ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-105" 
+                      : "opacity-60 hover:opacity-100"
+                    }
+                  `}
+                  style={{
+                    backgroundColor: selectedTeam === color ? "hsl(var(--card))" : "transparent"
+                  }}
+                >
+                  <img 
+                    src={teamLogos[color]} 
+                    alt={color}
+                    className="h-14 w-14 object-contain"
+                  />
+                </button>
               ))}
             </div>
 
+            {/* Card do time selecionado */}
+            {selectedTeam && teamsByColor[selectedTeam] && (
+              <TeamCardModern
+                teamColor={selectedTeam}
+                players={teamsByColor[selectedTeam]}
+              />
+            )}
+
             {/* Botões de ação */}
-            <div className="flex flex-col gap-3 pt-6">
+            <div className="flex flex-col gap-3 pt-4">
               <Button
                 onClick={() => setShowShareView(!showShareView)}
                 variant="outline"
@@ -343,7 +387,7 @@ export default function ViewTeams() {
                 <p className="text-sm text-muted-foreground text-center mb-4">
                   Preview para WhatsApp:
                 </p>
-                <div className="border border-border/30 rounded-2xl overflow-hidden overflow-x-auto">
+                <div className="border border-border/30 rounded-2xl overflow-hidden overflow-x-auto bg-[#0a0a0a]">
                   <ShareableTeamsGrid
                     ref={shareRef}
                     roundNumber={selectedRoundData.round_number}
