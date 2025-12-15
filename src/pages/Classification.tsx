@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Info, RefreshCw } from "lucide-react";
+import { Info, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -34,10 +34,17 @@ interface PlayerStats {
 
 type TabType = "todos" | "nivel";
 
+const PAGE_SIZE = 20;
+
 export default function Classification() {
   const [stats, setStats] = useState<PlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRules, setShowRules] = useState(false);
+
+  // Pagination state
+  const [displayedCount, setDisplayedCount] = useState(PAGE_SIZE);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loaderRef = useRef<HTMLDivElement>(null);
 
   // Season/Month/Level filters
   const [seasons, setSeasons] = useState<number[]>([]);
@@ -178,6 +185,46 @@ export default function Classification() {
 
     return result;
   }, [stats, selectedTab, selectedLevel]);
+
+  // Reset displayed count when filters change
+  useEffect(() => {
+    setDisplayedCount(PAGE_SIZE);
+  }, [selectedTab, selectedLevel, selectedMonth, selectedSeason]);
+
+  // Paginated stats
+  const paginatedStats = useMemo(() => {
+    return filteredStats.slice(0, displayedCount);
+  }, [filteredStats, displayedCount]);
+
+  const hasMore = displayedCount < filteredStats.length;
+
+  // Infinite scroll observer
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+    
+    setLoadingMore(true);
+    setTimeout(() => {
+      setDisplayedCount(prev => Math.min(prev + PAGE_SIZE, filteredStats.length));
+      setLoadingMore(false);
+    }, 100);
+  }, [loadingMore, hasMore, filteredStats.length]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1, rootMargin: "100px" }
+    );
+
+    if (loaderRef.current) {
+      observer.observe(loaderRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loadMore]);
 
   const levelColors: Record<string, string> = {
     A: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
@@ -343,17 +390,33 @@ export default function Classification() {
                     Nenhum jogador encontrado
                   </div>
                 ) : (
-                  filteredStats.map((stat, index) => (
-                    <PlayerRankItem
-                      key={stat.player_id}
-                      rank={index + 1}
-                      nickname={stat.nickname}
-                      avatarUrl={stat.avatar_url}
-                      level={stat.level}
-                      points={stat.pontos_totais}
-                      presence={stat.presencas}
-                    />
-                  ))
+                  <>
+                    {paginatedStats.map((stat, index) => (
+                      <PlayerRankItem
+                        key={stat.player_id}
+                        rank={index + 1}
+                        nickname={stat.nickname}
+                        avatarUrl={stat.avatar_url}
+                        level={stat.level}
+                        points={stat.pontos_totais}
+                        presence={stat.presencas}
+                      />
+                    ))}
+                    
+                    {/* Infinite scroll loader */}
+                    {hasMore && (
+                      <div ref={loaderRef} className="flex justify-center py-4">
+                        {loadingMore && (
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Count indicator */}
+                    <div className="text-center py-3 text-sm text-muted-foreground">
+                      Exibindo {paginatedStats.length} de {filteredStats.length} jogadores
+                    </div>
+                  </>
                 )}
               </div>
 
@@ -376,7 +439,7 @@ export default function Classification() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredStats.map((stat, index) => (
+                    {paginatedStats.map((stat, index) => (
                       <TableRow key={stat.player_id} className="border-border/30 hover:bg-muted/10">
                         <TableCell className="font-bold text-primary text-lg">{index + 1}</TableCell>
                         <TableCell>
@@ -415,6 +478,20 @@ export default function Classification() {
                     ))}
                   </TableBody>
                 </Table>
+                
+                {/* Infinite scroll loader for desktop */}
+                {hasMore && (
+                  <div ref={loaderRef} className="flex justify-center py-4">
+                    {loadingMore && (
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    )}
+                  </div>
+                )}
+                
+                {/* Count indicator */}
+                <div className="text-center py-3 text-sm text-muted-foreground">
+                  Exibindo {paginatedStats.length} de {filteredStats.length} jogadores
+                </div>
               </div>
             </>
           )}
