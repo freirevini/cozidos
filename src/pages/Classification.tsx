@@ -10,7 +10,7 @@ import { Info, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { SeasonSelector, MonthChips, LevelSelector, PlayerRankItem } from "@/components/classification";
+import { SeasonSelector, MonthChips, LevelSelector, PlayerRankItem, PlayerStatsDrawer } from "@/components/classification";
 import { cn } from "@/lib/utils";
 
 interface PlayerStats {
@@ -40,6 +40,10 @@ export default function Classification() {
   const [stats, setStats] = useState<PlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRules, setShowRules] = useState(false);
+
+  // Player details drawer
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Pagination state
   const [displayedCount, setDisplayedCount] = useState(PAGE_SIZE);
@@ -352,7 +356,7 @@ export default function Classification() {
 
         {/* Sub-filters */}
         <div className="bg-background/50 border-b border-border/20">
-          <div className="container mx-auto px-4 py-3">
+          <div className="container mx-auto px-4 py-3 space-y-3">
             {selectedTab === "todos" ? (
               <MonthChips
                 availableMonths={availableMonths}
@@ -360,10 +364,18 @@ export default function Classification() {
                 onMonthChange={setSelectedMonth}
               />
             ) : (
-              <LevelSelector
-                selectedLevel={selectedLevel}
-                onLevelChange={setSelectedLevel}
-              />
+              <>
+                <LevelSelector
+                  selectedLevel={selectedLevel}
+                  onLevelChange={setSelectedLevel}
+                />
+                {/* Month filter for Level tab */}
+                <MonthChips
+                  availableMonths={availableMonths}
+                  selectedMonth={selectedMonth}
+                  onMonthChange={setSelectedMonth}
+                />
+              </>
             )}
           </div>
         </div>
@@ -400,6 +412,10 @@ export default function Classification() {
                         level={stat.level}
                         points={stat.pontos_totais}
                         presence={stat.presencas}
+                        onClick={() => {
+                          setSelectedPlayer(stat);
+                          setDrawerOpen(true);
+                        }}
                       />
                     ))}
                     
@@ -440,7 +456,14 @@ export default function Classification() {
                   </TableHeader>
                   <TableBody>
                     {paginatedStats.map((stat, index) => (
-                      <TableRow key={stat.player_id} className="border-border/30 hover:bg-muted/10">
+                      <TableRow 
+                        key={stat.player_id} 
+                        className="border-border/30 hover:bg-muted/10 cursor-pointer"
+                        onClick={() => {
+                          setSelectedPlayer(stat);
+                          setDrawerOpen(true);
+                        }}
+                      >
                         <TableCell className="font-bold text-primary text-lg">{index + 1}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-3">
@@ -497,6 +520,13 @@ export default function Classification() {
           )}
         </div>
       </main>
+
+      {/* Player Stats Drawer */}
+      <PlayerStatsDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        player={selectedPlayer}
+      />
 
       <Footer />
     </div>
