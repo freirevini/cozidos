@@ -1,6 +1,9 @@
+import { useNavigate } from "react-router-dom";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ExternalLink } from "lucide-react";
 
 interface PlayerStats {
   player_id: string;
@@ -25,6 +28,8 @@ interface PlayerStatsDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   player: PlayerStats | null;
+  selectedYear?: number | null;
+  selectedMonth?: number | null;
 }
 
 const levelColors: Record<string, string> = {
@@ -35,8 +40,19 @@ const levelColors: Record<string, string> = {
   E: "bg-red-500/20 text-red-400 border-red-500/30",
 };
 
-export default function PlayerStatsDrawer({ open, onOpenChange, player }: PlayerStatsDrawerProps) {
+export default function PlayerStatsDrawer({ open, onOpenChange, player, selectedYear, selectedMonth }: PlayerStatsDrawerProps) {
+  const navigate = useNavigate();
+
   if (!player) return null;
+
+  const handleViewFullProfile = () => {
+    onOpenChange(false);
+    const params = new URLSearchParams();
+    if (selectedYear) params.set("year", String(selectedYear));
+    if (selectedMonth) params.set("month", String(selectedMonth));
+    const queryString = params.toString();
+    navigate(`/profile/${player.player_id}${queryString ? `?${queryString}` : ""}`);
+  };
 
   const statItems = [
     { label: "Pontos Totais", value: player.pontos_totais, icon: "🏆", highlight: true },
@@ -147,6 +163,16 @@ export default function PlayerStatsDrawer({ open, onOpenChange, player }: Player
                 </div>
               </div>
             </div>
+
+            {/* View Full Profile Button */}
+            <Button 
+              onClick={handleViewFullProfile}
+              className="w-full mt-4"
+              variant="outline"
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Ver Perfil Completo
+            </Button>
           </div>
         </div>
       </DrawerContent>
