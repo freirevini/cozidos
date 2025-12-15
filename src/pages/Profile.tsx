@@ -28,6 +28,7 @@ interface UserProfile {
   status: string | null;
   email: string | null;
   avatar_url: string | null;
+  ranking_position: number | null;
 }
 
 export default function Profile() {
@@ -71,49 +72,80 @@ export default function Profile() {
     try {
       setLoading(true);
       
+      let profileId: string | null = null;
+      let profileData: any = null;
+      let isOwn = false;
+      
       // If viewing another player's profile
       if (urlProfileId) {
-        const { data: profileData, error } = await supabase
+        const { data, error } = await supabase
           .from("profiles")
           .select("id, name, nickname, birth_date, position, level, is_approved, status, email, avatar_url")
           .eq("id", urlProfileId)
           .single();
 
         if (error) throw error;
-        if (profileData) {
-          setProfile(profileData);
-          setIsOwnProfile(false);
+        profileData = data;
+        profileId = data?.id || null;
+        isOwn = false;
+      } else {
+        // Load own profile
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Usuário não autenticado");
+
+        // Buscar perfil vinculado ao user_id - esta é a fonte de verdade
+        const { data: profiles, error } = await supabase
+          .from("profiles")
+          .select("id, name, nickname, birth_date, position, level, is_approved, status, email, avatar_url, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        
+        if (profiles && profiles.length > 0) {
+          // Priorizar perfil aprovado ou mais recente
+          const selectedProfile = profiles.find(p => p.status === 'aprovado' || p.is_approved) 
+            || profiles[0];
+          
+          profileData = selectedProfile;
+          profileId = selectedProfile.id;
+          isOwn = true;
+        } else {
+          toast({
+            title: "Perfil não encontrado",
+            description: "Seu perfil está sendo criado. Recarregue a página em alguns instantes.",
+            variant: "default",
+          });
+          setLoading(false);
+          return;
         }
+      }
+      
+      if (!profileData || !profileId) {
+        setLoading(false);
         return;
       }
-
-      // Load own profile
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado");
-
-      // Buscar perfil vinculado ao user_id - esta é a fonte de verdade
-      const { data: profiles, error } = await supabase
-        .from("profiles")
-        .select("id, name, nickname, birth_date, position, level, is_approved, status, email, avatar_url, created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
       
-      if (profiles && profiles.length > 0) {
-        // Priorizar perfil aprovado ou mais recente
-        let selectedProfile = profiles.find(p => p.status === 'aprovado' || p.is_approved) 
-          || profiles[0];
-        
-        setProfile(selectedProfile);
-        setIsOwnProfile(true);
-      } else {
-        toast({
-          title: "Perfil não encontrado",
-          description: "Seu perfil está sendo criado. Recarregue a página em alguns instantes.",
-          variant: "default",
-        });
+      // Buscar posição no ranking
+      let rankingPosition: number | null = null;
+      const { data: rankingData } = await supabase
+        .from("player_rankings")
+        .select("player_id, pontos_totais")
+        .order("pontos_totais", { ascending: false });
+      
+      if (rankingData) {
+        const position = rankingData.findIndex(r => r.player_id === profileId);
+        if (position !== -1) {
+          rankingPosition = position + 1;
+        }
       }
+      
+      setProfile({
+        ...profileData,
+        ranking_position: rankingPosition,
+      });
+      setIsOwnProfile(isOwn);
+      
     } catch (error: any) {
       console.error("Erro ao carregar perfil:", error);
       toast({
@@ -159,12 +191,16 @@ export default function Profile() {
       <main className="max-w-2xl mx-auto pb-8">
         {/* Profile Header - MLS Style */}
         <ProfileHeader
+          id={profile.id}
           name={profile.name}
           nickname={profile.nickname}
           avatarUrl={profile.avatar_url}
           position={profile.position}
           level={profile.level}
-          status={profile.status}
+          birthDate={profile.birth_date}
+          rankingPosition={profile.ranking_position}
+          isOwnProfile={isOwnProfile}
+          onAvatarUpdate={(url) => setProfile(prev => prev ? { ...prev, avatar_url: url } : null)}
         />
 
         {/* Stats Tab */}
