@@ -3,16 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { RankingInput } from "@/components/ui/ranking-input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Table, TableBody } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import { getUserFriendlyError } from "@/lib/errorHandler";
-import { Trash2, Upload, HelpCircle, RotateCcw, UserPlus, Save, AlertCircle } from "lucide-react";
+import { Search, AlertCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +19,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -31,11 +29,18 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { z } from "zod";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
+import {
+  RankingHeader,
+  RankingTableHeader,
+  RankingTableRow,
+  RankingMobileCard,
+  ImportHelpDialog,
+} from "@/components/ranking";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface PlayerRanking {
   id: string;
@@ -54,11 +59,7 @@ interface PlayerRanking {
   cartoes_amarelos: number;
   cartoes_azuis: number;
   pontos_totais: number;
-}
-
-interface EditedRanking {
-  id: string;
-  changes: Partial<PlayerRanking>;
+  source_type?: 'manual' | 'imported' | 'calculated';
 }
 
 interface AvailablePlayer {
@@ -79,9 +80,16 @@ const ManageRanking = () => {
   const [resetting, setResetting] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [availablePlayers, setAvailablePlayers] = useState<AvailablePlayer[]>([]);
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+
+  // Season support
+  const [seasons, setSeasons] = useState<number[]>([new Date().getFullYear()]);
+  const [selectedSeason, setSelectedSeason] = useState<number>(new Date().getFullYear());
 
   useEffect(() => {
     if (!isAdmin) {
@@ -92,11 +100,12 @@ const ManageRanking = () => {
         variant: "destructive",
       });
     } else {
+      loadSeasons();
       loadRankings();
     }
   }, [isAdmin, navigate]);
 
-  // ✅ Restaurar alterações pendentes após re-autenticação
+  // Restore pending changes after re-authentication
   useEffect(() => {
     const pendingChanges = localStorage.getItem('pending_ranking_changes');
     
@@ -108,18 +117,37 @@ const ManageRanking = () => {
         setEditedRankings(restoredMap);
         localStorage.removeItem('pending_ranking_changes');
         
-        console.log("✅ Alterações restauradas:", restoredMap.size, "jogador(es)");
-        
         toast({
           title: "Alterações restauradas",
           description: `${restoredMap.size} jogador(es) com alterações pendentes foram restaurados.`,
         });
       } catch (e) {
-        console.error('❌ Erro ao restaurar alterações:', e);
         localStorage.removeItem('pending_ranking_changes');
       }
     }
   }, []);
+
+  const loadSeasons = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("rounds")
+        .select("scheduled_date")
+        .not("scheduled_date", "is", null);
+
+      if (error) throw error;
+
+      const years = [...new Set(
+        data?.map(r => new Date(r.scheduled_date!).getFullYear()) || []
+      )].sort((a, b) => b - a);
+
+      if (years.length > 0) {
+        setSeasons(years);
+        setSelectedSeason(years[0]);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar temporadas:", error);
+    }
+  };
 
   const fetchRankingsRaw = async (): Promise<PlayerRanking[]> => {
     const { data, error } = await supabase
@@ -307,7 +335,6 @@ const ManageRanking = () => {
   const updateRankingField = (id: string, field: keyof PlayerRanking, value: number | string) => {
     const numValue = typeof value === 'string' ? parseInt(value) || 0 : value;
     
-    // Validate the field
     const validation = rankingSchema.partial().safeParse({ [field]: numValue });
     if (!validation.success) {
       toast({
@@ -330,6 +357,31 @@ const ManageRanking = () => {
     });
   };
 
+  const copyRankingRow = (ranking: PlayerRanking) => {
+    const text = `${ranking.nickname}\t${ranking.gols}\t${ranking.assistencias}\t${ranking.vitorias}\t${ranking.empates}\t${ranking.derrotas}\t${ranking.presencas}\t${ranking.pontos_totais}`;
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Linha copiada",
+      description: `Dados de ${ranking.nickname} copiados para a área de transferência.`,
+    });
+  };
+
+  const resetRankingRow = (ranking: PlayerRanking) => {
+    const resetFields: (keyof PlayerRanking)[] = [
+      'gols', 'assistencias', 'vitorias', 'empates', 'derrotas',
+      'presencas', 'faltas', 'atrasos', 'punicoes', 'cartoes_amarelos', 'cartoes_azuis'
+    ];
+
+    resetFields.forEach(field => {
+      updateRankingField(ranking.id, field, 0);
+    });
+
+    toast({
+      title: "Linha zerada",
+      description: `Estatísticas de ${ranking.nickname} foram zeradas. Salve para confirmar.`,
+    });
+  };
+
   const saveChanges = async () => {
     if (editedRankings.size === 0) {
       toast({
@@ -340,27 +392,12 @@ const ManageRanking = () => {
       return;
     }
 
-    // ✅ Verificação robusta de sessão
-    console.log("🔍 Verificando sessão antes de salvar...");
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (sessionError) {
-      console.error("❌ Erro ao verificar sessão:", sessionError);
-      toast({
-        title: "Erro de autenticação",
-        description: "Não foi possível verificar sua sessão. Faça login novamente.",
-        variant: "destructive",
-      });
-      localStorage.setItem('pending_ranking_changes', JSON.stringify(Array.from(editedRankings.entries())));
-      navigate('/auth');
-      return;
-    }
-    
-    if (!session) {
-      console.warn("⚠️ Sessão não encontrada");
+    if (sessionError || !session) {
       toast({
         title: "Sessão expirada",
-        description: "Sua sessão expirou. Faça login novamente para salvar as alterações.",
+        description: "Sua sessão expirou. Faça login novamente.",
         variant: "destructive",
       });
       localStorage.setItem('pending_ranking_changes', JSON.stringify(Array.from(editedRankings.entries())));
@@ -368,18 +405,13 @@ const ManageRanking = () => {
       return;
     }
     
-    // ✅ Verificar validade do token
     const tokenExpiry = session.expires_at;
     const now = Math.floor(Date.now() / 1000);
     
     if (tokenExpiry && tokenExpiry < now) {
-      console.warn("⚠️ Token JWT expirado, tentando renovar...");
-      
-      // Tentar refresh token automaticamente
       const { error: refreshError } = await supabase.auth.refreshSession();
       
       if (refreshError) {
-        console.error("❌ Falha ao renovar token:", refreshError);
         toast({
           title: "Token expirado",
           description: "Não foi possível renovar sua sessão. Faça login novamente.",
@@ -389,22 +421,13 @@ const ManageRanking = () => {
         navigate('/auth');
         return;
       }
-      
-      console.log("✅ Token renovado com sucesso");
     }
-    
-    // ✅ Log de debug
-    console.log("✅ Sessão válida:", {
-      userId: session.user.id,
-      expiresAt: tokenExpiry ? new Date(tokenExpiry * 1000).toLocaleString() : 'N/A',
-    });
 
     setSaving(true);
     
     try {
-      // Passo 1: Aplicar ajustes individuais
       toast({
-        title: "⏳ Passo 1/3: Aplicando ajustes...",
+        title: "⏳ Aplicando ajustes...",
         description: `Processando ${editedRankings.size} jogador(es)`,
       });
 
@@ -443,14 +466,11 @@ const ManageRanking = () => {
 
       const results = await Promise.all(adjustmentPromises);
 
-      // Verificar erros de RPC (erro de conexão, permissão, etc.)
       const rpcErrors = results.filter(r => r.error);
       if (rpcErrors.length > 0) {
-        console.error("Erros de RPC nos ajustes:", rpcErrors);
         throw new Error(rpcErrors[0].error.message || "Erro ao aplicar ajustes");
       }
 
-      // Verificar erros nos dados retornados (success === false)
       const dataErrors = results.filter(r => {
         const data = r.data as any;
         return data?.success === false;
@@ -458,90 +478,29 @@ const ManageRanking = () => {
       
       if (dataErrors.length > 0) {
         const errorData = dataErrors[0].data as any;
-        console.error("Erro no resultado do ajuste:", errorData);
         throw new Error(errorData?.error || "Erro ao aplicar ajustes");
       }
 
-      // Passo 2: Recalcular classificação
-      toast({
-        title: "⏳ Passo 2/4: Recalculando pontos...",
-        description: "Atualizando classificação geral com os ajustes aplicados",
-      });
-
-      const { data: recalcData, error: recalcError } = await supabase.rpc('recalc_all_player_rankings');
+      const { error: recalcError } = await supabase.rpc('recalc_all_player_rankings');
       
       if (recalcError) {
-        console.error("Erro ao recalcular rankings:", recalcError);
         throw new Error("Erro ao recalcular classificação: " + recalcError.message);
       }
 
-      const recalcResult = recalcData as any;
-      if (recalcResult?.success === false) {
-        console.error("Recalculo retornou falha:", recalcResult);
-        throw new Error(recalcResult.error || "Erro ao recalcular classificação");
-      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Passo 3: Aguardar processamento com retry
-      toast({
-        title: "⏳ Passo 3/4: Aguardando processamento...",
-        description: "Garantindo consistência dos dados",
-      });
-
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Passo 4: Recarregar dados com retry usando fetch direto do backend
-      toast({
-        title: "⏳ Passo 4/4: Confirmando atualização...",
-        description: "Verificando dados no backend",
-      });
-
-      let retries = 0;
-      const maxRetries = 3;
-      let lastData = rankings;
-
-      while (retries < maxRetries) {
-        lastData = await fetchRankingsRaw();
-
-        if (editedRankings.size > 0) {
-          const [rankingId, fields] = Array.from(editedRankings.entries())[0];
-          const currentRank = lastData.find(r => r.id === rankingId);
-          const firstField = Object.keys(fields)[0] as keyof PlayerRanking;
-
-          if (currentRank && currentRank[firstField] === fields[firstField]) {
-            console.log("✅ Dados atualizados confirmados no backend:", {
-              id: rankingId,
-              field: firstField,
-              value: currentRank[firstField],
-            });
-            break;
-          }
-        } else {
-          break;
-        }
-
-        retries++;
-        if (retries < maxRetries) {
-          console.log(`🔄 Tentativa ${retries + 1}/${maxRetries} de verificação no backend...`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-
-      // Atualizar estado local com a última versão confirmada do backend
+      const lastData = await fetchRankingsRaw();
       setRankings(lastData);
 
-      console.log('📊 Estado atualizado com dados confirmados:', lastData.length, 'jogadores');
-
-      // Sucesso final
       toast({
-        title: "✅ Alterações salvas com sucesso!",
-        description: `${editedRankings.size} jogador(es) atualizado(s). Classificação recalculada.`,
+        title: "✅ Alterações salvas!",
+        description: `${editedRankings.size} jogador(es) atualizado(s).`,
       });
 
       setEditedRankings(new Map());
     } catch (error: any) {
-      console.error("Erro completo:", error);
       toast({
-        title: "❌ Erro ao salvar ajustes",
+        title: "❌ Erro ao salvar",
         description: error.message,
         variant: "destructive",
       });
@@ -561,7 +520,7 @@ const ManageRanking = () => {
       
       await loadRankings();
       toast({
-        title: "Classificação resetada completamente",
+        title: "Classificação resetada",
         description: "Todos os dados de classificação foram removidos.",
       });
     } catch (error: any) {
@@ -572,6 +531,7 @@ const ManageRanking = () => {
       });
     } finally {
       setResetting(false);
+      setShowResetDialog(false);
     }
   };
 
@@ -579,19 +539,12 @@ const ManageRanking = () => {
     setResetting(true);
     
     try {
-      // Passo 1: Reset completo
       const { data: resetData, error: resetError } = await supabase.rpc('reset_full_classification');
       if (resetError) throw resetError;
       
       const resetResult = resetData as { success: boolean; error?: string };
       if (!resetResult.success) throw new Error(resetResult.error);
       
-      toast({
-        title: "Reset concluído",
-        description: "Iniciando recálculo...",
-      });
-      
-      // Passo 2: Recalcular agregados de CADA rodada finalizada
       const { data: rounds } = await supabase
         .from('rounds')
         .select('id')
@@ -601,12 +554,8 @@ const ManageRanking = () => {
         await supabase.rpc('recalc_round_aggregates', { p_round_id: round.id });
       }
       
-      // Passo 3: Recalcular rankings globais (sem ajustes, pois foram removidos)
-      const { data: recalcData, error: recalcError } = await supabase.rpc('recalc_all_player_rankings');
+      const { error: recalcError } = await supabase.rpc('recalc_all_player_rankings');
       if (recalcError) throw recalcError;
-      
-      const recalcResult = recalcData as { success: boolean; error?: string };
-      if (recalcResult && !recalcResult.success) throw new Error(recalcResult.error);
       
       await loadRankings();
       toast({
@@ -622,6 +571,7 @@ const ManageRanking = () => {
     } finally {
       setResetting(false);
       setRecalculating(false);
+      setShowResetDialog(false);
     }
   };
 
@@ -668,13 +618,16 @@ const ManageRanking = () => {
   };
 
   const processImportedData = async (data: any[]) => {
+    // New import format: Nickname is required (not Email)
     if (data.length > 0) {
       const firstRow = data[0];
+      const hasNicknameColumn = "Nickname" in firstRow || "nickname" in firstRow;
       const hasEmailColumn = "Email" in firstRow || "email" in firstRow;
-      if (!hasEmailColumn) {
+      
+      if (!hasNicknameColumn && !hasEmailColumn) {
         toast({
           title: "Coluna obrigatória ausente",
-          description: "A coluna 'Email' é obrigatória para importação de classificação.",
+          description: "A coluna 'Nickname' ou 'Email' é obrigatória para importação.",
           variant: "destructive",
         });
         return;
@@ -687,21 +640,54 @@ const ManageRanking = () => {
     let created = 0;
 
     for (const row of data) {
+      const nickname = (row["Nickname"] || row["nickname"])?.toString().trim();
       const email = (row["Email"] || row["email"])?.toString().toLowerCase().trim();
+      const ano = parseInt(row["Ano"] || row["ano"] || new Date().getFullYear());
       
-      if (!email) {
+      if (!nickname && !email) {
         invalidRows.push(JSON.stringify(row));
         continue;
       }
 
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", email)
-        .single();
+      // Try to find player by nickname first (with claim_token priority), then by email
+      let profileData = null;
+
+      if (nickname) {
+        // First try exact nickname match with claim_token
+        const { data: tokenMatch } = await supabase
+          .from("profiles")
+          .select("id")
+          .ilike("nickname", nickname)
+          .not("claim_token", "is", null)
+          .single();
+
+        if (tokenMatch) {
+          profileData = tokenMatch;
+        } else {
+          // Try exact nickname match without token
+          const { data: nicknameMatch } = await supabase
+            .from("profiles")
+            .select("id")
+            .ilike("nickname", nickname)
+            .single();
+
+          profileData = nicknameMatch;
+        }
+      }
+
+      // Fallback to email if no nickname match
+      if (!profileData && email) {
+        const { data: emailMatch } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("email", email)
+          .single();
+
+        profileData = emailMatch;
+      }
 
       if (!profileData) {
-        invalidRows.push(`Email ${email} não encontrado`);
+        invalidRows.push(`Jogador "${nickname || email}" não encontrado`);
         continue;
       }
 
@@ -721,8 +707,8 @@ const ManageRanking = () => {
 
       upserts.push({
         player_id,
-        nickname: row["Nickname"] || row["nickname"] || email,
-        email: email,
+        nickname: nickname || email,
+        email: email || null,
         gols: parseInt(row["Gols"] || row["gols"] || "0"),
         assistencias: parseInt(row["Assistencias"] || row["assistencias"] || "0"),
         vitorias: parseInt(row["Vitorias"] || row["vitorias"] || "0"),
@@ -748,7 +734,7 @@ const ManageRanking = () => {
 
         let message = `${updated} atualizado(s), ${created} novo(s) criado(s)`;
         if (invalidRows.length > 0) {
-          message += `, ${invalidRows.length} linha(s) ignorada(s)`;
+          message += `, ${invalidRows.length} ignorado(s)`;
         }
 
         toast({
@@ -769,11 +755,17 @@ const ManageRanking = () => {
     if (invalidRows.length > 0 && upserts.length === 0) {
       toast({
         title: "Nenhum dado válido",
-        description: `${invalidRows.length} linha(s) sem e-mail foram ignoradas`,
+        description: `${invalidRows.length} linha(s) sem Nickname/Email foram ignoradas`,
         variant: "destructive",
       });
     }
   };
+
+  // Filter rankings by search
+  const filteredRankings = rankings.filter(r => 
+    r.nickname.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (r.email?.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   if (!isAdmin) {
     return (
@@ -782,7 +774,7 @@ const ManageRanking = () => {
         <div className="container mx-auto px-4 py-8">
           <Card className="bg-card/50 border-primary/20">
             <CardHeader>
-              <CardTitle className="text-primary">Acesso Restrito</CardTitle>
+              <h2 className="text-primary text-xl font-bold">Acesso Restrito</h2>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
@@ -798,340 +790,116 @@ const ManageRanking = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <div className="container mx-auto px-4 py-8">
-        <Card className="bg-card/50 border-primary/20 shadow-card-glow">
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <CardTitle className="text-primary text-2xl">
-                Gerenciar Classificação Geral
-              </CardTitle>
-              
-              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto flex-wrap">
-                <Button 
-                  onClick={() => {
-                    loadAvailablePlayers();
-                    setShowAddDialog(true);
-                  }}
-                  variant="default"
-                  className="w-full sm:w-auto min-h-[44px]"
-                >
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Incluir Jogadores
-                </Button>
-
-                {editedRankings.size > 0 && (
-                  <Button 
-                    onClick={saveChanges}
-                    disabled={saving}
-                    className="w-full sm:w-auto min-h-[44px] bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    <Save className="mr-2 h-4 w-4" />
-                    {saving ? "Salvando..." : `Salvar Alterações (${editedRankings.size})`}
-                  </Button>
-                )}
-
-                <Button 
-                  onClick={recalculateRankings}
-                  disabled={recalculating}
-                  variant="secondary"
-                  className="w-full sm:w-auto min-h-[44px]"
-                >
-                  <RotateCcw className="mr-2 h-4 w-4" />
-                  {recalculating ? "Recalculando..." : "Recalcular"}
-                </Button>
-
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="w-full sm:w-auto min-h-[44px]">
-                      <RotateCcw className="mr-2 h-4 w-4" />
-                      Resetar
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="border-border">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle className="text-destructive">
-                        ⚠️ Resetar Classificação Geral
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Esta ação irá <strong>deletar todos os registros</strong> da tabela de classificação.
-                        <br/><br/>
-                        <strong>O que será deletado:</strong>
-                        <ul className="list-disc ml-6 mt-2">
-                          <li>Todos os pontos, gols, assistências da classificação geral</li>
-                          <li>Estatísticas acumuladas de todos os jogadores</li>
-                        </ul>
-                        <br/>
-                        <strong className="text-primary">O que NÃO será afetado:</strong>
-                        <ul className="list-disc ml-6 mt-2">
-                          <li>Rodadas finalizadas</li>
-                          <li>Partidas e seus resultados</li>
-                          <li>Gols, assistências e cartões registrados nas partidas</li>
-                          <li>Cadastro de jogadores</li>
-                        </ul>
-                        <br/>
-                        <strong>O que você deseja fazer?</strong>
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={resetOnly}
-                        className="bg-orange-600 hover:bg-orange-700"
-                        disabled={resetting || recalculating}
-                      >
-                        {resetting ? "Resetando..." : "Apenas Resetar (deixar zerado)"}
-                      </AlertDialogAction>
-                      <AlertDialogAction
-                        onClick={resetAndRecalculate}
-                        className="bg-destructive hover:bg-destructive/90"
-                        disabled={resetting || recalculating}
-                      >
-                        {recalculating ? "Recalculando..." : "Resetar e Recalcular"}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-
-                <Button
-                  variant="outline"
-                  className="w-full sm:w-auto min-h-[44px]"
-                  disabled={importing}
-                  onClick={() => document.getElementById("file-import")?.click()}
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  {importing ? "Importando..." : "Importar Excel"}
-                </Button>
-                <input
-                  id="file-import"
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  onChange={handleFileImport}
-                  className="hidden"
-                />
-
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="min-h-[44px] min-w-[44px]">
-                      <HelpCircle className="h-5 w-5" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="border-border max-h-[80vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Como importar arquivo de classificação</DialogTitle>
-                      <DialogDescription className="space-y-4 text-left">
-                        <p>O arquivo deve conter as seguintes colunas:</p>
-                        <ul className="list-disc ml-6 space-y-1">
-                          <li><strong>Email</strong> (obrigatório): identificador único do jogador</li>
-                          <li><strong>Nickname</strong>: apelido do jogador</li>
-                          <li><strong>Gols</strong>: número de gols marcados</li>
-                          <li><strong>Assistencias</strong>: número de assistências</li>
-                          <li><strong>Vitorias</strong>, <strong>Empates</strong>, <strong>Derrotas</strong></li>
-                          <li><strong>Presencas</strong>, <strong>Faltas</strong>, <strong>Atrasos</strong></li>
-                          <li><strong>Punicoes</strong>: pontos de punição</li>
-                          <li><strong>Cartoes_Amarelos</strong>, <strong>Cartoes_Azuis</strong></li>
-                          <li><strong>Pontos_Totais</strong>: pontuação total</li>
-                        </ul>
-                        <p className="text-sm text-muted-foreground">
-                          Apenas a coluna <strong>Email</strong> é obrigatória. As demais colunas são opcionais e valores ausentes serão preenchidos com zero.
-                        </p>
-                      </DialogDescription>
-                    </DialogHeader>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
+      <div className="container mx-auto px-4 py-6">
+        <Card className="bg-card/50 border-primary/20 shadow-lg">
+          <CardHeader className="pb-4">
+            <RankingHeader
+              seasons={seasons}
+              selectedSeason={selectedSeason}
+              onSeasonChange={setSelectedSeason}
+              editedCount={editedRankings.size}
+              saving={saving}
+              recalculating={recalculating}
+              importing={importing}
+              onAddPlayers={() => {
+                loadAvailablePlayers();
+                setShowAddDialog(true);
+              }}
+              onSave={saveChanges}
+              onRecalculate={recalculateRankings}
+              onImportClick={() => document.getElementById("file-import")?.click()}
+              onHelpClick={() => setShowHelpDialog(true)}
+              onResetClick={() => setShowResetDialog(true)}
+            />
+            <input
+              id="file-import"
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              onChange={handleFileImport}
+              className="hidden"
+            />
           </CardHeader>
           
-          <CardContent>
+          <CardContent className="pt-0">
+            {/* Pending Changes Alert */}
             {editedRankings.size > 0 && (
               <Alert className="mb-4 bg-yellow-500/10 border-yellow-500/50">
                 <AlertCircle className="h-5 w-5 text-yellow-600" />
                 <AlertDescription className="text-yellow-600 font-medium">
-                  ⚠️ Você tem {editedRankings.size} jogador(es) com alterações não salvas. Clique em "Salvar Alterações" para confirmar.
+                  ⚠️ {editedRankings.size} jogador(es) com alterações não salvas
                 </AlertDescription>
               </Alert>
             )}
 
+            {/* Search */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar jogador..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-10"
+              />
+            </div>
+
             {loading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Carregando...
+              <div className="space-y-3">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
               </div>
-            ) : rankings.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Nenhuma classificação cadastrada
+            ) : filteredRankings.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                {searchQuery ? "Nenhum jogador encontrado" : "Nenhuma classificação cadastrada"}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-primary/20">
-                      <TableHead className="text-primary">Pos.</TableHead>
-                      <TableHead className="text-primary">Apelido</TableHead>
-                      <TableHead className="text-primary">E-mail</TableHead>
-                      <TableHead className="text-primary text-center">Gols</TableHead>
-                      <TableHead className="text-primary text-center">Assist.</TableHead>
-                      <TableHead className="text-primary text-center">V</TableHead>
-                      <TableHead className="text-primary text-center">E</TableHead>
-                      <TableHead className="text-primary text-center">D</TableHead>
-                      <TableHead className="text-primary text-center">Pres.</TableHead>
-                      <TableHead className="text-primary text-center">Faltas</TableHead>
-                      <TableHead className="text-primary text-center">Atrasos</TableHead>
-                      <TableHead className="text-primary text-center">Pun.</TableHead>
-                      <TableHead className="text-primary text-center">🟨</TableHead>
-                      <TableHead className="text-primary text-center">🟦</TableHead>
-                      <TableHead className="text-primary text-center font-bold">Pontos</TableHead>
-                      <TableHead className="text-primary text-center">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rankings.map((ranking, index) => (
-                      <TableRow key={ranking.id} className="border-primary/20">
-                        <TableCell className="font-medium">{index + 1}</TableCell>
-                        <TableCell>{ranking.nickname}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{ranking.email}</TableCell>
-                        <TableCell className="text-center">
-                          <RankingInput
-                            min="0"
-                            value={ranking.gols}
-                            onValueChange={(value) => updateRankingField(ranking.id, "gols", value)}
-                            className="w-20 sm:w-16"
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <RankingInput
-                            min="0"
-                            value={ranking.assistencias}
-                            onValueChange={(value) => updateRankingField(ranking.id, "assistencias", value)}
-                            className="w-20 sm:w-16"
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <RankingInput
-                            min="0"
-                            value={ranking.vitorias}
-                            onValueChange={(value) => updateRankingField(ranking.id, "vitorias", value)}
-                            className="w-20 sm:w-16"
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <RankingInput
-                            min="0"
-                            value={ranking.empates}
-                            onValueChange={(value) => updateRankingField(ranking.id, "empates", value)}
-                            className="w-20 sm:w-16"
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <RankingInput
-                            min="0"
-                            value={ranking.derrotas}
-                            onValueChange={(value) => updateRankingField(ranking.id, "derrotas", value)}
-                            className="w-20 sm:w-16"
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <RankingInput
-                            min="0"
-                            value={ranking.presencas}
-                            onValueChange={(value) => updateRankingField(ranking.id, "presencas", value)}
-                            className="w-20 sm:w-16"
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <RankingInput
-                            min="0"
-                            value={ranking.faltas}
-                            onValueChange={(value) => updateRankingField(ranking.id, "faltas", value)}
-                            className="w-20 sm:w-16"
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <RankingInput
-                            min="0"
-                            value={ranking.atrasos}
-                            onValueChange={(value) => updateRankingField(ranking.id, "atrasos", value)}
-                            className="w-20 sm:w-16"
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <RankingInput
-                            value={ranking.punicoes}
-                            onValueChange={(value) => updateRankingField(ranking.id, "punicoes", value)}
-                            className="w-20 sm:w-16"
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <RankingInput
-                            min="0"
-                            value={ranking.cartoes_amarelos}
-                            onValueChange={(value) => updateRankingField(ranking.id, "cartoes_amarelos", value)}
-                            className="w-20 sm:w-16"
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <RankingInput
-                            min="0"
-                            value={ranking.cartoes_azuis}
-                            onValueChange={(value) => updateRankingField(ranking.id, "cartoes_azuis", value)}
-                            className="w-20 sm:w-16"
-                          />
-                        </TableCell>
-                        <TableCell className="text-center font-bold">
-                          {ranking.pontos_totais}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button 
-                                variant="destructive" 
-                                size="sm"
-                                className="min-h-[36px]"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>⚠️ Excluir Jogador da Classificação?</AlertDialogTitle>
-                                <AlertDialogDescription className="space-y-3">
-                                  <p>
-                                    Esta ação irá remover <strong>{ranking.nickname}</strong> da classificação
-                                    e excluir TODOS os dados relacionados:
-                                  </p>
-                                  <ul className="list-disc list-inside space-y-1 text-sm">
-                                    <li>Estatísticas de todas as rodadas</li>
-                                    <li>Gols, assistências e cartões</li>
-                                    <li>Presenças e punições</li>
-                                    <li>Participação em times</li>
-                                  </ul>
-                                  <p className="text-yellow-600 dark:text-yellow-400 font-semibold">
-                                    ⚠️ O perfil do jogador será MANTIDO no sistema.
-                                  </p>
-                                  <p>Esta ação NÃO pode ser desfeita!</p>
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deletePlayerCompletely(ranking.player_id, ranking.nickname)}
-                                  className="bg-destructive hover:bg-destructive/90"
-                                >
-                                  Sim, Excluir Tudo
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <>
+                {/* Desktop Table */}
+                <div className="hidden lg:block overflow-x-auto">
+                  <Table>
+                    <RankingTableHeader />
+                    <TableBody>
+                      {filteredRankings.map((ranking, index) => (
+                        <RankingTableRow
+                          key={ranking.id}
+                          ranking={ranking}
+                          position={index + 1}
+                          isEdited={editedRankings.has(ranking.id)}
+                          onFieldChange={updateRankingField}
+                          onDelete={deletePlayerCompletely}
+                          onCopy={copyRankingRow}
+                          onReset={resetRankingRow}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile Cards */}
+                <div className="lg:hidden space-y-3">
+                  {filteredRankings.map((ranking, index) => (
+                    <RankingMobileCard
+                      key={ranking.id}
+                      ranking={ranking}
+                      position={index + 1}
+                      isEdited={editedRankings.has(ranking.id)}
+                      onFieldChange={updateRankingField}
+                      onDelete={deletePlayerCompletely}
+                    />
+                  ))}
+                </div>
+
+                {/* Count */}
+                <div className="text-center py-3 text-sm text-muted-foreground">
+                  {filteredRankings.length} jogador(es)
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
       </div>
 
+      {/* Add Players Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -1193,6 +961,57 @@ const ManageRanking = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Reset Dialog */}
+      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <AlertDialogContent className="border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">
+              ⚠️ Resetar Classificação Geral
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>Esta ação irá <strong>deletar todos os registros</strong> da tabela de classificação.</p>
+              
+              <div className="bg-destructive/10 p-3 rounded-lg">
+                <p className="font-medium text-destructive mb-1">O que será deletado:</p>
+                <ul className="list-disc ml-4 text-sm">
+                  <li>Pontos, gols, assistências</li>
+                  <li>Estatísticas acumuladas</li>
+                </ul>
+              </div>
+
+              <div className="bg-primary/10 p-3 rounded-lg">
+                <p className="font-medium text-primary mb-1">O que NÃO será afetado:</p>
+                <ul className="list-disc ml-4 text-sm">
+                  <li>Rodadas finalizadas</li>
+                  <li>Partidas e resultados</li>
+                  <li>Cadastro de jogadores</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={resetOnly}
+              className="bg-orange-600 hover:bg-orange-700"
+              disabled={resetting || recalculating}
+            >
+              {resetting ? "Resetando..." : "Apenas Resetar"}
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={resetAndRecalculate}
+              className="bg-destructive hover:bg-destructive/90"
+              disabled={resetting || recalculating}
+            >
+              {recalculating ? "Recalculando..." : "Resetar e Recalcular"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Import Help Dialog */}
+      <ImportHelpDialog open={showHelpDialog} onOpenChange={setShowHelpDialog} />
     </div>
   );
 };
