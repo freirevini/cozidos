@@ -526,6 +526,8 @@ export default function Classification() {
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         player={selectedPlayer}
+        selectedYear={selectedSeason}
+        selectedMonth={selectedMonth}
       />
 
       <Footer />
