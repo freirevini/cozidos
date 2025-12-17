@@ -126,8 +126,8 @@ const MatchDetails = () => {
             type: "goal",
             minute: goal.minute,
             team_color: goal.team_color,
-            player: goal.player ? { name: goal.player.name, nickname: goal.player.nickname, avatar_url: goal.player.avatar_url } : undefined,
-            assist: assistData?.player ? { name: assistData.player.name, nickname: assistData.player.nickname, avatar_url: assistData.player.avatar_url } : undefined,
+            player: goal.player ? { id: goal.player.id, name: goal.player.name, nickname: goal.player.nickname, avatar_url: goal.player.avatar_url } : undefined,
+            assist: assistData?.player ? { id: assistData.player.id, name: assistData.player.name, nickname: assistData.player.nickname, avatar_url: assistData.player.avatar_url } : undefined,
           });
         });
       }
@@ -146,7 +146,7 @@ const MatchDetails = () => {
             type: card.card_type === "amarelo" ? "amarelo" : "azul",
             minute: card.minute,
             team_color: teamData?.team_color,
-            player: card.player ? { name: card.player.name, nickname: card.player.nickname, avatar_url: card.player.avatar_url } : undefined,
+            player: card.player ? { id: card.player.id, name: card.player.name, nickname: card.player.nickname, avatar_url: card.player.avatar_url } : undefined,
           });
         }
       }
@@ -158,8 +158,8 @@ const MatchDetails = () => {
             type: "substitution",
             minute: sub.minute,
             team_color: sub.team_color,
-            playerOut: sub.player_out ? { name: sub.player_out.name, nickname: sub.player_out.nickname, avatar_url: sub.player_out.avatar_url } : undefined,
-            playerIn: sub.player_in ? { name: sub.player_in.name, nickname: sub.player_in.nickname, avatar_url: sub.player_in.avatar_url } : undefined,
+            playerOut: sub.player_out ? { id: sub.player_out.id, name: sub.player_out.name, nickname: sub.player_out.nickname, avatar_url: sub.player_out.avatar_url } : undefined,
+            playerIn: sub.player_in ? { id: sub.player_in.id, name: sub.player_in.name, nickname: sub.player_in.nickname, avatar_url: sub.player_in.avatar_url } : undefined,
           });
         });
       }
@@ -271,7 +271,7 @@ const MatchDetails = () => {
   }
 
   const maxMinute = currentMinute || 12;
-
+  const matchYear = match.scheduled_date ? new Date(match.scheduled_date).getFullYear() : undefined;
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Header />
@@ -311,7 +311,7 @@ const MatchDetails = () => {
 
               <TabsContent value="partida" className="space-y-6">
                 {match.status !== "not_started" ? (
-                  <MatchTimeline events={events} teamHome={match.team_home} teamAway={match.team_away} maxMinute={maxMinute} />
+                  <MatchTimeline events={events} teamHome={match.team_home} teamAway={match.team_away} maxMinute={maxMinute} matchYear={matchYear} />
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">A partida ainda não foi iniciada</div>
                 )}
@@ -319,7 +319,7 @@ const MatchDetails = () => {
 
               <TabsContent value="times" className="space-y-6">
                 {homePlayers.length > 0 || awayPlayers.length > 0 ? (
-                  <MatchLineups teamHome={match.team_home} teamAway={match.team_away} homePlayers={homePlayers} awayPlayers={awayPlayers} matchId={matchId} />
+                  <MatchLineups teamHome={match.team_home} teamAway={match.team_away} homePlayers={homePlayers} awayPlayers={awayPlayers} matchId={matchId} matchYear={matchYear} />
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">Escalações não disponíveis</div>
                 )}

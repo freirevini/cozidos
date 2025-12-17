@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { formatMinute } from "@/components/ui/event-item";
+import { useNavigate } from "react-router-dom";
 
 export type TimelineEventType = "goal" | "assist" | "amarelo" | "azul" | "substitution" | "match_start" | "match_end";
 
@@ -9,22 +10,26 @@ export interface TimelineEvent {
   minute: number;
   team_color?: string;
   player?: {
+    id?: string;
     name: string;
     nickname: string | null;
     avatar_url?: string | null;
   };
   assist?: {
+    id?: string;
     name: string;
     nickname: string | null;
     avatar_url?: string | null;
   };
   // For substitution events
   playerOut?: {
+    id?: string;
     name: string;
     nickname: string | null;
     avatar_url?: string | null;
   };
   playerIn?: {
+    id?: string;
     name: string;
     nickname: string | null;
     avatar_url?: string | null;
@@ -37,6 +42,7 @@ interface MatchTimelineProps {
   teamAway: string;
   maxMinute?: number;
   className?: string;
+  matchYear?: number;
 }
 
 // Soccer ball emoji icon - clean on dark circle with green border
@@ -112,17 +118,25 @@ function SubstitutionIcon() {
 function EventContent({ 
   event, 
   side,
-  maxMinute = 12
+  maxMinute = 12,
+  onPlayerClick
 }: { 
   event: TimelineEvent; 
   side: "home" | "away";
   maxMinute?: number;
+  onPlayerClick?: (playerId: string) => void;
 }) {
   const playerName = event.player?.nickname || event.player?.name || "Jogador";
   const assistName = event.assist?.nickname || event.assist?.name;
   const formattedMinute = formatMinute(event.minute, maxMinute);
 
   const isHome = side === "home";
+
+  const handlePlayerClick = (playerId?: string) => {
+    if (playerId && onPlayerClick) {
+      onPlayerClick(playerId);
+    }
+  };
 
   // Goal event
   if (event.type === "goal") {
@@ -136,11 +150,23 @@ function EventContent({
           "flex flex-col min-w-0",
           isHome ? "items-end text-right" : "items-start text-left"
         )}>
-          <span className="font-bold text-white text-sm sm:text-base truncate max-w-[110px] sm:max-w-[150px]">
+          <span 
+            className={cn(
+              "font-bold text-white text-sm sm:text-base truncate max-w-[110px] sm:max-w-[150px]",
+              event.player?.id && "cursor-pointer hover:text-primary transition-colors"
+            )}
+            onClick={() => handlePlayerClick(event.player?.id)}
+          >
             {playerName}
           </span>
           {assistName && (
-            <span className="text-xs text-gray-400 truncate max-w-[100px] sm:max-w-[130px]">
+            <span 
+              className={cn(
+                "text-xs text-gray-400 truncate max-w-[100px] sm:max-w-[130px]",
+                event.assist?.id && "cursor-pointer hover:text-primary/80 transition-colors"
+              )}
+              onClick={() => handlePlayerClick(event.assist?.id)}
+            >
               {assistName}
             </span>
           )}
@@ -160,10 +186,14 @@ function EventContent({
         "flex items-center gap-2 sm:gap-3",
         isHome ? "flex-row" : "flex-row-reverse"
       )}>
-        <span className={cn(
-          "font-medium text-white text-sm sm:text-base truncate max-w-[110px] sm:max-w-[150px]",
-          isHome ? "text-right" : "text-left"
-        )}>
+        <span 
+          className={cn(
+            "font-medium text-white text-sm sm:text-base truncate max-w-[110px] sm:max-w-[150px]",
+            isHome ? "text-right" : "text-left",
+            event.player?.id && "cursor-pointer hover:text-primary transition-colors"
+          )}
+          onClick={() => handlePlayerClick(event.player?.id)}
+        >
           {playerName}
         </span>
         <span className="text-sm sm:text-base text-gray-400 font-medium whitespace-nowrap">
@@ -188,11 +218,23 @@ function EventContent({
           "flex flex-col min-w-0",
           isHome ? "items-end text-right" : "items-start text-left"
         )}>
-          <span className="font-bold text-white text-sm sm:text-base truncate max-w-[110px] sm:max-w-[150px] flex items-center gap-1">
+          <span 
+            className={cn(
+              "font-bold text-white text-sm sm:text-base truncate max-w-[110px] sm:max-w-[150px] flex items-center gap-1",
+              event.playerIn?.id && "cursor-pointer hover:text-primary transition-colors"
+            )}
+            onClick={() => handlePlayerClick(event.playerIn?.id)}
+          >
             <span className="text-green-500 text-xs">▲</span>
             {playerInName}
           </span>
-          <span className="text-xs text-gray-400 truncate max-w-[100px] sm:max-w-[130px] flex items-center gap-1">
+          <span 
+            className={cn(
+              "text-xs text-gray-400 truncate max-w-[100px] sm:max-w-[130px] flex items-center gap-1",
+              event.playerOut?.id && "cursor-pointer hover:text-primary/80 transition-colors"
+            )}
+            onClick={() => handlePlayerClick(event.playerOut?.id)}
+          >
             <span className="text-red-500 text-xs">▼</span>
             {playerOutName}
           </span>
@@ -215,7 +257,8 @@ function TimelineRow({
   teamAway,
   maxMinute,
   isFirst,
-  isLast
+  isLast,
+  onPlayerClick
 }: { 
   event: TimelineEvent; 
   teamHome: string;
@@ -223,6 +266,7 @@ function TimelineRow({
   maxMinute: number;
   isFirst: boolean;
   isLast: boolean;
+  onPlayerClick?: (playerId: string) => void;
 }) {
   const isHome = event.team_color === teamHome;
   const isAway = event.team_color === teamAway;
@@ -266,7 +310,7 @@ function TimelineRow({
     <div className="grid grid-cols-[1fr_auto_1fr] items-center py-3 sm:py-4 relative">
       {/* Left Column - Home Team Events */}
       <div className="flex justify-end pr-3 sm:pr-4">
-        {isHome && <EventContent event={event} side="home" maxMinute={maxMinute} />}
+        {isHome && <EventContent event={event} side="home" maxMinute={maxMinute} onPlayerClick={onPlayerClick} />}
       </div>
       
       {/* Center Column - Icon */}
@@ -286,7 +330,7 @@ function TimelineRow({
       
       {/* Right Column - Away Team Events */}
       <div className="flex justify-start pl-3 sm:pl-4">
-        {isAway && <EventContent event={event} side="away" maxMinute={maxMinute} />}
+        {isAway && <EventContent event={event} side="away" maxMinute={maxMinute} onPlayerClick={onPlayerClick} />}
       </div>
     </div>
   );
@@ -298,9 +342,20 @@ export function MatchTimeline({
   teamAway,
   maxMinute = 12,
   className,
+  matchYear,
 }: MatchTimelineProps) {
+  const navigate = useNavigate();
+  
   // Sort events by minute
   const sortedEvents = [...events].sort((a, b) => a.minute - b.minute);
+
+  const handlePlayerClick = (playerId: string) => {
+    const params = new URLSearchParams();
+    if (matchYear) {
+      params.set("year", matchYear.toString());
+    }
+    navigate(`/profile/${playerId}?${params.toString()}`);
+  };
 
   if (sortedEvents.length === 0) {
     return (
@@ -321,6 +376,7 @@ export function MatchTimeline({
           maxMinute={maxMinute}
           isFirst={index === 0}
           isLast={index === sortedEvents.length - 1}
+          onPlayerClick={handlePlayerClick}
         />
       ))}
     </div>
