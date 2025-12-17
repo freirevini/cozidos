@@ -1,0 +1,289 @@
+-- Create index for claim_token if not exists
+CREATE INDEX IF NOT EXISTS idx_profiles_claim_token ON public.profiles(claim_token) WHERE claim_token IS NOT NULL;
+
+-- RPC: Import players CSV (only Nickname + Level required)
+CREATE OR REPLACE FUNCTION public.import_players_csv(p_rows jsonb, p_actor_id uuid)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_row jsonb;
+  v_nickname text;
+  v_level text;
+  v_existing_id uuid;
+  v_new_id uuid;
+  v_token text;
+  v_created int := 0;
+  v_updated int := 0;
+  v_errors jsonb := '[]'::jsonb;
+  v_results jsonb := '[]'::jsonb;
+  v_row_index int := 0;
+  v_duplicate_count int;
+BEGIN
+  -- Validate admin access
+  IF NOT public.is_admin(COALESCE(p_actor_id, auth.uid())) THEN
+    RETURN json_build_object('success', false, 'error', 'Acesso negado: apenas administradores podem importar jogadores');
+  END IF;
+
+  -- Process each row
+  FOR v_row IN SELECT * FROM jsonb_array_elements(p_rows)
+  LOOP
+    v_row_index := v_row_index + 1;
+    v_nickname := TRIM(COALESCE(v_row->>'nickname', v_row->>'Nickname', ''));
+    v_level := UPPER(TRIM(COALESCE(v_row->>'level', v_row->>'Level', v_row->>'Nivel', v_row->>'nivel', '')));
+    
+    -- Validate required fields
+    IF v_nickname = '' THEN
+      v_errors := v_errors || jsonb_build_object('row', v_row_index, 'error', 'Nickname é obrigatório', 'data', v_row);
+      CONTINUE;
+    END IF;
+    
+    IF v_level = '' OR v_level NOT IN ('A', 'B', 'C', 'D', 'E') THEN
+      v_errors := v_errors || jsonb_build_object('row', v_row_index, 'error', 'Level inválido (deve ser A, B, C, D ou E)', 'data', v_row);
+      CONTINUE;
+    END IF;
+    
+    -- Check for duplicate nicknames
+    SELECT COUNT(*) INTO v_duplicate_count
+    FROM public.profiles
+    WHERE LOWER(nickname) = LOWER(v_nickname);
+    
+    IF v_duplicate_count > 1 THEN
+      v_errors := v_errors || jsonb_build_object('row', v_row_index, 'error', format('Nickname "%s" corresponde a %s perfis. Corrija manualmente.', v_nickname, v_duplicate_count), 'data', v_row);
+      CONTINUE;
+    END IF;
+    
+    -- Try to find existing profile by nickname
+    SELECT id INTO v_existing_id
+    FROM public.profiles
+    WHERE LOWER(nickname) = LOWER(v_nickname)
+    LIMIT 1;
+    
+    IF v_existing_id IS NOT NULL THEN
+      -- Update existing profile
+      UPDATE public.profiles
+      SET level = v_level::public.player_level
+      WHERE id = v_existing_id
+        AND (level IS NULL OR level != v_level::public.player_level);
+      
+      -- Generate token if missing
+      SELECT claim_token INTO v_token FROM public.profiles WHERE id = v_existing_id;
+      IF v_token IS NULL THEN
+        v_token := public.generate_claim_token(v_existing_id);
+      END IF;
+      
+      v_updated := v_updated + 1;
+      v_results := v_results || jsonb_build_object('row', v_row_index, 'action', 'updated', 'profile_id', v_existing_id, 'nickname', v_nickname, 'claim_token', v_token);
+    ELSE
+      -- Create new profile
+      v_new_id := gen_random_uuid();
+      
+      INSERT INTO public.profiles (id, name, nickname, level, is_player, status, created_by_admin_simple)
+      VALUES (v_new_id, v_nickname, v_nickname, v_level::public.player_level, true, 'aprovado', true);
+      
+      -- Generate claim token
+      v_token := public.generate_claim_token(v_new_id);
+      
+      v_created := v_created + 1;
+      v_results := v_results || jsonb_build_object('row', v_row_index, 'action', 'created', 'profile_id', v_new_id, 'nickname', v_nickname, 'claim_token', v_token);
+    END IF;
+  END LOOP;
+  
+  -- Log audit
+  INSERT INTO public.audit_log (action, actor_id, metadata)
+  VALUES (
+    'import_players_csv',
+    COALESCE(p_actor_id, auth.uid()),
+    jsonb_build_object('created', v_created, 'updated', v_updated, 'errors_count', jsonb_array_length(v_errors))
+  );
+  
+  RETURN json_build_object(
+    'success', true,
+    'created', v_created,
+    'updated', v_updated,
+    'errors_count', jsonb_array_length(v_errors),
+    'errors', v_errors,
+    'results', v_results
+  );
+END;
+$$;
+
+-- RPC: Import classification CSV (Token or Nickname required)
+CREATE OR REPLACE FUNCTION public.import_classification_csv(p_rows jsonb, p_actor_id uuid)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_row jsonb;
+  v_nickname text;
+  v_token text;
+  v_profile_id uuid;
+  v_new_id uuid;
+  v_new_token text;
+  v_ano int;
+  v_created int := 0;
+  v_updated int := 0;
+  v_profiles_created int := 0;
+  v_errors jsonb := '[]'::jsonb;
+  v_results jsonb := '[]'::jsonb;
+  v_row_index int := 0;
+  v_duplicate_count int;
+  v_gols int;
+  v_assistencias int;
+  v_vitorias int;
+  v_empates int;
+  v_derrotas int;
+  v_pontos_totais int;
+BEGIN
+  -- Validate admin access
+  IF NOT public.is_admin(COALESCE(p_actor_id, auth.uid())) THEN
+    RETURN json_build_object('success', false, 'error', 'Acesso negado: apenas administradores podem importar classificação');
+  END IF;
+
+  -- Process each row
+  FOR v_row IN SELECT * FROM jsonb_array_elements(p_rows)
+  LOOP
+    v_row_index := v_row_index + 1;
+    v_token := TRIM(COALESCE(v_row->>'token', v_row->>'Token', v_row->>'ClaimToken', v_row->>'claim_token', ''));
+    v_nickname := TRIM(COALESCE(v_row->>'nickname', v_row->>'Nickname', ''));
+    v_ano := COALESCE((v_row->>'ano')::int, (v_row->>'Ano')::int, EXTRACT(YEAR FROM CURRENT_DATE)::int);
+    
+    -- Parse stats
+    v_gols := COALESCE((v_row->>'gols')::int, (v_row->>'Gols')::int, 0);
+    v_assistencias := COALESCE((v_row->>'assistencias')::int, (v_row->>'Assistencias')::int, 0);
+    v_vitorias := COALESCE((v_row->>'vitorias')::int, (v_row->>'Vitorias')::int, 0);
+    v_empates := COALESCE((v_row->>'empates')::int, (v_row->>'Empates')::int, 0);
+    v_derrotas := COALESCE((v_row->>'derrotas')::int, (v_row->>'Derrotas')::int, 0);
+    v_pontos_totais := COALESCE((v_row->>'pontos_totais')::int, (v_row->>'Pontos_Totais')::int, 0);
+    
+    -- Validate at least one identifier
+    IF v_token = '' AND v_nickname = '' THEN
+      v_errors := v_errors || jsonb_build_object('row', v_row_index, 'error', 'Token ou Nickname é obrigatório', 'data', v_row);
+      CONTINUE;
+    END IF;
+    
+    -- Validate year format
+    IF v_ano < 2000 OR v_ano > 2100 THEN
+      v_errors := v_errors || jsonb_build_object('row', v_row_index, 'error', format('Ano inválido: %s (deve ser YYYY entre 2000 e 2100)', v_ano), 'data', v_row);
+      CONTINUE;
+    END IF;
+    
+    v_profile_id := NULL;
+    
+    -- Priority 1: Find by token
+    IF v_token != '' THEN
+      SELECT id INTO v_profile_id
+      FROM public.profiles
+      WHERE LOWER(claim_token) = LOWER(v_token)
+      LIMIT 1;
+      
+      -- If token not found but provided, create placeholder with that token
+      IF v_profile_id IS NULL AND v_nickname != '' THEN
+        v_new_id := gen_random_uuid();
+        
+        INSERT INTO public.profiles (id, name, nickname, claim_token, is_player, status, created_by_admin_simple)
+        VALUES (v_new_id, v_nickname, v_nickname, v_token, true, 'aprovado', true);
+        
+        v_profile_id := v_new_id;
+        v_profiles_created := v_profiles_created + 1;
+        v_results := v_results || jsonb_build_object('row', v_row_index, 'action', 'profile_created', 'profile_id', v_new_id, 'nickname', v_nickname, 'claim_token', v_token);
+      ELSIF v_profile_id IS NULL THEN
+        v_errors := v_errors || jsonb_build_object('row', v_row_index, 'error', format('Token "%s" não encontrado e Nickname não fornecido', v_token), 'data', v_row);
+        CONTINUE;
+      END IF;
+    END IF;
+    
+    -- Priority 2: Find by nickname (if no token match)
+    IF v_profile_id IS NULL AND v_nickname != '' THEN
+      -- Check for duplicates
+      SELECT COUNT(*) INTO v_duplicate_count
+      FROM public.profiles
+      WHERE LOWER(nickname) = LOWER(v_nickname);
+      
+      IF v_duplicate_count > 1 THEN
+        v_errors := v_errors || jsonb_build_object(
+          'row', v_row_index, 
+          'error', format('Nickname "%s" corresponde a %s perfis. Use o Token para vincular corretamente.', v_nickname, v_duplicate_count),
+          'data', v_row,
+          'candidates', (SELECT jsonb_agg(jsonb_build_object('id', id, 'nickname', nickname, 'email', email, 'claim_token', claim_token)) FROM public.profiles WHERE LOWER(nickname) = LOWER(v_nickname))
+        );
+        CONTINUE;
+      END IF;
+      
+      SELECT id INTO v_profile_id
+      FROM public.profiles
+      WHERE LOWER(nickname) = LOWER(v_nickname)
+      LIMIT 1;
+      
+      -- Create new profile if not found
+      IF v_profile_id IS NULL THEN
+        v_new_id := gen_random_uuid();
+        
+        INSERT INTO public.profiles (id, name, nickname, is_player, status, created_by_admin_simple)
+        VALUES (v_new_id, v_nickname, v_nickname, true, 'aprovado', true);
+        
+        -- Generate token
+        v_new_token := public.generate_claim_token(v_new_id);
+        
+        v_profile_id := v_new_id;
+        v_profiles_created := v_profiles_created + 1;
+        v_results := v_results || jsonb_build_object('row', v_row_index, 'action', 'profile_created', 'profile_id', v_new_id, 'nickname', v_nickname, 'claim_token', v_new_token);
+      END IF;
+    END IF;
+    
+    IF v_profile_id IS NULL THEN
+      v_errors := v_errors || jsonb_build_object('row', v_row_index, 'error', 'Não foi possível identificar o jogador', 'data', v_row);
+      CONTINUE;
+    END IF;
+    
+    -- Upsert into player_rankings
+    INSERT INTO public.player_rankings (
+      player_id, nickname, gols, assistencias, vitorias, empates, derrotas, pontos_totais
+    )
+    VALUES (
+      v_profile_id, 
+      COALESCE(v_nickname, (SELECT nickname FROM public.profiles WHERE id = v_profile_id)),
+      v_gols, v_assistencias, v_vitorias, v_empates, v_derrotas, v_pontos_totais
+    )
+    ON CONFLICT (player_id) DO UPDATE SET
+      gols = EXCLUDED.gols,
+      assistencias = EXCLUDED.assistencias,
+      vitorias = EXCLUDED.vitorias,
+      empates = EXCLUDED.empates,
+      derrotas = EXCLUDED.derrotas,
+      pontos_totais = EXCLUDED.pontos_totais,
+      updated_at = NOW();
+    
+    -- Check if it was update or insert
+    IF FOUND THEN
+      v_updated := v_updated + 1;
+    ELSE
+      v_created := v_created + 1;
+    END IF;
+    
+    v_results := v_results || jsonb_build_object('row', v_row_index, 'action', 'ranking_upserted', 'profile_id', v_profile_id);
+  END LOOP;
+  
+  -- Log audit
+  INSERT INTO public.audit_log (action, actor_id, metadata)
+  VALUES (
+    'import_classification_csv',
+    COALESCE(p_actor_id, auth.uid()),
+    jsonb_build_object('created', v_created, 'updated', v_updated, 'profiles_created', v_profiles_created, 'errors_count', jsonb_array_length(v_errors))
+  );
+  
+  RETURN json_build_object(
+    'success', true,
+    'rankings_created', v_created,
+    'rankings_updated', v_updated,
+    'profiles_created', v_profiles_created,
+    'errors_count', jsonb_array_length(v_errors),
+    'errors', v_errors,
+    'results', v_results
+  );
+END;
+$$;

@@ -4,15 +4,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { toast as sonnerToast } from "sonner";
-import * as XLSX from 'xlsx';
-import Papa from 'papaparse';
-import { z } from 'zod';
 import { getUserFriendlyError } from "@/lib/errorHandler";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { RefreshCw, AlertTriangle, Link2, Copy } from "lucide-react";
+import { RefreshCw, AlertTriangle, Link2, Copy, Download } from "lucide-react";
 import { AlertDialogIcon } from "@/components/ui/alert-dialog-icon";
 import { LinkPendingPlayerModal } from "@/components/LinkPendingPlayerModal";
 import { AvatarUpload } from "@/components/AvatarUpload";
+import { ImportPlayersDialog } from "@/components/players/ImportPlayersDialog";
+import { downloadCSV, generateCSV, type ImportResult } from "@/utils/csv";
 import {
   Dialog,
   DialogContent,
@@ -60,12 +59,13 @@ export default function ManagePlayers() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
-  const [showImportHelp, setShowImportHelp] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [selectedPendingPlayer, setSelectedPendingPlayer] = useState<Player | null>(null);
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
   const [avatarEditPlayer, setAvatarEditPlayer] = useState<Player | null>(null);
+  const [exporting, setExporting] = useState(false);
   
   // Form state for new player
   const [formData, setFormData] = useState({
@@ -363,80 +363,69 @@ export default function ManagePlayers() {
     }
   };
 
-  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setImporting(true);
+  // New import using RPC
+  const handleImportPlayers = async (data: any[]): Promise<ImportResult | null> => {
     try {
-      const fileExtension = file.name.split(".").pop()?.toLowerCase();
-      if (fileExtension === "csv") {
-        const text = await file.text();
-        Papa.parse(text, { header: true, complete: (results) => processImportedData(results.data) });
-      } else if (fileExtension === "xlsx" || fileExtension === "xls") {
-        const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data);
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        processImportedData(XLSX.utils.sheet_to_json(worksheet));
-      } else {
-        sonnerToast.error("Formato inválido. Use .csv, .xlsx ou .xls");
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.user?.id) {
+        sonnerToast.error("Sessão expirada. Faça login novamente.");
+        return null;
       }
+
+      const { data: result, error } = await supabase.rpc('import_players_csv', {
+        p_rows: data,
+        p_actor_id: session.session.user.id
+      });
+
+      if (error) throw error;
+
+      const importResult = result as unknown as ImportResult;
+      
+      if (importResult.success) {
+        await loadPlayers();
+        sonnerToast.success(`Importação concluída: ${importResult.created} criados, ${importResult.updated} atualizados`);
+      }
+
+      return importResult;
     } catch (error: any) {
-      sonnerToast.error("Erro ao importar: " + error.message);
-    } finally {
-      setImporting(false);
-      event.target.value = "";
+      sonnerToast.error(getUserFriendlyError(error));
+      return null;
     }
   };
 
-  const processImportedData = async (data: any[]) => {
-    if (data.length === 0) {
-      sonnerToast.error("Arquivo vazio");
-      return;
+  // Export players to CSV
+  const handleExportPlayers = async () => {
+    setExporting(true);
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("nickname, first_name, last_name, email, level, position, claim_token, status, created_at")
+        .eq("is_player", true)
+        .order("nickname");
+
+      if (error) throw error;
+
+      const headers = ['Nickname', 'FirstName', 'LastName', 'Email', 'Level', 'Position', 'ClaimToken', 'Status', 'CreatedAt'];
+      const rows = (data || []).map(p => [
+        p.nickname || '',
+        p.first_name || '',
+        p.last_name || '',
+        p.email || '',
+        p.level || '',
+        p.position || '',
+        p.claim_token || '',
+        p.status || '',
+        p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : ''
+      ]);
+
+      const csv = generateCSV(headers, rows);
+      downloadCSV(csv, `jogadores_${new Date().toISOString().split('T')[0]}.csv`);
+      sonnerToast.success("Exportação concluída!");
+    } catch (error: any) {
+      sonnerToast.error(getUserFriendlyError(error));
+    } finally {
+      setExporting(false);
     }
-
-    const inserts: any[] = [];
-    let created = 0, skipped = 0;
-
-    for (const row of data) {
-      const firstName = row["Nome"] || row["nome"];
-      const lastName = row["Sobrenome"] || row["sobrenome"];
-      const email = (row["E-mail"] || row["email"])?.toString().toLowerCase().trim();
-      const birthDateStr = row["Data de Nascimento"] || row["data de nascimento"];
-      const nickname = row["Apelido"] || row["apelido"];
-
-      if (!firstName || !lastName || !email || !birthDateStr) { skipped++; continue; }
-
-      let birthDate: string | null = null;
-      try {
-        const [day, month, year] = birthDateStr.toString().trim().split("/");
-        birthDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-      } catch { skipped++; continue; }
-
-      const { data: existing } = await supabase.from("profiles").select("id").eq("email", email).maybeSingle();
-      if (existing) { skipped++; continue; }
-
-      inserts.push({
-        id: crypto.randomUUID(),
-        first_name: firstName,
-        last_name: lastName,
-        name: `${firstName} ${lastName}`,
-        nickname: nickname || null,
-        email,
-        birth_date: birthDate,
-        is_player: true,
-        status: 'pendente',
-      });
-      created++;
-    }
-
-    if (inserts.length > 0) {
-      const { error } = await supabase.from("profiles").insert(inserts);
-      if (error) { sonnerToast.error("Erro: " + error.message); return; }
-    }
-
-    await loadPlayers();
-    sonnerToast.success(`${created} jogador(es) importado(s)${skipped > 0 ? `, ${skipped} ignorado(s)` : ""}`);
   };
 
   if (!isAdmin) {
@@ -473,13 +462,22 @@ export default function ManagePlayers() {
           <h1 className="text-2xl font-bold text-primary mb-3">Jogadores</h1>
           <PlayerQuickActions
             onAddPlayer={() => setAddDialogOpen(true)}
-            onImportExcel={() => document.getElementById('excel-upload')?.click()}
+            onImportExcel={() => setShowImportDialog(true)}
             onRefresh={handleRefresh}
-            onShowHelp={() => setShowImportHelp(true)}
+            onShowHelp={() => setShowImportDialog(true)}
             importing={importing}
             refreshing={refreshing}
           />
-          <input id="excel-upload" type="file" accept=".csv,.xlsx,.xls" onChange={handleFileImport} className="hidden" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPlayers}
+            disabled={exporting}
+            className="w-full sm:w-auto mt-2"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            {exporting ? 'Exportando...' : 'Exportar CSV'}
+          </Button>
         </div>
 
         {/* Filters */}
@@ -656,31 +654,12 @@ export default function ManagePlayers() {
         </DialogContent>
       </Dialog>
 
-      {/* Import Help Dialog */}
-      <Dialog open={showImportHelp} onOpenChange={setShowImportHelp}>
-        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-yellow-500" />Formato do Excel</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 text-sm">
-            <p className="text-muted-foreground">A primeira linha deve conter:</p>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="bg-primary/10 p-2 rounded border border-primary/30 text-center font-medium">Nome</div>
-              <div className="bg-primary/10 p-2 rounded border border-primary/30 text-center font-medium">Sobrenome</div>
-              <div className="bg-primary/10 p-2 rounded border border-primary/30 text-center font-medium">E-mail</div>
-              <div className="bg-primary/10 p-2 rounded border border-primary/30 text-center font-medium">Data de Nascimento</div>
-              <div className="bg-muted/50 p-2 rounded border col-span-2 text-center">Apelido (opcional)</div>
-            </div>
-            <div className="bg-muted/30 p-3 rounded">
-              <p className="font-medium mb-2">Exemplo:</p>
-              <code className="text-xs">João | Silva | joao@email.com | 15/03/1995</code>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setShowImportHelp(false)} className="w-full">Entendi</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Import Players Dialog */}
+      <ImportPlayersDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        onImport={handleImportPlayers}
+      />
     </div>
   );
 }
