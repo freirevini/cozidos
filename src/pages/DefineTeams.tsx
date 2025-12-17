@@ -68,7 +68,9 @@ export default function DefineTeams() {
         .eq("is_player", true)
         .eq("status", "aprovado")
         .not("level", "is", null)
-        .not("position", "is", null);
+        .not("position", "is", null)
+        .not("nickname", "is", null)
+        .not("claim_token", "is", null);
 
       if (error) throw error;
       setAvailablePlayers(data || []);

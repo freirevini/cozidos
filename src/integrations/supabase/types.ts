@@ -940,6 +940,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_classification_csv: {
+        Args: { p_actor_id: string; p_rows: Json }
+        Returns: Json
+      }
+      import_players_csv: {
+        Args: { p_actor_id: string; p_rows: Json }
+        Returns: Json
+      }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       link_player_to_user: {
         Args: { p_actor_id?: string; p_profile_id: string; p_user_id: string }
