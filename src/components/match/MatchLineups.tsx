@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { TeamLogo } from "./TeamLogo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ interface MatchLineupsProps {
   homePlayers: Player[];
   awayPlayers: Player[];
   matchId?: string;
+  matchYear?: number;
   className?: string;
 }
 
@@ -128,9 +130,10 @@ interface PlayerNodeProps {
   player: Player | null;
   position: { x: number; y: number };
   eventData?: PlayerEventCounts | null;
+  onPlayerClick?: (playerId: string) => void;
 }
 
-function PlayerNode({ player, position, eventData }: PlayerNodeProps) {
+function PlayerNode({ player, position, eventData, onPlayerClick }: PlayerNodeProps) {
   if (!player) {
     return (
       <div
@@ -161,6 +164,12 @@ function PlayerNode({ player, position, eventData }: PlayerNodeProps) {
     eventData.sub_in_minute !== null
   );
 
+  const handleClick = () => {
+    if (onPlayerClick && player.id) {
+      onPlayerClick(player.id);
+    }
+  };
+
   return (
     <div
       className="absolute flex flex-col items-center gap-1.5 transition-transform duration-200 hover:scale-110 active:scale-105 cursor-pointer z-10"
@@ -173,6 +182,7 @@ function PlayerNode({ player, position, eventData }: PlayerNodeProps) {
       role="button"
       tabIndex={0}
       aria-label={`Jogador: ${player.name}`}
+      onClick={handleClick}
     >
       <div className="relative">
         <Avatar 
@@ -207,9 +217,10 @@ function PlayerNode({ player, position, eventData }: PlayerNodeProps) {
 interface FieldFormationProps {
   players: Player[];
   getPlayerEvents: (playerId: string) => PlayerEventCounts | null;
+  onPlayerClick?: (playerId: string) => void;
 }
 
-function FieldFormation({ players, getPlayerEvents }: FieldFormationProps) {
+function FieldFormation({ players, getPlayerEvents, onPlayerClick }: FieldFormationProps) {
   const { goalkeeper, defenders, midfielders, forwards } = distributePlayers(players);
 
   return (
@@ -282,31 +293,37 @@ function FieldFormation({ players, getPlayerEvents }: FieldFormationProps) {
           player={forwards[0] || null} 
           position={positions.forward} 
           eventData={forwards[0] ? getPlayerEvents(forwards[0].id) : null}
+          onPlayerClick={onPlayerClick}
         />
         <PlayerNode 
           player={midfielders[0] || null} 
           position={positions.midLeft}
           eventData={midfielders[0] ? getPlayerEvents(midfielders[0].id) : null}
+          onPlayerClick={onPlayerClick}
         />
         <PlayerNode 
           player={midfielders[1] || null} 
           position={positions.midRight}
           eventData={midfielders[1] ? getPlayerEvents(midfielders[1].id) : null}
+          onPlayerClick={onPlayerClick}
         />
         <PlayerNode 
           player={defenders[0] || null} 
           position={positions.defLeft}
           eventData={defenders[0] ? getPlayerEvents(defenders[0].id) : null}
+          onPlayerClick={onPlayerClick}
         />
         <PlayerNode 
           player={defenders[1] || null} 
           position={positions.defRight}
           eventData={defenders[1] ? getPlayerEvents(defenders[1].id) : null}
+          onPlayerClick={onPlayerClick}
         />
         <PlayerNode 
           player={goalkeeper} 
           position={positions.goalkeeper}
           eventData={goalkeeper ? getPlayerEvents(goalkeeper.id) : null}
+          onPlayerClick={onPlayerClick}
         />
       </div>
 
@@ -322,7 +339,8 @@ function FieldFormation({ players, getPlayerEvents }: FieldFormationProps) {
   );
 }
 
-export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, matchId, className }: MatchLineupsProps) {
+export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, matchId, matchYear, className }: MatchLineupsProps) {
+  const navigate = useNavigate();
   const [selectedTeam, setSelectedTeam] = useState<"home" | "away">("home");
   const { getPlayerEvents } = useMatchPlayerEvents(matchId);
   const { substitutions, loading: subsLoading } = useMatchSubstitutions(matchId);
@@ -410,6 +428,14 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
 
   const currentPlayers = selectedTeam === "home" ? homeOnField : awayOnField;
 
+  const handlePlayerClick = (playerId: string) => {
+    const params = new URLSearchParams();
+    if (matchYear) {
+      params.set("year", matchYear.toString());
+    }
+    navigate(`/profile/${playerId}?${params.toString()}`);
+  };
+
   // Loading state enquanto carrega substituições
   if (subsLoading) {
     return (
@@ -466,7 +492,11 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
 
       {/* 3D Field with players */}
       <div className="w-full px-2">
-        <FieldFormation players={currentPlayers} getPlayerEvents={getPlayerEventsWithSub} />
+        <FieldFormation 
+          players={currentPlayers} 
+          getPlayerEvents={getPlayerEventsWithSub} 
+          onPlayerClick={handlePlayerClick}
+        />
       </div>
     </div>
   );
