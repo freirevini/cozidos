@@ -31,15 +31,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { z } from "zod";
-import * as XLSX from "xlsx";
-import Papa from "papaparse";
 import {
   RankingHeader,
   RankingTableHeader,
   RankingTableRow,
   RankingMobileCard,
   ImportHelpDialog,
+  ImportClassificationDialog,
 } from "@/components/ranking";
+import { ClassificationImportResult } from "@/utils/csv";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface PlayerRanking {
@@ -82,6 +82,7 @@ const ManageRanking = () => {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [availablePlayers, setAvailablePlayers] = useState<AvailablePlayer[]>([]);
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -575,189 +576,47 @@ const ManageRanking = () => {
     }
   };
 
-  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  const handleImportClassification = async (data: any[]): Promise<ClassificationImportResult | null> => {
     setImporting(true);
     try {
-      const fileExtension = file.name.split(".").pop()?.toLowerCase();
-
-      if (fileExtension === "csv") {
-        const text = await file.text();
-        Papa.parse(text, {
-          header: true,
-          complete: (results) => {
-            processImportedData(results.data);
-          },
-        });
-      } else if (fileExtension === "xlsx" || fileExtension === "xls") {
-        const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data);
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        processImportedData(jsonData);
-      } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
         toast({
-          title: "Formato inválido",
-          description: "Use arquivos .csv, .xlsx ou .xls",
+          title: "Erro de autenticação",
+          description: "Faça login novamente",
           variant: "destructive",
         });
+        return null;
       }
+
+      const { data: result, error } = await supabase.rpc('import_classification_csv', {
+        p_rows: data,
+        p_actor_id: user.id
+      });
+
+      if (error) throw error;
+
+      const importResult = result as unknown as ClassificationImportResult;
+
+      if (importResult.success) {
+        await loadRankings();
+        
+        toast({
+          title: "Importação concluída",
+          description: `${importResult.created} criados, ${importResult.updated} atualizados, ${importResult.profiles_created} perfis criados`,
+        });
+      }
+
+      return importResult;
     } catch (error: any) {
       toast({
-        title: "Erro ao importar",
+        title: "Erro na importação",
         description: error.message,
         variant: "destructive",
       });
+      return null;
     } finally {
       setImporting(false);
-      event.target.value = "";
-    }
-  };
-
-  const processImportedData = async (data: any[]) => {
-    // New import format: Nickname is required (not Email)
-    if (data.length > 0) {
-      const firstRow = data[0];
-      const hasNicknameColumn = "Nickname" in firstRow || "nickname" in firstRow;
-      const hasEmailColumn = "Email" in firstRow || "email" in firstRow;
-      
-      if (!hasNicknameColumn && !hasEmailColumn) {
-        toast({
-          title: "Coluna obrigatória ausente",
-          description: "A coluna 'Nickname' ou 'Email' é obrigatória para importação.",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    const upserts: any[] = [];
-    const invalidRows: string[] = [];
-    let updated = 0;
-    let created = 0;
-
-    for (const row of data) {
-      const nickname = (row["Nickname"] || row["nickname"])?.toString().trim();
-      const email = (row["Email"] || row["email"])?.toString().toLowerCase().trim();
-      const ano = parseInt(row["Ano"] || row["ano"] || new Date().getFullYear());
-      
-      if (!nickname && !email) {
-        invalidRows.push(JSON.stringify(row));
-        continue;
-      }
-
-      // Try to find player by nickname first (with claim_token priority), then by email
-      let profileData = null;
-
-      if (nickname) {
-        // First try exact nickname match with claim_token
-        const { data: tokenMatch } = await supabase
-          .from("profiles")
-          .select("id")
-          .ilike("nickname", nickname)
-          .not("claim_token", "is", null)
-          .single();
-
-        if (tokenMatch) {
-          profileData = tokenMatch;
-        } else {
-          // Try exact nickname match without token
-          const { data: nicknameMatch } = await supabase
-            .from("profiles")
-            .select("id")
-            .ilike("nickname", nickname)
-            .single();
-
-          profileData = nicknameMatch;
-        }
-      }
-
-      // Fallback to email if no nickname match
-      if (!profileData && email) {
-        const { data: emailMatch } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("email", email)
-          .single();
-
-        profileData = emailMatch;
-      }
-
-      if (!profileData) {
-        invalidRows.push(`Jogador "${nickname || email}" não encontrado`);
-        continue;
-      }
-
-      const player_id = profileData.id;
-
-      const { data: existingRanking } = await supabase
-        .from("player_rankings")
-        .select("id")
-        .eq("player_id", player_id)
-        .single();
-
-      if (existingRanking) {
-        updated++;
-      } else {
-        created++;
-      }
-
-      upserts.push({
-        player_id,
-        nickname: nickname || email,
-        email: email || null,
-        gols: parseInt(row["Gols"] || row["gols"] || "0"),
-        assistencias: parseInt(row["Assistencias"] || row["assistencias"] || "0"),
-        vitorias: parseInt(row["Vitorias"] || row["vitorias"] || "0"),
-        empates: parseInt(row["Empates"] || row["empates"] || "0"),
-        derrotas: parseInt(row["Derrotas"] || row["derrotas"] || "0"),
-        presencas: parseInt(row["Presencas"] || row["presencas"] || "0"),
-        faltas: parseInt(row["Faltas"] || row["faltas"] || "0"),
-        atrasos: parseInt(row["Atrasos"] || row["atrasos"] || "0"),
-        punicoes: parseInt(row["Punicoes"] || row["punicoes"] || "0"),
-        cartoes_amarelos: parseInt(row["Cartoes_Amarelos"] || row["cartoes_amarelos"] || "0"),
-        cartoes_azuis: parseInt(row["Cartoes_Azuis"] || row["cartoes_azuis"] || "0"),
-        pontos_totais: parseInt(row["Pontos_Totais"] || row["pontos_totais"] || "0"),
-      });
-    }
-
-    if (upserts.length > 0) {
-      try {
-        const { error } = await supabase
-          .from("player_rankings")
-          .upsert(upserts, { onConflict: "player_id" });
-
-        if (error) throw error;
-
-        let message = `${updated} atualizado(s), ${created} novo(s) criado(s)`;
-        if (invalidRows.length > 0) {
-          message += `, ${invalidRows.length} ignorado(s)`;
-        }
-
-        toast({
-          title: "Importação concluída",
-          description: message,
-        });
-
-        loadRankings();
-      } catch (error: any) {
-        toast({
-          title: "Erro ao processar importação",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
-    }
-
-    if (invalidRows.length > 0 && upserts.length === 0) {
-      toast({
-        title: "Nenhum dado válido",
-        description: `${invalidRows.length} linha(s) sem Nickname/Email foram ignoradas`,
-        variant: "destructive",
-      });
     }
   };
 
@@ -807,16 +666,9 @@ const ManageRanking = () => {
               }}
               onSave={saveChanges}
               onRecalculate={recalculateRankings}
-              onImportClick={() => document.getElementById("file-import")?.click()}
+              onImportClick={() => setShowImportDialog(true)}
               onHelpClick={() => setShowHelpDialog(true)}
               onResetClick={() => setShowResetDialog(true)}
-            />
-            <input
-              id="file-import"
-              type="file"
-              accept=".csv,.xlsx,.xls"
-              onChange={handleFileImport}
-              className="hidden"
             />
           </CardHeader>
           
@@ -1012,6 +864,13 @@ const ManageRanking = () => {
 
       {/* Import Help Dialog */}
       <ImportHelpDialog open={showHelpDialog} onOpenChange={setShowHelpDialog} />
+
+      {/* Import Classification Dialog */}
+      <ImportClassificationDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        onImport={handleImportClassification}
+      />
     </div>
   );
 };
