@@ -8,7 +8,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Shuffle, Calendar } from "lucide-react";
+import { Shuffle, Calendar, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { z } from "zod";
 import { getUserFriendlyError } from "@/lib/errorHandler";
@@ -23,6 +24,13 @@ interface Player {
 
 interface TeamPlayer extends Player {
   team_color: string;
+}
+
+interface IneligiblePlayer {
+  id: string;
+  name: string;
+  nickname: string | null;
+  reasons: string[];
 }
 
 const teamColors: Record<string, string> = {
@@ -48,6 +56,8 @@ export default function DefineTeams() {
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Record<string, TeamPlayer[]>>({});
+  const [ineligiblePlayers, setIneligiblePlayers] = useState<IneligiblePlayer[]>([]);
+  const [showIneligible, setShowIneligible] = useState(false);
   const [step, setStep] = useState<'select-teams' | 'select-date' | 'define-players'>('select-teams');
   const [scheduledDate, setScheduledDate] = useState<string>("");
 
@@ -62,18 +72,46 @@ export default function DefineTeams() {
 
   const loadAvailablePlayers = async () => {
     try {
-      const { data, error } = await supabase
+      // Buscar todos os jogadores
+      const { data: allPlayers, error } = await supabase
         .from("profiles")
-        .select("*")
-        .eq("is_player", true)
-        .eq("status", "aprovado")
-        .not("level", "is", null)
-        .not("position", "is", null)
-        .not("nickname", "is", null)
-        .not("claim_token", "is", null);
+        .select("id, name, nickname, level, position, status, claim_token")
+        .eq("is_player", true);
 
       if (error) throw error;
-      setAvailablePlayers(data || []);
+
+      const eligible: Player[] = [];
+      const ineligible: IneligiblePlayer[] = [];
+
+      (allPlayers || []).forEach((player) => {
+        const reasons: string[] = [];
+        
+        if (!player.nickname) reasons.push("Sem apelido");
+        if (!player.level) reasons.push("Sem nível");
+        if (!player.position) reasons.push("Sem posição");
+        if (!player.claim_token) reasons.push("Sem token");
+        if (player.status !== "aprovado") reasons.push(`Status: ${player.status || "indefinido"}`);
+
+        if (reasons.length === 0) {
+          eligible.push({
+            id: player.id,
+            name: player.name,
+            nickname: player.nickname,
+            level: player.level!,
+            position: player.position!,
+          });
+        } else {
+          ineligible.push({
+            id: player.id,
+            name: player.name,
+            nickname: player.nickname,
+            reasons,
+          });
+        }
+      });
+
+      setAvailablePlayers(eligible);
+      setIneligiblePlayers(ineligible);
     } catch (error) {
       console.error("Erro ao carregar jogadores:", error);
       toast.error("Erro ao carregar jogadores disponíveis");
@@ -512,6 +550,39 @@ export default function DefineTeams() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Lista de jogadores não elegíveis */}
+                {ineligiblePlayers.length > 0 && (
+                  <Collapsible open={showIneligible} onOpenChange={setShowIneligible}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" className="w-full justify-between text-muted-foreground hover:text-foreground">
+                        <span className="flex items-center gap-2">
+                          <AlertCircle size={16} className="text-yellow-500" />
+                          {ineligiblePlayers.length} jogador(es) não elegível(is)
+                        </span>
+                        {showIneligible ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2">
+                      <div className="bg-muted/30 border border-border rounded-lg p-3 space-y-2 max-h-60 overflow-y-auto">
+                        {ineligiblePlayers.map((player) => (
+                          <div key={player.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 p-2 bg-background/50 rounded">
+                            <span className="font-medium text-sm">
+                              {player.nickname || player.name}
+                            </span>
+                            <div className="flex flex-wrap gap-1">
+                              {player.reasons.map((reason, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs bg-yellow-500/10 text-yellow-600 border-yellow-500/30">
+                                  {reason}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
 
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Button onClick={() => setStep('select-teams')} variant="outline" className="w-full sm:flex-1">
