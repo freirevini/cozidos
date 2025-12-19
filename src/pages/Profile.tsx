@@ -7,7 +7,7 @@ import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
 import { useProfileStats } from "@/hooks/useProfileStats";
 import {
-  ProfileHeader,
+  ProfileHeroHeader,
   ProfileFilters,
   ProfileStatsGrid,
   ProfileCalculatedMetrics,
@@ -189,8 +189,8 @@ export default function Profile() {
       <Header />
       
       <main className="max-w-2xl mx-auto pb-8">
-        {/* Profile Header - MLS Style */}
-        <ProfileHeader
+        {/* Profile Hero Header - MLS Style */}
+        <ProfileHeroHeader
           id={profile.id}
           name={profile.name}
           nickname={profile.nickname}

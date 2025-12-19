@@ -106,7 +106,34 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
         `)
         .eq("player_id", profileId);
 
+      // If no round stats, try fallback to player_rankings
       if (!playerRoundStats || playerRoundStats.length === 0) {
+        const { data: rankingData } = await supabase
+          .from("player_rankings")
+          .select("*")
+          .eq("player_id", profileId)
+          .single();
+
+        if (rankingData) {
+          // Use ranking data as stats
+          setStats({
+            presencas: rankingData.presencas || 0,
+            gols: rankingData.gols || 0,
+            assistencias: rankingData.assistencias || 0,
+            vitorias: rankingData.vitorias || 0,
+            empates: rankingData.empates || 0,
+            derrotas: rankingData.derrotas || 0,
+            cartoes_amarelos: rankingData.cartoes_amarelos || 0,
+            cartoes_azuis: rankingData.cartoes_azuis || 0,
+            punicoes: rankingData.punicoes || 0,
+            pontos_totais: rankingData.pontos_totais || 0,
+            partidas: (rankingData.vitorias || 0) + (rankingData.empates || 0) + (rankingData.derrotas || 0),
+          });
+          setRoundStats([]);
+          setLoading(false);
+          return;
+        }
+
         setStats(emptyStats);
         setRoundStats([]);
         setLoading(false);
