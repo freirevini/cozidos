@@ -61,7 +61,7 @@ export function generateCSV(headers: string[], rows: any[][]): string {
       return value;
     }).join(','))
   ].join('\n');
-  
+
   return csvContent;
 }
 
@@ -104,16 +104,16 @@ export function generateTokensCSV(results: Array<{ nickname: string; claim_token
 export function validatePlayerImportRow(row: any): { valid: boolean; error?: string } {
   const nickname = row?.Nickname || row?.nickname;
   const level = row?.Level || row?.level || row?.Nivel || row?.nivel;
-  
+
   if (!nickname || !nickname.toString().trim()) {
     return { valid: false, error: 'Nickname é obrigatório' };
   }
-  
+
   const upperLevel = level?.toString().toUpperCase().trim();
   if (!upperLevel || !['A', 'B', 'C', 'D', 'E'].includes(upperLevel)) {
     return { valid: false, error: 'Level inválido (deve ser A, B, C, D ou E)' };
   }
-  
+
   return { valid: true };
 }
 
@@ -121,17 +121,21 @@ export function validateClassificationImportRow(row: any): { valid: boolean; err
   const nickname = row?.Nickname || row?.nickname;
   const token = row?.Token || row?.token || row?.ClaimToken || row?.claim_token;
   const ano = row?.Ano || row?.ano;
-  
-  if ((!nickname || !nickname.toString().trim()) && (!token || !token.toString().trim())) {
-    return { valid: false, error: 'Nickname ou Token é obrigatório' };
+
+  if (!nickname || !nickname.toString().trim()) {
+    return { valid: false, error: 'Nickname é obrigatório' };
   }
-  
+
+  if (!token || !token.toString().trim()) {
+    return { valid: false, error: 'Token é obrigatório' };
+  }
+
   if (ano) {
     const year = parseInt(ano);
     if (isNaN(year) || year < 2000 || year > 2100) {
       return { valid: false, error: `Ano inválido: ${ano} (deve ser YYYY entre 2000 e 2100)` };
     }
   }
-  
+
   return { valid: true };
 }

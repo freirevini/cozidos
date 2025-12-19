@@ -27,10 +27,21 @@ Deno.serve(async (req) => {
 
     const normalizedEmail = email.toLowerCase().trim()
 
-    // 0. Se veio com claim_token, tentar reivindicar via RPC primeiro
+    // 0. Buscar perfil TEMPORÁRIO criado pelo trigger handle_new_user ANTES de qualquer coisa
+    let { data: tempProfile, error: tempError } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('user_id', auth_user_id)
+      .maybeSingle()
+
+    if (tempError) {
+      console.error('[link-player] Erro ao buscar perfil temporário:', tempError)
+    }
+
+    // 1. Se veio com claim_token, tentar reivindicar via RPC primeiro
     if (claim_token && claim_token.trim()) {
       console.log('[link-player] Tentando claim com token:', claim_token)
-      
+
       const { data: claimResult, error: claimError } = await supabaseAdmin
         .rpc('claim_profile_with_token', {
           p_token: claim_token.trim(),
@@ -39,6 +50,13 @@ Deno.serve(async (req) => {
 
       if (!claimError && claimResult?.success) {
         console.log('[link-player] ✅ Token válido, perfil reivindicado:', claimResult)
+
+        // FIX: Deletar perfil temporário duplicado
+        if (tempProfile) {
+          console.log('[link-player] 🗑️ Deletando perfil temporário duplicado:', tempProfile.id)
+          await supabaseAdmin.from('profiles').delete().eq('id', tempProfile.id)
+        }
+
         return new Response(
           JSON.stringify({
             ok: true,
@@ -55,7 +73,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 1. Usar a função RPC find_matching_profiles para busca heurística completa
+    // 2. Usar a função RPC find_matching_profiles para busca heurística completa
     const { data: matchingProfiles, error: matchError } = await supabaseAdmin
       .rpc('find_matching_profiles', {
         p_email: normalizedEmail,
@@ -70,17 +88,6 @@ Deno.serve(async (req) => {
 
     console.log('[link-player] Perfis encontrados:', matchingProfiles?.length || 0, matchingProfiles)
 
-    // 2. Buscar perfil TEMPORÁRIO criado pelo trigger handle_new_user
-    let { data: tempProfile, error: tempError } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('user_id', auth_user_id)
-      .maybeSingle()
-
-    if (tempError) {
-      console.error('[link-player] Erro ao buscar perfil temporário:', tempError)
-    }
-
     // Gerar player_id determinístico para fallback
     let player_id: string | null = null
     if (birth_date) {
@@ -92,11 +99,11 @@ Deno.serve(async (req) => {
 
     // 3. Analisar resultados do matching
     const bestMatch = matchingProfiles && matchingProfiles.length > 0 ? matchingProfiles[0] : null
-    
+
     if (bestMatch && bestMatch.match_score >= 90) {
       // AUTO-LINK: Match >= 90% (player_id exato ou email exato)
       console.log('[link-player] ✅ MATCH ENCONTRADO! Score:', bestMatch.match_score, 'Razão:', bestMatch.match_reason)
-      
+
       // Vincular usando RPC link_player_to_user
       const { data: linkResult, error: linkError } = await supabaseAdmin
         .rpc('link_player_to_user', {
@@ -147,7 +154,7 @@ Deno.serve(async (req) => {
     } else if (bestMatch && bestMatch.match_score >= 60) {
       // MATCH PARCIAL: 60-89% - Criar perfil pendente mas informar que existe candidato
       console.log('[link-player] ⚠️ MATCH PARCIAL. Score:', bestMatch.match_score, 'Razão:', bestMatch.match_reason)
-      
+
       if (tempProfile) {
         await supabaseAdmin
           .from('profiles')
@@ -195,7 +202,7 @@ Deno.serve(async (req) => {
     } else {
       // SEM MATCH: Criar/atualizar perfil novo como PENDENTE
       console.log('[link-player] ❌ Nenhum match encontrado. Criando perfil pendente.')
-      
+
       if (tempProfile) {
         await supabaseAdmin
           .from('profiles')
@@ -236,7 +243,7 @@ Deno.serve(async (req) => {
         // Fallback: criar perfil do zero
         console.log('[link-player] ⚠️ Perfil temporário não encontrado. Criando do zero.')
         const fullName = `${first_name || ''} ${last_name || ''}`.trim() || 'Jogador'
-        
+
         const { data: newProfile, error: insertError } = await supabaseAdmin
           .from('profiles')
           .insert({
@@ -292,13 +299,13 @@ Deno.serve(async (req) => {
   } catch (error: unknown) {
     const err = (error && typeof error === 'object') ? (error as any) : null
     const errorMessage = err?.message || err?.details || err?.hint || 'Erro ao processar cadastro'
-    
+
     console.error('[link-player] ❌ ERRO GERAL:', error)
     console.error('[link-player] Detalhes:', { message: err?.message, details: err?.details, hint: err?.hint, code: err?.code })
-    
+
     let statusCode = 500
     let userMessage = 'Erro ao processar cadastro. Tente novamente.'
-    
+
     if (err?.message?.includes('auth') || err?.message?.includes('unauthorized')) {
       statusCode = 401
       userMessage = 'Sessão expirada. Faça login novamente.'
@@ -309,7 +316,7 @@ Deno.serve(async (req) => {
       statusCode = 400
       userMessage = 'Dados inválidos. Verifique as informações e tente novamente.'
     }
-    
+
     return new Response(
       JSON.stringify({ ok: false, error: userMessage }),
       { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -11,13 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Download, Upload, FileText, CheckCircle, XCircle, AlertTriangle, Users } from "lucide-react";
-import { 
-  downloadTemplate, 
-  downloadCSV, 
-  generateErrorsCSV,
+import {
+  downloadTemplate,
+  downloadCSV,
   validateClassificationImportRow,
   type ClassificationImportResult
 } from "@/utils/csv";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ImportClassificationDialogProps {
   open: boolean;
@@ -39,24 +39,39 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
     setValidationErrors([]);
 
     try {
+      // Fetch valid tokens
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('claim_token')
+        .not('claim_token', 'is', null);
+
+      if (profileError) throw profileError;
+
+      const validTokens = new Set(profiles?.map(p => p.claim_token) || []);
+
       const text = await file.text();
       const Papa = (await import('papaparse')).default;
-      
+
       Papa.parse(text, {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
           const data = results.data as any[];
-          
+
           // Validate first 10 rows for preview
           const errors: string[] = [];
           data.slice(0, 10).forEach((row, idx) => {
             const validation = validateClassificationImportRow(row);
             if (!validation.valid) {
               errors.push(`Linha ${idx + 1}: ${validation.error}`);
+            } else {
+              const token = row.Token || row.token || row.ClaimToken || row.claim_token;
+              if (token && !validTokens.has(token)) {
+                errors.push(`Linha ${idx + 1}: Token '${token}' não encontrado no sistema.`);
+              }
             }
           });
-          
+
           setValidationErrors(errors);
           setPreviewData(data.slice(0, 10));
         }
@@ -64,13 +79,13 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
     } catch (error) {
       setValidationErrors(['Erro ao ler arquivo']);
     }
-    
+
     event.target.value = '';
   };
 
   const handleImport = async () => {
     if (previewData.length === 0) return;
-    
+
     setImporting(true);
     try {
       const importResult = await onImport(previewData);
@@ -115,13 +130,13 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
             </h4>
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2">
-                <Badge className="bg-primary/20 text-primary">Obrigatório</Badge>
+                <Badge className="bg-primary/20 text-primary">Obrigatórios</Badge>
                 <code className="bg-muted px-2 py-0.5 rounded">Nickname</code>
-                <span className="text-muted-foreground">ou</span>
+                <span className="text-muted-foreground">e</span>
                 <code className="bg-muted px-2 py-0.5 rounded">Token</code>
-                <span className="text-muted-foreground">- identificação do jogador</span>
+                <span className="text-muted-foreground">- o jogador DEVE existir no sistema</span>
               </div>
-              
+
               <div className="pl-4 border-l-2 border-border space-y-1">
                 <p className="text-xs font-medium text-muted-foreground">Estatísticas (opcionais):</p>
                 <div className="flex flex-wrap gap-1 text-xs">
@@ -135,16 +150,16 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
                 </div>
               </div>
             </div>
-            
+
             <div className="mt-3 bg-background rounded p-2 text-xs font-mono overflow-x-auto">
               Nickname,Token,Gols,Assistencias,Vitorias,Empates,Derrotas,Pontos_Totais,Ano<br />
               felipe,,10,4,6,2,2,20,2023<br />
               ,AB12CD34,8,6,5,3,2,18,2023
             </div>
-            
+
             <div className="mt-3 flex flex-wrap gap-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => downloadTemplate('classification')}
               >
@@ -158,8 +173,8 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription className="text-sm">
-              <strong>Prioridade de identificação:</strong> Se Token e Nickname forem informados, o Token tem prioridade. 
-              Se o Token não for encontrado, um novo perfil será criado com esse token.
+              <strong>Regra de Integração:</strong> A planilha serve apenas para atualizar dados.
+              Tokens não encontrados serão rejeitados para evitar duplicidade ou perfis fantasmas.
             </AlertDescription>
           </Alert>
 
@@ -211,7 +226,7 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
                   </tbody>
                 </table>
               </div>
-              
+
               {validationErrors.length > 0 && (
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
@@ -273,7 +288,7 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
                       <p className="text-xs text-muted-foreground mt-1">...e mais {result.errors.length - 5} erros</p>
                     )}
                   </div>
-                  
+
                   <Button variant="outline" size="sm" onClick={handleDownloadErrors}>
                     <XCircle className="h-4 w-4 mr-2" />
                     Baixar CSV com Erros
