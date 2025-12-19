@@ -205,7 +205,7 @@ export default function Classification() {
   // Infinite scroll observer
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore) return;
-    
+
     setLoadingMore(true);
     setTimeout(() => {
       setDisplayedCount(prev => Math.min(prev + PAGE_SIZE, filteredStats.length));
@@ -418,7 +418,7 @@ export default function Classification() {
                         }}
                       />
                     ))}
-                    
+
                     {/* Infinite scroll loader */}
                     {hasMore && (
                       <div ref={loaderRef} className="flex justify-center py-4">
@@ -427,7 +427,7 @@ export default function Classification() {
                         )}
                       </div>
                     )}
-                    
+
                     {/* Count indicator */}
                     <div className="text-center py-3 text-sm text-muted-foreground">
                       Exibindo {paginatedStats.length} de {filteredStats.length} jogadores
@@ -456,8 +456,8 @@ export default function Classification() {
                   </TableHeader>
                   <TableBody>
                     {paginatedStats.map((stat, index) => (
-                      <TableRow 
-                        key={stat.player_id} 
+                      <TableRow
+                        key={stat.player_id}
                         className="border-border/30 hover:bg-muted/10 cursor-pointer"
                         onClick={() => {
                           setSelectedPlayer(stat);
@@ -467,7 +467,7 @@ export default function Classification() {
                         <TableCell className="font-bold text-primary text-lg">{index + 1}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10 border-2 border-border/50">
+                            <Avatar className="h-10 w-10 border-2 border-border/50 bg-muted">
                               <AvatarImage src={stat.avatar_url || undefined} alt={stat.nickname} />
                               <AvatarFallback className="bg-primary/20 text-primary font-bold text-sm">
                                 {stat.nickname?.substring(0, 2).toUpperCase()}
@@ -501,7 +501,7 @@ export default function Classification() {
                     ))}
                   </TableBody>
                 </Table>
-                
+
                 {/* Infinite scroll loader for desktop */}
                 {hasMore && (
                   <div ref={loaderRef} className="flex justify-center py-4">
@@ -510,7 +510,7 @@ export default function Classification() {
                     )}
                   </div>
                 )}
-                
+
                 {/* Count indicator */}
                 <div className="text-center py-3 text-sm text-muted-foreground">
                   Exibindo {paginatedStats.length} de {filteredStats.length} jogadores

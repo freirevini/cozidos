@@ -36,13 +36,13 @@ function calculateAge(birthDate: string | null): number | null {
   return age;
 }
 
-export function ProfileHeader({ 
+export function ProfileHeader({
   id,
-  name, 
-  nickname, 
-  avatarUrl, 
-  position, 
-  level, 
+  name,
+  nickname,
+  avatarUrl,
+  position,
+  level,
   birthDate,
   rankingPosition,
   isOwnProfile,
@@ -50,7 +50,7 @@ export function ProfileHeader({
 }: ProfileHeaderProps) {
   const [showUpload, setShowUpload] = useState(false);
   const [currentAvatarUrl, setCurrentAvatarUrl] = useState(avatarUrl);
-  
+
   const displayName = nickname || name;
   const initials = displayName
     .split(" ")
@@ -71,7 +71,7 @@ export function ProfileHeader({
     <div className="relative">
       {/* Background gradient - inspired by MLS style */}
       <div className="absolute inset-0 bg-gradient-to-b from-primary/30 via-primary/10 to-background" />
-      
+
       <div className="relative px-4 pt-8 pb-6">
         {/* Avatar with upload option for own profile */}
         <div className="flex flex-col items-center">
@@ -84,13 +84,13 @@ export function ProfileHeader({
             />
           ) : (
             <div className="relative">
-              <Avatar className="w-32 h-32 border-4 border-primary/50 shadow-xl shadow-primary/20">
+              <Avatar className="w-32 h-32 border-4 border-primary/50 shadow-xl shadow-primary/20 bg-muted">
                 <AvatarImage src={currentAvatarUrl || undefined} alt={displayName} className="object-cover" />
                 <AvatarFallback className="text-4xl font-bold bg-primary/20 text-primary">
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              
+
               {isOwnProfile && (
                 <button
                   onClick={() => setShowUpload(true)}
@@ -101,12 +101,12 @@ export function ProfileHeader({
               )}
             </div>
           )}
-          
+
           {/* Name */}
           <h1 className="mt-4 text-3xl font-bold text-foreground tracking-tight">
             {displayName}
           </h1>
-          
+
           {/* Info badges - Age, Level, Ranking Position */}
           <div className="flex items-center gap-2 mt-3 flex-wrap justify-center">
             {age !== null && (

@@ -72,7 +72,7 @@ export function PlayerCompactCard({
   const position = player.position ? positionIcons[player.position] : null;
   const status = player.status ? statusConfig[player.status] : statusConfig.pendente;
   const level = player.level ? levelColors[player.level] : null;
-  
+
   const initials = displayName
     .split(" ")
     .map(n => n[0])
@@ -83,7 +83,7 @@ export function PlayerCompactCard({
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl bg-card/50 border border-border/50 hover:bg-card/80 hover:border-primary/30 transition-all duration-200">
       {/* Avatar */}
-      <Avatar className="h-10 w-10 border border-border/50">
+      <Avatar className="h-10 w-10 border border-border/50 bg-muted">
         <AvatarImage src={player.avatar_url || undefined} alt={displayName} />
         <AvatarFallback className="bg-muted text-xs font-medium">
           {initials}
@@ -97,7 +97,7 @@ export function PlayerCompactCard({
             {displayName}
           </span>
         </div>
-        
+
         {/* Badges */}
         <div className="flex items-center gap-1.5 mt-1">
           {/* Posição */}
@@ -106,14 +106,14 @@ export function PlayerCompactCard({
               {position.icon} {position.label}
             </span>
           )}
-          
+
           {/* Nível */}
           {player.level && (
             <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-5 ${level}`}>
               {player.level}
             </Badge>
           )}
-          
+
           {/* Status */}
           <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-5 ${status.color}`}>
             {status.label}

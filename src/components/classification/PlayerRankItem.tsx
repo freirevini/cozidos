@@ -40,7 +40,7 @@ export default function PlayerRankItem({
       <span className="w-8 text-lg font-bold text-primary">{rank}</span>
 
       {/* Avatar */}
-      <Avatar className="h-10 w-10 border-2 border-border/50">
+      <Avatar className="h-10 w-10 border-2 border-border/50 bg-muted">
         <AvatarImage src={avatarUrl || undefined} alt={nickname} />
         <AvatarFallback className="bg-primary/20 text-primary font-bold text-sm">
           {nickname?.substring(0, 2).toUpperCase()}

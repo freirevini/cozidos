@@ -75,7 +75,7 @@ export default function PlayerStatsDrawer({ open, onOpenChange, player, selected
         <div className="mx-auto w-full max-w-md">
           <DrawerHeader className="pb-2">
             <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16 border-2 border-primary/50">
+              <Avatar className="h-16 w-16 border-2 border-primary/50 bg-muted">
                 <AvatarImage src={player.avatar_url || undefined} alt={player.nickname} />
                 <AvatarFallback className="bg-primary/20 text-primary font-bold text-xl">
                   {player.nickname?.substring(0, 2).toUpperCase()}
@@ -153,10 +153,10 @@ export default function PlayerStatsDrawer({ open, onOpenChange, player, selected
                   <span className="font-bold text-foreground">
                     {player.vitorias + player.empates + player.derrotas > 0
                       ? Math.round(
-                          ((player.vitorias * 3 + player.empates) /
-                            ((player.vitorias + player.empates + player.derrotas) * 3)) *
-                            100
-                        )
+                        ((player.vitorias * 3 + player.empates) /
+                          ((player.vitorias + player.empates + player.derrotas) * 3)) *
+                        100
+                      )
                       : 0}
                     %
                   </span>
@@ -165,7 +165,7 @@ export default function PlayerStatsDrawer({ open, onOpenChange, player, selected
             </div>
 
             {/* View Full Profile Button */}
-            <Button 
+            <Button
               onClick={handleViewFullProfile}
               className="w-full mt-4"
               variant="outline"

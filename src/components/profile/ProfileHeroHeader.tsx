@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { AvatarUpload } from "@/components/AvatarUpload";
-import { Camera, ChevronUp } from "lucide-react";
+import { Camera, Shield } from "lucide-react";
 import { useState } from "react";
 import logoCozidos from "@/assets/logo-cozidos-novo.png";
 
@@ -21,7 +21,8 @@ const positionMap: Record<string, string> = {
   goleiro: "GK",
   defensor: "DEF",
   "meio-campista": "MID",
-  atacante: "ATK",
+  "meio_campo": "MID",
+  atacante: "FWD",
 };
 
 function calculateAge(birthDate: string | null): number | null {
@@ -36,13 +37,13 @@ function calculateAge(birthDate: string | null): number | null {
   return age;
 }
 
-export function ProfileHeroHeader({ 
+export function ProfileHeroHeader({
   id,
-  name, 
-  nickname, 
-  avatarUrl, 
-  position, 
-  level, 
+  name,
+  nickname,
+  avatarUrl,
+  position,
+  level,
   birthDate,
   rankingPosition,
   isOwnProfile,
@@ -50,7 +51,7 @@ export function ProfileHeroHeader({
 }: ProfileHeroHeaderProps) {
   const [showUpload, setShowUpload] = useState(false);
   const [currentAvatarUrl, setCurrentAvatarUrl] = useState(avatarUrl);
-  
+
   const displayName = nickname || name.split(" ")[0];
   const age = calculateAge(birthDate);
 
@@ -61,22 +62,16 @@ export function ProfileHeroHeader({
   };
 
   return (
-    <div className="relative bg-background overflow-hidden">
-      {/* Background Logo - Giant, semi-transparent */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <img 
-          src={logoCozidos} 
-          alt="" 
-          className="w-[120%] max-w-none h-auto opacity-15 object-contain"
-          style={{ filter: 'brightness(0.8)' }}
-        />
-      </div>
-
-      {/* Hero Container - 45vh height */}
-      <div className="relative h-[45vh] min-h-[320px] max-h-[500px]">
-        {/* Player Image Container */}
-        {isOwnProfile && showUpload ? (
-          <div className="absolute inset-0 flex items-center justify-center z-10 p-8">
+    <div className="relative w-full bg-background overflow-hidden border-b border-border/50">
+      {/* Upload Modal Overlay */}
+      {isOwnProfile && showUpload && (
+        <div className="absolute inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm">
+            <div className="flex justify-end mb-2">
+              <button onClick={() => setShowUpload(false)} className="text-muted-foreground hover:text-foreground">
+                ✕
+              </button>
+            </div>
             <AvatarUpload
               playerId={id}
               playerName={displayName}
@@ -84,94 +79,91 @@ export function ProfileHeroHeader({
               onUploadComplete={handleAvatarUpdate}
             />
           </div>
-        ) : (
-          <>
-            {/* Player Photo - Rectangular, aligned to bottom */}
-            {currentAvatarUrl ? (
-              <div className="absolute inset-0 flex items-end justify-center">
-                <img 
-                  src={currentAvatarUrl} 
-                  alt={displayName}
-                  className="w-full h-full object-cover object-top"
-                  style={{ objectPosition: 'center top' }}
-                />
-              </div>
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-40 h-40 rounded-full bg-muted flex items-center justify-center">
-                  <span className="text-6xl font-bold text-primary">
-                    {displayName.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-              </div>
-            )}
+        </div>
+      )}
 
-            {/* Gradient Overlay - Fades to black at bottom */}
-            <div 
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background: `linear-gradient(
-                  to bottom,
-                  transparent 0%,
-                  transparent 40%,
-                  hsl(0 0% 0% / 0.3) 60%,
-                  hsl(0 0% 0% / 0.7) 80%,
-                  hsl(0 0% 0% / 1) 100%
-                )`
-              }}
+      {/* Main Card Container */}
+      <div className="relative h-[480px] sm:h-[500px] w-full max-w-md mx-auto sm:max-w-none">
+
+        {/* Layer 0: Background Gradient & Pattern */}
+        <div className="absolute inset-0 bg-gradient-to-b from-background via-background/90 to-background z-0"></div>
+
+        {/* Layer 1: Team Logo Aura (Background) */}
+        <div className="absolute inset-x-0 bottom-20 flex justify-center z-10 opacity-10 pointer-events-none">
+          <img
+            src={logoCozidos}
+            alt="Logo Background"
+            className="w-[120%] h-auto max-w-none ml-20 sm:ml-0 scale-150 blur-[2px]"
+          />
+        </div>
+
+        {/* Layer 2: Player Image (Transparent PNG) */}
+        <div className="absolute inset-0 z-20 flex items-end justify-center overflow-hidden">
+          {currentAvatarUrl ? (
+            <img
+              src={currentAvatarUrl}
+              alt={displayName}
+              className="h-[95%] w-auto object-contain object-bottom drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] transition-transform hover:scale-105 duration-700"
             />
+          ) : (
+            // Fallback for no image
+            <div className="mb-20">
+              <div className="w-48 h-48 rounded-full bg-secondary/30 flex items-center justify-center border-4 border-secondary/50 backdrop-blur-md">
+                <span className="text-7xl font-bold text-primary opacity-80">
+                  {displayName.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
 
-            {/* Camera button for own profile */}
-            {isOwnProfile && (
-              <button
-                onClick={() => setShowUpload(true)}
-                className="absolute top-4 right-4 p-3 bg-background/70 backdrop-blur-sm rounded-full shadow-lg hover:bg-background/90 transition-colors z-20 border border-border/50"
-              >
-                <Camera className="w-5 h-5 text-primary" />
-              </button>
-            )}
-          </>
-        )}
+        {/* Layer 3: Info Overlay Gradient */}
+        <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/90 to-transparent z-30 pointer-events-none"></div>
 
-        {/* Player Info - Bottom left, over gradient */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 px-4 pb-4">
-          {/* Name - Large, bold */}
-          <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight uppercase drop-shadow-lg">
-            {displayName}
-          </h1>
-          
-          {/* Stats badges row */}
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            {position && (
-              <Badge 
-                variant="outline" 
-                className="bg-background/40 backdrop-blur-sm border-white/20 text-white text-xs px-2 py-0.5"
-              >
-                {positionMap[position] || position}
-              </Badge>
-            )}
-            {level && (
-              <Badge 
-                className="bg-primary/90 text-primary-foreground text-xs px-2 py-0.5"
-              >
-                Nível {level}
-              </Badge>
-            )}
-            {age !== null && (
-              <Badge 
-                variant="outline" 
-                className="bg-background/40 backdrop-blur-sm border-white/20 text-white text-xs px-2 py-0.5"
-              >
-                {age} anos
-              </Badge>
-            )}
-            {rankingPosition !== null && rankingPosition > 0 && (
-              <Badge className="bg-amber-500/90 text-black font-bold text-xs px-2 py-0.5">
+        {/* Layer 4: Text Content */}
+        <div className="absolute bottom-0 left-0 right-0 z-40 p-6 flex flex-col items-start sm:items-center">
+
+          <div className="flex items-center gap-2 mb-1">
+            {rankingPosition && rankingPosition > 0 && (
+              <Badge className="bg-amber-500 hover:bg-amber-600 text-black font-bold h-6 px-2 shadow-lg shadow-amber-900/20">
                 #{rankingPosition}
               </Badge>
             )}
+            {level && (
+              <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 h-6 px-2 backdrop-blur-sm">
+                NÍVEL {level}
+              </Badge>
+            )}
+          </div>
+
+          <h1 className="text-5xl sm:text-6xl font-black text-foreground uppercase tracking-tighter leading-none mb-2" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
+            {displayName}
+          </h1>
+
+          <div className="flex items-center gap-4 text-sm sm:text-base font-medium text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Shield size={16} className="text-primary" />
+              <span className="text-foreground">{position ? (positionMap[position] || position).toUpperCase() : 'JOGADOR'}</span>
+            </div>
+
+            {age !== null && (
+              <>
+                <span className="w-1 h-1 rounded-full bg-border"></span>
+                <span>{age} ANOS</span>
+              </>
+            )}
           </div>
         </div>
+
+        {/* Edit Button */}
+        {isOwnProfile && !showUpload && (
+          <button
+            onClick={() => setShowUpload(true)}
+            className="absolute top-4 right-4 z-50 p-3 bg-secondary/80 hover:bg-secondary backdrop-blur-md rounded-full shadow-lg border border-white/10 transition-all active:scale-95 group"
+          >
+            <Camera className="w-5 h-5 text-primary group-hover:text-primary/80" />
+          </button>
+        )}
       </div>
     </div>
   );

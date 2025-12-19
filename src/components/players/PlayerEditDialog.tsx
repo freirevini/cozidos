@@ -8,11 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  Trash2, 
-  Save, 
-  ArrowLeft, 
-  Loader2, 
+import {
+  Trash2,
+  Save,
+  ArrowLeft,
+  Loader2,
   AlertCircle,
   CheckCircle2,
   Info,
@@ -88,19 +88,19 @@ export function PlayerEditDialog({
   const calculatedAge = useMemo(() => {
     const dateStr = formData.birth_date;
     if (!dateStr) return null;
-    
+
     try {
       const birthDate = new Date(formatDateForInput(dateStr));
       if (isNaN(birthDate.getTime())) return null;
-      
+
       const today = new Date();
       let age = today.getFullYear() - birthDate.getFullYear();
       const monthDiff = today.getMonth() - birthDate.getMonth();
-      
+
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
         age--;
       }
-      
+
       return age > 0 && age < 120 ? age : null;
     } catch {
       return null;
@@ -130,35 +130,35 @@ export function PlayerEditDialog({
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
-    
+
     if (!formData.nickname?.trim()) {
       newErrors.nickname = "Apelido é obrigatório";
     }
-    
+
     if (formData.email && !validateEmail(formData.email)) {
       newErrors.email = "E-mail inválido";
     }
-    
+
     if (formData.birth_date && !validateBirthDate(formData.birth_date)) {
       newErrors.birth_date = "Data não pode ser no futuro";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSave = async () => {
     if (!player || !validateForm()) return;
-    
+
     setSaving(true);
     try {
       await onSave({ ...player, ...formData } as Player);
-      
+
       toast({
         title: "Alterações salvas",
         description: "Os dados do jogador foram atualizados com sucesso.",
       });
-      
+
       onOpenChange(false);
     } catch (error) {
       toast({
@@ -173,7 +173,7 @@ export function PlayerEditDialog({
 
   const handleDelete = async () => {
     if (!player) return;
-    
+
     setDeleting(true);
     try {
       onDelete(player);
@@ -192,7 +192,7 @@ export function PlayerEditDialog({
 
   // Check if status changed to "aprovado"
   const statusChangedToApproved = originalStatus !== "aprovado" && formData.status === "aprovado";
-  
+
   // Check if email was changed (important for linking)
   const emailChanged = player?.email !== formData.email && player?.email;
 
@@ -218,7 +218,7 @@ export function PlayerEditDialog({
             {/* Avatar Section */}
             <div className="flex flex-col items-center gap-3">
               <div className="relative">
-                <Avatar className="h-20 w-20 border-3 border-primary/30">
+                <Avatar className="h-20 w-20 border-3 border-primary/30 bg-muted">
                   <AvatarImage src={player?.avatar_url || undefined} />
                   <AvatarFallback className="bg-primary/10 text-primary text-2xl font-bold">
                     {initials}
@@ -407,8 +407,8 @@ export function PlayerEditDialog({
 
           {/* Fixed Footer */}
           <div className="sticky bottom-0 bg-background border-t border-border p-4 space-y-3">
-            <Button 
-              onClick={handleSave} 
+            <Button
+              onClick={handleSave}
               disabled={saving}
               className="w-full h-13 text-base font-semibold rounded-lg"
               size="lg"
@@ -425,7 +425,7 @@ export function PlayerEditDialog({
                 </>
               )}
             </Button>
-            
+
             <Button
               variant="outline"
               onClick={() => setShowDeleteConfirm(true)}

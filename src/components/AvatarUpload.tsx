@@ -16,11 +16,11 @@ interface AvatarUploadProps {
   onUploadComplete: (url: string | null) => void;
 }
 
-export function AvatarUpload({ 
-  playerId, 
-  playerName, 
-  currentAvatarUrl, 
-  onUploadComplete 
+export function AvatarUpload({
+  playerId,
+  playerName,
+  currentAvatarUrl,
+  onUploadComplete
 }: AvatarUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -29,7 +29,7 @@ export function AvatarUpload({
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [showCropDialog, setShowCropDialog] = useState(false);
-  
+
   const onCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
@@ -78,17 +78,21 @@ export function AvatarUpload({
           return;
         }
         resolve(blob);
-      }, "image/jpeg", 0.95);
+      }, "image/png");
     });
   };
+
+  /* import removeBackground from "@imgly/background-removal"; needs to be at top, I will assume it's added or I will add it via separate edit or just trust the imports block works if I include it in the text. Wait, replace_file_content works on chunks. I should update imports first or include them. I will replace the imports and handleFileSelect. */
+
+  /* THIS TOOL CALL IS ONLY FOR handleFileSelect logic replacement. */
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validar tamanho (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Imagem muito grande! Máximo 2MB");
+    // Validar tamanho (max 5MB agora, pois processamos locally)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Imagem muito grande! Máximo 5MB");
       event.target.value = "";
       return;
     }
@@ -100,15 +104,32 @@ export function AvatarUpload({
       return;
     }
 
-    // Ler arquivo e mostrar dialog de crop
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      setImageSrc(reader.result as string);
+    try {
+      setUploading(true);
+      toast.info("Removendo fundo da imagem com IA... Aguarde.", { duration: 5000 });
+
+      // Dynamic import to avoid SSR issues if any, although this is SPA.
+      // Better to import at top, but for this chunk logic:
+      const { removeBackground } = await import("@imgly/background-removal");
+
+      const blob = await removeBackground(file, {
+        progress: (key, current, total) => {
+          // console.log(`Downloading ${key}: ${current} of ${total}`);
+        }
+      });
+
+      const url = URL.createObjectURL(blob);
+      setImageSrc(url);
       setShowCropDialog(true);
-    });
-    reader.readAsDataURL(file);
-    
-    event.target.value = "";
+      toast.success("Fundo removido! Ajuste o corte agora.");
+
+    } catch (error) {
+      console.error("Erro ao remover fundo:", error);
+      toast.error("Erro ao processar imagem. Tente outra foto.");
+    } finally {
+      setUploading(false);
+      event.target.value = "";
+    }
   };
 
   const handleCropConfirm = async () => {
@@ -131,7 +152,7 @@ export function AvatarUpload({
         .upload(filePath, croppedBlob, {
           cacheControl: "3600",
           upsert: true,
-          contentType: "image/jpeg",
+          contentType: "image/png",
         });
 
       if (uploadError) throw uploadError;
@@ -177,31 +198,31 @@ export function AvatarUpload({
   const handleRemove = async () => {
     try {
       setRemoving(true);
-      
+
       if (!currentAvatarUrl) return;
-      
+
       // Extrair nome do arquivo da URL
       const fileName = currentAvatarUrl.split("/").pop();
       if (!fileName) return;
-      
+
       // Deletar do Storage
       const { error: deleteError } = await supabase.storage
         .from("player-avatars")
         .remove([fileName]);
-      
+
       if (deleteError) throw deleteError;
-      
+
       // Remover do perfil
       const { error: updateError } = await supabase
         .from("profiles")
         .update({ avatar_url: null })
         .eq("id", playerId);
-      
+
       if (updateError) throw updateError;
-      
+
       onUploadComplete(null);
       toast.success("Foto removida com sucesso!");
-      
+
     } catch (error) {
       console.error("Erro ao remover foto:", error);
       toast.error("Erro ao remover foto");
@@ -209,7 +230,7 @@ export function AvatarUpload({
       setRemoving(false);
     }
   };
-  
+
   return (
     <div className="flex flex-col items-center gap-4">
       {/* Avatar Preview */}
@@ -222,7 +243,7 @@ export function AvatarUpload({
           </AvatarFallback>
         )}
       </Avatar>
-      
+
       {/* Botões de ação */}
       <div className="flex gap-2">
         <Button
@@ -238,7 +259,7 @@ export function AvatarUpload({
           )}
           Upload Foto
         </Button>
-        
+
         {currentAvatarUrl && (
           <Button
             variant="destructive"
@@ -254,7 +275,7 @@ export function AvatarUpload({
           </Button>
         )}
       </div>
-      
+
       <input
         id={`file-${playerId}`}
         type="file"
@@ -262,10 +283,10 @@ export function AvatarUpload({
         className="hidden"
         onChange={handleFileSelect}
       />
-      
+
       <p className="text-xs text-muted-foreground text-center">
-        Formatos: JPG, PNG, WEBP<br />
-        Tamanho máximo: 2MB
+        Dica: Para estilo <b>Card de Jogador</b>, use uma foto de meio corpo.<br />
+        O fundo será removido automaticamente.
       </p>
 
       {/* Dialog de Crop */}
@@ -274,7 +295,7 @@ export function AvatarUpload({
           <DialogHeader>
             <DialogTitle>Posicionar Foto</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             {/* Área de Crop Circular */}
             <div className="relative w-full h-[400px] bg-muted rounded-lg overflow-hidden">

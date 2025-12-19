@@ -52,9 +52,9 @@ export default function Statistics() {
 
   useEffect(() => {
     loadRounds();
-    
+
     console.log('🔌 Iniciando subscription realtime para estatísticas...');
-    
+
     // Criar subscription para updates em tempo real
     const channel = supabase
       .channel('player_rankings_stats_changes')
@@ -128,13 +128,13 @@ export default function Statistics() {
           .limit(1000); // Cache busting
 
         if (error) throw error;
-        
+
         // Mapear adicionando avatar_url
         const mappedData = (data || []).map(rank => ({
           ...rank,
           avatar_url: rank.profiles?.avatar_url || null
         }));
-        
+
         setRankings(mappedData);
       } else {
         // Buscar do player_round_stats para rodada específica
@@ -274,10 +274,10 @@ export default function Statistics() {
                 </span>
 
                 {/* Avatar */}
-                <Avatar className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0">
+                <Avatar className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0 bg-muted">
                   {player.avatar_url ? (
-                    <AvatarImage 
-                      src={player.avatar_url} 
+                    <AvatarImage
+                      src={player.avatar_url}
                       alt={player.nickname}
                       className="object-cover"
                     />

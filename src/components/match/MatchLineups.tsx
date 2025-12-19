@@ -144,7 +144,7 @@ function PlayerNode({ player, position, eventData, onPlayerClick }: PlayerNodePr
           transform: 'translate(-50%, -50%)',
         }}
       >
-        <div 
+        <div
           className="rounded-full border-2 border-dashed border-white/20 flex items-center justify-center bg-black/30"
           style={{ width: 'clamp(44px, 12vw, 64px)', height: 'clamp(44px, 12vw, 64px)' }}
         >
@@ -185,8 +185,8 @@ function PlayerNode({ player, position, eventData, onPlayerClick }: PlayerNodePr
       onClick={handleClick}
     >
       <div className="relative">
-        <Avatar 
-          className="border-2 border-primary/60 shadow-lg shadow-black/40"
+        <Avatar
+          className="border-2 border-primary/60 shadow-lg shadow-black/40 bg-muted"
           style={{ width: 'clamp(44px, 12vw, 64px)', height: 'clamp(44px, 12vw, 64px)' }}
         >
           {player.avatar_url ? (
@@ -205,7 +205,7 @@ function PlayerNode({ player, position, eventData, onPlayerClick }: PlayerNodePr
           />
         )}
       </div>
-      <span 
+      <span
         className="text-[11px] sm:text-xs font-medium text-white text-center truncate w-full leading-tight drop-shadow-md"
       >
         {displayName}
@@ -224,7 +224,7 @@ function FieldFormation({ players, getPlayerEvents, onPlayerClick }: FieldFormat
   const { goalkeeper, defenders, midfielders, forwards } = distributePlayers(players);
 
   return (
-    <div 
+    <div
       className="relative w-full mx-auto"
       style={{
         perspective: '1200px',
@@ -232,7 +232,7 @@ function FieldFormation({ players, getPlayerEvents, onPlayerClick }: FieldFormat
       }}
     >
       {/* 3D Field with subtle MLS-style inclination */}
-      <div 
+      <div
         className="relative w-full rounded-2xl overflow-hidden"
         style={{
           transform: 'rotateX(18deg) scaleY(0.95)',
@@ -241,7 +241,7 @@ function FieldFormation({ players, getPlayerEvents, onPlayerClick }: FieldFormat
         }}
       >
         {/* Base dark charcoal background - MLS style */}
-        <div 
+        <div
           className="absolute inset-0"
           style={{
             background: 'linear-gradient(180deg, #0f1112 0%, #1a1d1f 50%, #1f2224 100%)',
@@ -249,7 +249,7 @@ function FieldFormation({ players, getPlayerEvents, onPlayerClick }: FieldFormat
         />
 
         {/* Subtle spotlight effect */}
-        <div 
+        <div
           className="absolute inset-0"
           style={{
             background: 'radial-gradient(ellipse 90% 70% at 50% 70%, rgba(50,55,60,0.5) 0%, transparent 70%)',
@@ -260,28 +260,28 @@ function FieldFormation({ players, getPlayerEvents, onPlayerClick }: FieldFormat
         <div className="absolute inset-0 p-4 sm:p-5">
           {/* Outer border */}
           <div className="absolute inset-4 sm:inset-5 border border-white/15 rounded-lg" />
-          
+
           {/* Center line */}
           <div className="absolute top-[42%] left-4 right-4 sm:left-5 sm:right-5 h-px bg-white/15" />
-          
+
           {/* Center circle */}
           <div className="absolute top-[42%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 sm:w-16 sm:h-16 border border-white/15 rounded-full" />
-          
+
           {/* Center dot */}
           <div className="absolute top-[42%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-white/20 rounded-full" />
-          
+
           {/* Goal area bottom */}
           <div className="absolute bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 w-28 sm:w-32 h-10 sm:h-12 border border-white/15 border-b-0 rounded-t-md" />
-          
+
           {/* Penalty arc bottom */}
           <div className="absolute bottom-[52px] sm:bottom-[60px] left-1/2 -translate-x-1/2 w-12 sm:w-14 h-5 sm:h-6 border border-white/15 border-b-0 rounded-t-full" />
-          
+
           {/* Goal area top (subtle) */}
           <div className="absolute top-4 sm:top-5 left-1/2 -translate-x-1/2 w-28 sm:w-32 h-10 sm:h-12 border border-white/10 border-t-0 rounded-b-md" />
         </div>
 
         {/* Bottom shadow for depth */}
-        <div 
+        <div
           className="absolute bottom-0 left-0 right-0 h-8 pointer-events-none"
           style={{
             background: 'linear-gradient(to top, rgba(0,0,0,0.4), transparent)',
@@ -289,38 +289,38 @@ function FieldFormation({ players, getPlayerEvents, onPlayerClick }: FieldFormat
         />
 
         {/* Player nodes - positioned by percentage */}
-        <PlayerNode 
-          player={forwards[0] || null} 
-          position={positions.forward} 
+        <PlayerNode
+          player={forwards[0] || null}
+          position={positions.forward}
           eventData={forwards[0] ? getPlayerEvents(forwards[0].id) : null}
           onPlayerClick={onPlayerClick}
         />
-        <PlayerNode 
-          player={midfielders[0] || null} 
+        <PlayerNode
+          player={midfielders[0] || null}
           position={positions.midLeft}
           eventData={midfielders[0] ? getPlayerEvents(midfielders[0].id) : null}
           onPlayerClick={onPlayerClick}
         />
-        <PlayerNode 
-          player={midfielders[1] || null} 
+        <PlayerNode
+          player={midfielders[1] || null}
           position={positions.midRight}
           eventData={midfielders[1] ? getPlayerEvents(midfielders[1].id) : null}
           onPlayerClick={onPlayerClick}
         />
-        <PlayerNode 
-          player={defenders[0] || null} 
+        <PlayerNode
+          player={defenders[0] || null}
           position={positions.defLeft}
           eventData={defenders[0] ? getPlayerEvents(defenders[0].id) : null}
           onPlayerClick={onPlayerClick}
         />
-        <PlayerNode 
-          player={defenders[1] || null} 
+        <PlayerNode
+          player={defenders[1] || null}
           position={positions.defRight}
           eventData={defenders[1] ? getPlayerEvents(defenders[1].id) : null}
           onPlayerClick={onPlayerClick}
         />
-        <PlayerNode 
-          player={goalkeeper} 
+        <PlayerNode
+          player={goalkeeper}
           position={positions.goalkeeper}
           eventData={goalkeeper ? getPlayerEvents(goalkeeper.id) : null}
           onPlayerClick={onPlayerClick}
@@ -328,7 +328,7 @@ function FieldFormation({ players, getPlayerEvents, onPlayerClick }: FieldFormat
       </div>
 
       {/* Drop shadow below field for 3D effect */}
-      <div 
+      <div
         className="absolute -bottom-3 left-4 right-4 h-6 rounded-b-2xl pointer-events-none"
         style={{
           background: 'linear-gradient(to bottom, rgba(0,0,0,0.3), transparent)',
@@ -359,14 +359,14 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
   const getPlayerEventsWithSub = useCallback((playerId: string): PlayerEventCounts | null => {
     const baseEvents = getPlayerEvents(playerId);
     const subMinute = subInMinuteMap.get(playerId);
-    
+
     if (baseEvents) {
       return {
         ...baseEvents,
         sub_in_minute: baseEvents.sub_in_minute ?? subMinute ?? null
       };
     }
-    
+
     // Se não tem eventos mas entrou via substituição, cria objeto mínimo com badge
     if (subMinute !== undefined) {
       console.log(`[MatchLineups] Creating sub badge for player ${playerId}, minute: ${subMinute}`);
@@ -379,7 +379,7 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
         is_starter: false
       };
     }
-    
+
     return null;
   }, [getPlayerEvents, subInMinuteMap]);
 
@@ -411,18 +411,18 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
     ];
 
     console.log(`[MatchLineups] ${teamColor} - Out: ${Array.from(playersOutIds)}, In: ${playersIn.map(p => p.nickname || p.name)}, OnField: ${onField.map(p => p.nickname || p.name)}`);
-    
+
     return onField;
   }, [substitutions]);
 
   // Jogadores em campo calculados com useMemo usando a função callback
-  const homeOnField = useMemo(() => 
-    getPlayersOnField(homePlayers, teamHome), 
+  const homeOnField = useMemo(() =>
+    getPlayersOnField(homePlayers, teamHome),
     [homePlayers, teamHome, getPlayersOnField]
   );
-  
-  const awayOnField = useMemo(() => 
-    getPlayersOnField(awayPlayers, teamAway), 
+
+  const awayOnField = useMemo(() =>
+    getPlayersOnField(awayPlayers, teamAway),
     [awayPlayers, teamAway, getPlayersOnField]
   );
 
@@ -492,9 +492,9 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
 
       {/* 3D Field with players */}
       <div className="w-full px-2">
-        <FieldFormation 
-          players={currentPlayers} 
-          getPlayerEvents={getPlayerEventsWithSub} 
+        <FieldFormation
+          players={currentPlayers}
+          getPlayerEvents={getPlayerEventsWithSub}
           onPlayerClick={handlePlayerClick}
         />
       </div>
