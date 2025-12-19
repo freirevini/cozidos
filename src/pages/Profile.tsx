@@ -64,18 +64,22 @@ export default function Profile() {
   // Auto-select most recent year when available
   useEffect(() => {
     if (availableYears.length > 0 && selectedYear === null && initialYear === null) {
-      setSelectedYear(availableYears[0]);
+      // Parse string year to number for state
+      const mostRecentYear = parseInt(availableYears[0]);
+      if (!isNaN(mostRecentYear)) {
+        setSelectedYear(mostRecentYear);
+      }
     }
   }, [availableYears]);
 
   const loadProfile = async () => {
     try {
       setLoading(true);
-      
+
       let profileId: string | null = null;
       let profileData: any = null;
       let isOwn = false;
-      
+
       // If viewing another player's profile
       if (urlProfileId) {
         const { data, error } = await supabase
@@ -101,12 +105,12 @@ export default function Profile() {
           .order("created_at", { ascending: false });
 
         if (error) throw error;
-        
+
         if (profiles && profiles.length > 0) {
           // Priorizar perfil aprovado ou mais recente
-          const selectedProfile = profiles.find(p => p.status === 'aprovado' || p.is_approved) 
+          const selectedProfile = profiles.find(p => p.status === 'aprovado' || p.is_approved)
             || profiles[0];
-          
+
           profileData = selectedProfile;
           profileId = selectedProfile.id;
           isOwn = true;
@@ -120,32 +124,32 @@ export default function Profile() {
           return;
         }
       }
-      
+
       if (!profileData || !profileId) {
         setLoading(false);
         return;
       }
-      
+
       // Buscar posição no ranking
       let rankingPosition: number | null = null;
       const { data: rankingData } = await supabase
         .from("player_rankings")
         .select("player_id, pontos_totais")
         .order("pontos_totais", { ascending: false });
-      
+
       if (rankingData) {
         const position = rankingData.findIndex(r => r.player_id === profileId);
         if (position !== -1) {
           rankingPosition = position + 1;
         }
       }
-      
+
       setProfile({
         ...profileData,
         ranking_position: rankingPosition,
       });
       setIsOwnProfile(isOwn);
-      
+
     } catch (error: any) {
       console.error("Erro ao carregar perfil:", error);
       toast({
@@ -187,7 +191,7 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="max-w-2xl mx-auto pb-8">
         {/* Profile Hero Header - MLS Style */}
         <ProfileHeroHeader
@@ -206,8 +210,8 @@ export default function Profile() {
         {/* Stats Tab */}
         <Tabs defaultValue="stats" className="w-full">
           <TabsList className="w-full justify-start px-4 bg-transparent border-b border-border/50 rounded-none h-auto py-0">
-            <TabsTrigger 
-              value="stats" 
+            <TabsTrigger
+              value="stats"
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
             >
               Estatísticas

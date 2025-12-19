@@ -72,11 +72,11 @@ export default function DefineTeams() {
 
   const loadAvailablePlayers = async () => {
     try {
-      // Buscar todos os jogadores
+      // Buscar jogadores com status 'aprovado'
       const { data: allPlayers, error } = await supabase
         .from("profiles")
         .select("id, name, nickname, level, position, status, claim_token")
-        .eq("is_player", true);
+        .eq("status", "aprovado");
 
       if (error) throw error;
 
@@ -85,12 +85,17 @@ export default function DefineTeams() {
 
       (allPlayers || []).forEach((player) => {
         const reasons: string[] = [];
-        
-        if (!player.nickname) reasons.push("Sem apelido");
+
+        // Critérios mínimos para jogar
+        if (!player.name && !player.nickname) reasons.push("Sem identificação");
         if (!player.level) reasons.push("Sem nível");
+        // Position e Nickname são importantes, mas se o usuário disse "Tem Nome, Nível e Status",
+        // vamos ser permissivos com Nickname se tiver Nome, mas idealmente Nickname é usado na UI.
+        // Vou manter a validação de Nickname pois o sistema usa muito, mas remover a do Token.
+        if (!player.nickname) reasons.push("Sem apelido");
         if (!player.position) reasons.push("Sem posição");
-        if (!player.claim_token) reasons.push("Sem token");
-        if (player.status !== "aprovado") reasons.push(`Status: ${player.status || "indefinido"}`);
+
+        // REMOVIDO filtro de claim_token e validação extra de status (já filtrado na query)
 
         if (reasons.length === 0) {
           eligible.push({
@@ -123,7 +128,7 @@ export default function DefineTeams() {
       toast.error(`Selecione exatamente ${numTeams} times`);
       return;
     }
-    
+
     setStep('select-date');
   };
 
@@ -150,7 +155,7 @@ export default function DefineTeams() {
 
   const balanceTeams = () => {
     setLoading(true);
-    
+
     try {
       // Separar jogadores por posição e nível
       const goalkeepers = availablePlayers.filter(p => p.position === 'goleiro');
@@ -160,7 +165,7 @@ export default function DefineTeams() {
 
       const levels = ['A', 'B', 'C', 'D', 'E'];
       const playersByLevel: Record<string, Player[]> = {};
-      
+
       levels.forEach(level => {
         playersByLevel[level] = availablePlayers.filter(
           p => p.level?.toUpperCase() === level && p.position !== 'goleiro'
@@ -169,7 +174,7 @@ export default function DefineTeams() {
 
       const totalFieldPlayers = Object.values(playersByLevel).flat().length;
       const requiredPlayers = selectedTeams.length * 5; // 5 jogadores de linha por time
-      
+
       if (totalFieldPlayers < requiredPlayers) {
         toast.error(`Não há jogadores de linha suficientes. Necessário: ${requiredPlayers}, Disponível: ${totalFieldPlayers}`);
         setLoading(false);
@@ -261,12 +266,12 @@ export default function DefineTeams() {
     for (const teamColor of selectedTeams) {
       const teamPlayers = teams[teamColor] || [];
       const fieldPlayers = teamPlayers.filter(p => p.position !== 'goleiro');
-      
+
       if (fieldPlayers.length < 5) {
         toast.error(`Time ${teamColor} precisa ter pelo menos 5 jogadores de linha`);
         return false;
       }
-      
+
       // Validar que tem pelo menos um jogador de cada nível A, B, C, D, E
       const levels = ['A', 'B', 'C', 'D', 'E'];
       for (const level of levels) {
@@ -404,11 +409,10 @@ export default function DefineTeams() {
                               setSelectedTeams([...selectedTeams, team]);
                             }
                           }}
-                          className={`p-4 rounded-lg font-bold capitalize transition-all ${
-                            selectedTeams.includes(team)
+                          className={`p-4 rounded-lg font-bold capitalize transition-all ${selectedTeams.includes(team)
                               ? teamColors[team]
                               : 'bg-muted text-muted-foreground'
-                          }`}
+                            }`}
                         >
                           {team}
                         </button>
@@ -421,8 +425,8 @@ export default function DefineTeams() {
                   <Button onClick={() => navigate("/admin/teams")} variant="outline" className="flex-1">
                     Voltar
                   </Button>
-                  <Button 
-                    onClick={handleTeamSelection} 
+                  <Button
+                    onClick={handleTeamSelection}
                     disabled={selectedTeams.length !== numTeams}
                     className="flex-1"
                   >
@@ -437,8 +441,8 @@ export default function DefineTeams() {
                     <Calendar size={16} />
                     Data da rodada:
                   </label>
-                  <Input 
-                    type="date" 
+                  <Input
+                    type="date"
                     value={scheduledDate}
                     onChange={(e) => setScheduledDate(e.target.value)}
                     className="w-full"
@@ -449,8 +453,8 @@ export default function DefineTeams() {
                   <Button onClick={() => setStep('select-teams')} variant="outline" className="flex-1">
                     Voltar
                   </Button>
-                  <Button 
-                    onClick={handleDateSelection} 
+                  <Button
+                    onClick={handleDateSelection}
                     disabled={!scheduledDate}
                     className="flex-1"
                   >
@@ -462,11 +466,11 @@ export default function DefineTeams() {
               <div className="space-y-4">
                 <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
                   <p className="text-sm sm:text-base text-foreground leading-relaxed">
-                    Cada time precisa ter <strong>5 jogadores de linha</strong> (um de cada nível A, B, C, D, E) 
+                    Cada time precisa ter <strong>5 jogadores de linha</strong> (um de cada nível A, B, C, D, E)
                     e pode ter <strong>1 goleiro</strong> (opcional).
                   </p>
                 </div>
-                
+
                 <Button
                   onClick={balanceTeams}
                   disabled={loading}
@@ -500,7 +504,7 @@ export default function DefineTeams() {
                           {selectedTeams.map((team) => {
                             const player = teams[team]?.[index];
                             const usedPlayerIds = Object.values(teams).flat().map(p => p.id);
-                            
+
                             return (
                               <td key={team} className="p-3 border border-border">
                                 <Select
@@ -514,9 +518,9 @@ export default function DefineTeams() {
                                           <span className="flex-1 text-left truncate">
                                             {player.nickname || player.name}
                                           </span>
-                                         <span className="text-xs font-bold text-muted-foreground ml-2">
-                                           {positionLabels[player.position] || player.position || "N/A"}
-                                         </span>
+                                          <span className="text-xs font-bold text-muted-foreground ml-2">
+                                            {positionLabels[player.position] || player.position || "N/A"}
+                                          </span>
                                         </div>
                                       )}
                                     </SelectValue>

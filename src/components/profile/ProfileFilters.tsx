@@ -1,7 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ProfileFiltersProps {
-  availableYears: number[];
+  availableYears: string[];
   selectedYear: number | null;
   selectedMonth: number | null;
   onYearChange: (year: number | null) => void;

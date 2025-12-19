@@ -55,7 +55,7 @@ const emptyStats: ProfileStats = {
 export function useProfileStats(profileId: string | undefined, year: number | null, month: number | null) {
   const [stats, setStats] = useState<ProfileStats>(emptyStats);
   const [roundStats, setRoundStats] = useState<RoundStats[]>([]);
-  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [availableYears, setAvailableYears] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -73,23 +73,33 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
 
   const loadAvailableYears = async (profileId: string) => {
     try {
+      // Buscar anos onde o player teve participação (player_round_stats)
       const { data: roundData } = await supabase
         .from("player_round_stats")
-        .select("round:rounds(scheduled_date)")
+        .select("round:rounds!inner(scheduled_date)")
         .eq("player_id", profileId);
 
-      if (roundData) {
-        const years = new Set<number>();
+      const years = new Set<string>();
+
+      if (roundData && roundData.length > 0) {
         roundData.forEach((r: any) => {
           if (r.round?.scheduled_date) {
-            years.add(new Date(r.round.scheduled_date).getFullYear());
+            years.add(new Date(r.round.scheduled_date).getFullYear().toString());
           }
         });
-        const sortedYears = Array.from(years).sort((a, b) => b - a);
-        setAvailableYears(sortedYears);
       }
+
+      // Se não tiver histórico, adiciona o ano atual como fallback
+      if (years.size === 0) {
+        years.add(new Date().getFullYear().toString());
+      }
+
+      const sortedYears = Array.from(years).sort((a, b) => Number(b) - Number(a));
+      setAvailableYears(sortedYears);
     } catch (error) {
       console.error("Error loading available years:", error);
+      // Fallback erro
+      setAvailableYears([new Date().getFullYear().toString()]);
     }
   };
 
@@ -97,17 +107,14 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
     try {
       setLoading(true);
 
-      // Fetch round stats with round info
-      const { data: playerRoundStats } = await supabase
-        .from("player_round_stats")
-        .select(`
-          *,
-          round:rounds(id, round_number, scheduled_date)
-        `)
-        .eq("player_id", profileId);
+      const currentYear = new Date().getFullYear();
+      const isHybridEligible = !year || year === currentYear;
 
-      // If no round stats, try fallback to player_rankings
-      if (!playerRoundStats || playerRoundStats.length === 0) {
+      // --- 1. Fetch Base Matrix (Player Rankings) ---
+      let baseStats: ProfileStats | null = null;
+      let rankingUpdatedAt: string | null = null;
+
+      if (isHybridEligible) {
         const { data: rankingData } = await supabase
           .from("player_rankings")
           .select("*")
@@ -115,8 +122,7 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
           .single();
 
         if (rankingData) {
-          // Use ranking data as stats
-          setStats({
+          baseStats = {
             presencas: rankingData.presencas || 0,
             gols: rankingData.gols || 0,
             assistencias: rankingData.assistencias || 0,
@@ -128,105 +134,172 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
             punicoes: rankingData.punicoes || 0,
             pontos_totais: rankingData.pontos_totais || 0,
             partidas: (rankingData.vitorias || 0) + (rankingData.empates || 0) + (rankingData.derrotas || 0),
-          });
-          setRoundStats([]);
-          setLoading(false);
-          return;
+          };
+          rankingUpdatedAt = rankingData.updated_at;
         }
-
-        setStats(emptyStats);
-        setRoundStats([]);
-        setLoading(false);
-        return;
       }
 
-      // Filter by year and month
-      let filteredRoundStats = playerRoundStats.filter((rs: any) => {
-        if (!rs.round?.scheduled_date) return false;
-        const date = new Date(rs.round.scheduled_date);
-        if (year && date.getFullYear() !== year) return false;
-        if (month && (date.getMonth() + 1) !== month) return false;
-        return true;
-      });
+      // --- 2. Calculate Range / Delta Filter ---
+      let matchQuery = supabase
+        .from("player_round_stats")
+        .select(`
+          *,
+          round:rounds!inner(id, round_number, scheduled_date)
+        `)
+        .eq("player_id", profileId);
 
-      // Count goals for filtered period
+      // Filter Logic
+      if (year) {
+        // Standard Year Filter
+        matchQuery = matchQuery
+          .gte('round.scheduled_date', `${year}-01-01`)
+          .lte('round.scheduled_date', `${year}-12-31`);
+      }
+
+      // If Hybrid and we have a Base, only fetch matches AFTER the ranking update
+      // BUT: For charts/history, we usually want ALL matches of the period anyway.
+      // Strategy: Fetch ALL matches for the period to support charts, 
+      // but calculate Totals by summing Base + Delta(matches > updated_at).
+
+      const { data: playerRoundStats, error: statsError } = await matchQuery;
+      if (statsError) throw statsError;
+
+      // --- 3. Filter for Goals/Assists/Punishments (Standard) ---
+      // We need these for the charts/graphs regardless of Hybrid Logic
       let goalsQuery = supabase
         .from("goals")
-        .select(`
-          id,
-          is_own_goal,
-          match:matches(round:rounds(scheduled_date))
-        `)
+        .select(`id, is_own_goal, match:matches!inner(round:rounds!inner(scheduled_date))`)
         .eq("player_id", profileId)
         .eq("is_own_goal", false);
 
-      const { data: goals } = await goalsQuery;
-      
-      let filteredGoals = goals?.filter((g: any) => {
-        if (!g.match?.round?.scheduled_date) return false;
-        const date = new Date(g.match.round.scheduled_date);
-        if (year && date.getFullYear() !== year) return false;
-        if (month && (date.getMonth() + 1) !== month) return false;
-        return true;
-      }) || [];
-
-      // Count assists for filtered period
-      const { data: assists } = await supabase
+      let assistsQuery = supabase
         .from("assists")
-        .select(`
-          id,
-          goal:goals(match:matches(round:rounds(scheduled_date)))
-        `)
+        .select(`id, goal:goals!inner(match:matches!inner(round:rounds!inner(scheduled_date)))`)
         .eq("player_id", profileId);
 
-      let filteredAssists = assists?.filter((a: any) => {
-        if (!a.goal?.match?.round?.scheduled_date) return false;
-        const date = new Date(a.goal.match.round.scheduled_date);
-        if (year && date.getFullYear() !== year) return false;
-        if (month && (date.getMonth() + 1) !== month) return false;
-        return true;
-      }) || [];
-
-      // Count punishments for filtered period
-      const { data: punishments } = await supabase
+      let punishmentsQuery = supabase
         .from("punishments")
-        .select(`
-          id,
-          points,
-          round:rounds(scheduled_date)
-        `)
+        .select(`id, points, round:rounds!inner(scheduled_date)`)
         .eq("player_id", profileId);
 
-      let filteredPunishments = punishments?.filter((p: any) => {
-        if (!p.round?.scheduled_date) return false;
-        const date = new Date(p.round.scheduled_date);
-        if (year && date.getFullYear() !== year) return false;
-        if (month && (date.getMonth() + 1) !== month) return false;
-        return true;
-      }) || [];
+      if (year) {
+        goalsQuery = goalsQuery.gte('match.round.scheduled_date', `${year}-01-01`).lte('match.round.scheduled_date', `${year}-12-31`);
+        assistsQuery = assistsQuery.gte('goal.match.round.scheduled_date', `${year}-01-01`).lte('goal.match.round.scheduled_date', `${year}-12-31`);
+        punishmentsQuery = punishmentsQuery.gte('round.scheduled_date', `${year}-01-01`).lte('round.scheduled_date', `${year}-12-31`);
+      }
 
-      // Aggregate stats
-      const aggregated = filteredRoundStats.reduce((acc: ProfileStats, rs: any) => ({
-        presencas: acc.presencas + ((rs.presence_points || 0) > 0 ? 1 : 0),
-        gols: acc.gols,
-        assistencias: acc.assistencias,
-        vitorias: acc.vitorias + (rs.victories || 0),
-        empates: acc.empates + (rs.draws || 0),
-        derrotas: acc.derrotas + (rs.defeats || 0),
-        cartoes_amarelos: acc.cartoes_amarelos + (rs.yellow_cards || 0),
-        cartoes_azuis: acc.cartoes_azuis + (rs.blue_cards || 0),
-        punicoes: acc.punicoes,
-        pontos_totais: acc.pontos_totais + (rs.total_points || 0),
-        partidas: acc.partidas + (rs.victories || 0) + (rs.draws || 0) + (rs.defeats || 0),
-      }), { ...emptyStats });
+      const [{ data: goals }, { data: assists }, { data: punishments }] = await Promise.all([
+        goalsQuery,
+        assistsQuery,
+        punishmentsQuery
+      ]);
 
-      aggregated.gols = filteredGoals.length;
-      aggregated.assistencias = filteredAssists.length;
-      aggregated.punicoes = filteredPunishments.reduce((sum, p) => sum + Math.abs(p.points || 0), 0);
+      // Refine Mês (Client-Side)
+      let filteredRoundStats = playerRoundStats || [];
+      const filteredGoals = goals || [];
+      const filteredAssists = assists || [];
+      const filteredPunishments = punishments || [];
+
+      if (month) {
+        filteredRoundStats = filteredRoundStats.filter((rs: any) => new Date(rs.round?.scheduled_date).getMonth() + 1 === month);
+        // Note: We don't filter Goals/Assists arrays for the TOTAL aggregation if we are using Hybrid,
+        // but for Charts we might. 
+      }
+
+      // --- 4. Calculate Final Stats ---
+      let aggregated: ProfileStats;
+
+      if (baseStats && isHybridEligible && !month) {
+        // HYBRID LOGIC: Base + Delta
+        // Delta = Matches that happened strictly AFTER the ranking update
+        // This avoids double counting if the styling update timestamp is accurate.
+        // However, usually 'updated_at' updates on any change. 
+        // Risk: If a match happened at 10:00, and Ranking updated at 10:05 (including that match),
+        // we should NOT add it. So we strictly want matches > updated_at.
+
+        const deltaRoundStats = filteredRoundStats.filter((rs: any) => {
+          if (!rankingUpdatedAt || !rs.round?.scheduled_date) return false;
+          return new Date(rs.round.scheduled_date) > new Date(rankingUpdatedAt);
+        });
+
+        // We need to fetch specific goals/assists for Delta too, or filter existing ones
+        const deltaGoals = filteredGoals.filter(g => {
+          const d = g.match?.round?.scheduled_date;
+          return d && rankingUpdatedAt && new Date(d) > new Date(rankingUpdatedAt);
+        });
+        const deltaAssists = filteredAssists.filter(a => {
+          const d = a.goal?.match?.round?.scheduled_date;
+          return d && rankingUpdatedAt && new Date(d) > new Date(rankingUpdatedAt);
+        });
+        const deltaPunishments = filteredPunishments.filter(p => {
+          const d = p.round?.scheduled_date;
+          return d && rankingUpdatedAt && new Date(d) > new Date(rankingUpdatedAt);
+        });
+
+        const deltaAggregated = deltaRoundStats.reduce((acc: ProfileStats, rs: any) => ({
+          presencas: acc.presencas + ((rs.presence_points || 0) > 0 ? 1 : 0),
+          gols: acc.gols,
+          assistencias: acc.assistencias,
+          vitorias: acc.vitorias + (rs.victories || 0),
+          empates: acc.empates + (rs.draws || 0),
+          derrotas: acc.derrotas + (rs.defeats || 0),
+          cartoes_amarelos: acc.cartoes_amarelos + (rs.yellow_cards || 0),
+          cartoes_azuis: acc.cartoes_azuis + (rs.blue_cards || 0),
+          punicoes: acc.punicoes,
+          pontos_totais: acc.pontos_totais + (rs.total_points || 0),
+          partidas: acc.partidas + (rs.victories || 0) + (rs.draws || 0) + (rs.defeats || 0),
+        }), { ...emptyStats });
+
+        deltaAggregated.gols = deltaGoals.length;
+        deltaAggregated.assistencias = deltaAssists.length;
+        deltaAggregated.punicoes = deltaPunishments.reduce((sum, p) => sum + Math.abs(p.points || 0), 0);
+
+        // SUM Base + Delta
+        aggregated = {
+          presencas: baseStats.presencas + deltaAggregated.presencas,
+          gols: baseStats.gols + deltaAggregated.gols,
+          assistencias: baseStats.assistencias + deltaAggregated.assistencias,
+          vitorias: baseStats.vitorias + deltaAggregated.vitorias,
+          empates: baseStats.empates + deltaAggregated.empates,
+          derrotas: baseStats.derrotas + deltaAggregated.derrotas,
+          cartoes_amarelos: baseStats.cartoes_amarelos + deltaAggregated.cartoes_amarelos,
+          cartoes_azuis: baseStats.cartoes_azuis + deltaAggregated.cartoes_azuis,
+          punicoes: baseStats.punicoes + deltaAggregated.punicoes,
+          pontos_totais: baseStats.pontos_totais + deltaAggregated.pontos_totais,
+          partidas: baseStats.partidas + deltaAggregated.partidas
+        };
+
+      } else {
+        // STANDARD LOGIC (From Matches only)
+        // Used for Month filters or Past Years (where we assume no current ranking snapshot)
+
+        aggregated = filteredRoundStats.reduce((acc: ProfileStats, rs: any) => ({
+          presencas: acc.presencas + ((rs.presence_points || 0) > 0 ? 1 : 0),
+          gols: acc.gols, // Will update from goals query
+          assistencias: acc.assistencias, // Will update from assists query
+          vitorias: acc.vitorias + (rs.victories || 0),
+          empates: acc.empates + (rs.draws || 0),
+          derrotas: acc.derrotas + (rs.defeats || 0),
+          cartoes_amarelos: acc.cartoes_amarelos + (rs.yellow_cards || 0),
+          cartoes_azuis: acc.cartoes_azuis + (rs.blue_cards || 0),
+          punicoes: acc.punicoes, // Will update from punishments query
+          pontos_totais: acc.pontos_totais + (rs.total_points || 0),
+          partidas: acc.partidas + (rs.victories || 0) + (rs.draws || 0) + (rs.defeats || 0),
+        }), { ...emptyStats });
+
+        aggregated.gols = filteredGoals.length;
+        aggregated.assistencias = filteredAssists.length;
+        aggregated.punicoes = filteredPunishments.reduce((sum, p) => sum + Math.abs(p.points || 0), 0);
+      }
 
       setStats(aggregated);
 
-      // Build round stats for chart
+      // --- 5. Generate Charts (Always from Matches Logic) ---
+      // Charts show the *event history*, so they should reflect the filteredRoundStats
+      // even if the Totals above are hybrid. 
+      // This might cause a slight "visual mismatch" (Sum of chart != Total) if admins Manual Edited stats,
+      // but it's the correct behavior: Charts show *Games*, Totals show *Official Stats*.
+
       const roundStatsArray: RoundStats[] = filteredRoundStats.map((rs: any) => ({
         round_id: rs.round?.id || rs.round_id,
         round_number: rs.round?.round_number || 0,
@@ -244,14 +317,12 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
         partidas: (rs.victories || 0) + (rs.draws || 0) + (rs.defeats || 0),
       })).sort((a, b) => a.round_number - b.round_number);
 
-      // Add goals per round
+      // Map goals/assists to rounds
       for (const goal of filteredGoals) {
         const roundDate = goal.match?.round?.scheduled_date;
         const roundStat = roundStatsArray.find(rs => rs.round_date === roundDate);
         if (roundStat) roundStat.gols += 1;
       }
-
-      // Add assists per round
       for (const assist of filteredAssists) {
         const roundDate = assist.goal?.match?.round?.scheduled_date;
         const roundStat = roundStatsArray.find(rs => rs.round_date === roundDate);
@@ -259,6 +330,7 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
       }
 
       setRoundStats(roundStatsArray);
+
     } catch (error) {
       console.error("Error loading profile stats:", error);
     } finally {
@@ -293,11 +365,11 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
       const date = new Date(rs.round_date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const monthLabel = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-      
+
       if (!monthlyStats[monthKey]) {
         monthlyStats[monthKey] = { ...emptyStats, month: monthLabel };
       }
-      
+
       monthlyStats[monthKey].presencas += rs.presencas;
       monthlyStats[monthKey].gols += rs.gols;
       monthlyStats[monthKey].assistencias += rs.assistencias;
