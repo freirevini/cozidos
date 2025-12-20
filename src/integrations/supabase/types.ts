@@ -971,7 +971,9 @@ export type Database = {
         Returns: Json
       }
       reset_all_data: { Args: never; Returns: undefined }
-      reset_all_players: { Args: never; Returns: Json }
+      reset_all_players:
+        | { Args: never; Returns: Json }
+        | { Args: { p_keep_admin_id?: string }; Returns: Json }
       reset_full_classification: { Args: never; Returns: Json }
       reset_player_rankings: { Args: never; Returns: Json }
       set_player_birth_date: {
