@@ -14,6 +14,7 @@ import { Download, Upload, FileText, CheckCircle, XCircle, AlertTriangle, Users 
 import {
   downloadTemplate,
   downloadCSV,
+  generateErrorsCSV,
   validateClassificationImportRow,
   type ClassificationImportResult
 } from "@/utils/csv";
