@@ -138,12 +138,14 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
               Formato do arquivo
             </h4>
             <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2">
-                <Badge className="bg-primary/20 text-primary">Obrigatórios</Badge>
-                <code className="bg-muted px-2 py-0.5 rounded">Nickname</code>
-                <span className="text-muted-foreground">e</span>
-                <code className="bg-muted px-2 py-0.5 rounded">Token</code>
-                <span className="text-muted-foreground">- o jogador DEVE existir no sistema</span>
+              <div className="flex flex-col gap-1">
+                <Badge className="bg-primary/20 text-primary w-fit">Campos Obrigatórios</Badge>
+                <div className="flex flex-wrap gap-1">
+                  <code className="bg-muted px-2 py-0.5 rounded">Nickname</code>
+                  <code className="bg-muted px-2 py-0.5 rounded">Token</code>
+                  <code className="bg-muted px-2 py-0.5 rounded">Level</code>
+                  <code className="bg-muted px-2 py-0.5 rounded">Position</code>
+                </div>
               </div>
 
               <div className="pl-4 border-l-2 border-border space-y-1">
@@ -161,9 +163,9 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
             </div>
 
             <div className="mt-3 bg-background rounded p-2 text-xs font-mono overflow-x-auto">
-              Nickname,Token,Gols,Assistencias,Vitorias,Empates,Derrotas,Pontos_Totais,Ano<br />
-              felipe,,10,4,6,2,2,20,2023<br />
-              ,AB12CD34,8,6,5,3,2,18,2023
+              Nickname,Token,Level,Position,Gols,Assistencias,Vitorias,Empates,Derrotas,Pontos_Totais,Ano<br />
+              felipe,ABC12345,A,atacante,10,4,6,2,2,20,2023<br />
+              joesley,XYZ67890,B,meio-campista,8,6,5,3,2,18,2023
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
@@ -202,7 +204,7 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
           {/* Preview */}
           {previewData.length > 0 && !result && (
             <div className="space-y-2">
-              <h4 className="font-medium">Preview ({previewData.length} linhas)</h4>
+              <h4 className="font-medium">Preview (mostrando {previewData.length} de {fullData.length} linhas)</h4>
               <div className="max-h-40 overflow-x-auto border rounded-lg">
                 <table className="w-full text-sm min-w-[600px]">
                   <thead className="bg-muted/50 sticky top-0">

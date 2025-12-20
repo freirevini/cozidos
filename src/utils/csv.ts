@@ -38,16 +38,16 @@ export interface ClassificationImportResult extends ImportResult {
   profiles_created: number;
 }
 
-// Players template
-export const PLAYERS_TEMPLATE = `Nickname,Level
-felipe,A
-joesley,B
-lulu,C`;
+// Players template - Token is auto-generated, not required for import
+export const PLAYERS_TEMPLATE = `Nickname,Level,Position
+felipe,A,atacante
+joesley,B,meio-campista
+lulu,C,defensor`;
 
-// Classification template
-export const CLASSIFICATION_TEMPLATE = `Nickname,Token,Gols,Assistencias,Vitorias,Empates,Derrotas,Pontos_Totais,Ano
-felipe,,10,4,6,2,2,20,2023
-,AB12CD34,8,6,5,3,2,18,2023`;
+// Classification template - Token required to identify existing players
+export const CLASSIFICATION_TEMPLATE = `Nickname,Token,Level,Position,Gols,Assistencias,Vitorias,Empates,Derrotas,Pontos_Totais,Ano
+felipe,ABC12345,A,atacante,10,4,6,2,2,20,2023
+joesley,XYZ67890,B,meio-campista,8,6,5,3,2,18,2023`;
 
 export function generateCSV(headers: string[], rows: any[][]): string {
   const csvContent = [
@@ -104,6 +104,7 @@ export function generateTokensCSV(results: Array<{ nickname: string; claim_token
 export function validatePlayerImportRow(row: any): { valid: boolean; error?: string } {
   const nickname = row?.Nickname || row?.nickname;
   const level = row?.Level || row?.level || row?.Nivel || row?.nivel;
+  const position = row?.Position || row?.position || row?.Posicao || row?.posicao;
 
   if (!nickname || !nickname.toString().trim()) {
     return { valid: false, error: 'Nickname é obrigatório' };
@@ -114,12 +115,20 @@ export function validatePlayerImportRow(row: any): { valid: boolean; error?: str
     return { valid: false, error: 'Level inválido (deve ser A, B, C, D ou E)' };
   }
 
+  const validPositions = ['goleiro', 'defensor', 'meio-campista', 'meio_campo', 'atacante'];
+  const lowerPosition = position?.toString().toLowerCase().trim();
+  if (!lowerPosition || !validPositions.includes(lowerPosition)) {
+    return { valid: false, error: `Posição inválida: '${position || ''}'. Valores aceitos: goleiro, defensor, meio-campista, atacante` };
+  }
+
   return { valid: true };
 }
 
 export function validateClassificationImportRow(row: any): { valid: boolean; error?: string } {
   const nickname = row?.Nickname || row?.nickname;
   const token = row?.Token || row?.token || row?.ClaimToken || row?.claim_token;
+  const level = row?.Level || row?.level || row?.Nivel || row?.nivel;
+  const position = row?.Position || row?.position || row?.Posicao || row?.posicao;
   const ano = row?.Ano || row?.ano;
 
   if (!nickname || !nickname.toString().trim()) {
@@ -128,6 +137,17 @@ export function validateClassificationImportRow(row: any): { valid: boolean; err
 
   if (!token || !token.toString().trim()) {
     return { valid: false, error: 'Token é obrigatório' };
+  }
+
+  const upperLevel = level?.toString().toUpperCase().trim();
+  if (!upperLevel || !['A', 'B', 'C', 'D', 'E'].includes(upperLevel)) {
+    return { valid: false, error: 'Level inválido (deve ser A, B, C, D ou E)' };
+  }
+
+  const validPositions = ['goleiro', 'defensor', 'meio-campista', 'meio_campo', 'atacante'];
+  const lowerPosition = position?.toString().toLowerCase().trim();
+  if (!lowerPosition || !validPositions.includes(lowerPosition)) {
+    return { valid: false, error: `Posição inválida: '${position || ''}'. Valores aceitos: goleiro, defensor, meio-campista, atacante` };
   }
 
   if (ano) {

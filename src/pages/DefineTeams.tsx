@@ -95,8 +95,6 @@ export default function DefineTeams() {
         if (!player.nickname) reasons.push("Sem apelido");
         if (!player.position) reasons.push("Sem posição");
 
-        // REMOVIDO filtro de claim_token e validação extra de status (já filtrado na query)
-
         if (reasons.length === 0) {
           eligible.push({
             id: player.id,
@@ -410,8 +408,8 @@ export default function DefineTeams() {
                             }
                           }}
                           className={`p-4 rounded-lg font-bold capitalize transition-all ${selectedTeams.includes(team)
-                              ? teamColors[team]
-                              : 'bg-muted text-muted-foreground'
+                            ? teamColors[team]
+                            : 'bg-muted text-muted-foreground'
                             }`}
                         >
                           {team}
