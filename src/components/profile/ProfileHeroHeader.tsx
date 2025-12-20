@@ -1,8 +1,9 @@
 import { Badge } from "@/components/ui/badge";
 import { AvatarUpload } from "@/components/AvatarUpload";
-import { Camera, Shield } from "lucide-react";
+import { Camera, Trophy } from "lucide-react";
 import { useState } from "react";
-import logoCozidos from "@/assets/logo-cozidos-novo.png";
+import logoPink from "@/assets/logo-pink.png";
+import bgCard from "@/assets/bg-card.png";
 
 interface ProfileHeroHeaderProps {
   id: string;
@@ -62,7 +63,7 @@ export function ProfileHeroHeader({
   };
 
   return (
-    <div className="relative w-full bg-background overflow-hidden border-b border-border/50">
+    <div className="relative w-full bg-background overflow-hidden border-b border-border/50 font-sans">
       {/* Upload Modal Overlay */}
       {isOwnProfile && showUpload && (
         <div className="absolute inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
@@ -83,33 +84,98 @@ export function ProfileHeroHeader({
       )}
 
       {/* Main Card Container */}
-      <div className="relative h-[480px] sm:h-[500px] w-full max-w-md mx-auto sm:max-w-none">
+      <div className="relative h-[440px] sm:h-[500px] w-full max-w-md mx-auto sm:max-w-none shadow-2xl">
 
-        {/* Layer 0: Background Gradient & Pattern */}
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-background/90 to-background z-0"></div>
-
-        {/* Layer 1: Team Logo Aura (Background) */}
-        <div className="absolute inset-x-0 bottom-20 flex justify-center z-10 opacity-10 pointer-events-none">
+        {/* Layer 0: Unified Background Image */}
+        <div className="absolute inset-0 z-0">
           <img
-            src={logoCozidos}
-            alt="Logo Background"
-            className="w-[120%] h-auto max-w-none ml-20 sm:ml-0 scale-150 blur-[2px]"
+            src={bgCard}
+            alt="Background"
+            className="w-full h-full object-cover opacity-90"
           />
+          {/* Dark gradient overlay to ensure text readability */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent"></div>
         </div>
 
-        {/* Layer 2: Player Image (Transparent PNG) */}
-        <div className="absolute inset-0 z-20 flex items-end justify-center overflow-hidden">
+        {/* Content Grid */}
+        <div className="absolute inset-0 z-30 grid grid-cols-2 p-6 pb-2">
+
+          {/* LEFT COLUMN: Info */}
+          <div className="flex flex-col items-start justify-between h-full py-4">
+
+            {/* Top: Team Logo */}
+            <div className="animate-in fade-in slide-in-from-left-4 duration-700">
+              <img
+                src={logoPink}
+                alt="Cozidos FC"
+                className="w-20 sm:w-24 drop-shadow-[0_0_15px_rgba(236,72,153,0.5)]"
+              />
+            </div>
+
+            {/* Middle/Bottom: Player Details */}
+            <div className="flex flex-col items-start gap-4 mb-8">
+              <div className="flex flex-col">
+                {/* Name */}
+                <h1 className="text-5xl sm:text-6xl font-black text-white italic tracking-tighter uppercase leading-[0.85] drop-shadow-lg"
+                  style={{ textShadow: '4px 4px 0px rgba(0,0,0,0.5)' }}>
+                  {displayName}
+                </h1>
+              </div>
+
+              {/* Ranking Badge & Level */}
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Ranking */}
+                <div className="flex items-center gap-2 bg-amber-400 px-3 py-1 rounded-full shadow-lg shadow-amber-900/40 transform -skew-x-12">
+                  <Trophy size={16} className="text-black" />
+                  <span className="text-lg font-black text-black">
+                    {rankingPosition ? `${rankingPosition}º` : '-'}
+                  </span>
+                </div>
+
+                {level && (
+                  <div className="bg-pink-600 px-3 py-1 rounded-full shadow-lg transform -skew-x-12">
+                    <span className="text-sm font-bold text-white tracking-wide">
+                      NÍVEL {level}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Position & Age */}
+              <div className="flex gap-4 text-gray-300 font-medium text-sm mt-1 ml-1">
+                {position && (
+                  <span className="uppercase tracking-widest border-l-2 border-pink-500 pl-2">
+                    {positionMap[position] || position}
+                  </span>
+                )}
+                {age && (
+                  <span className="border-l-2 border-gray-600 pl-2">
+                    {age} ANOS
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: Player Image */}
+          <div className="relative h-full flex items-end justify-center pointer-events-none">
+            {/* The image is positioned absolutely to settle at the bottom right/center */}
+          </div>
+        </div>
+
+        {/* Layer 2: Player Image (Outside grid to allow overflow/custom positioning) */}
+        <div className="absolute inset-0 z-20 pointer-events-none">
           {currentAvatarUrl ? (
             <img
               src={currentAvatarUrl}
               alt={displayName}
-              className="h-[95%] w-auto object-contain object-bottom drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] transition-transform hover:scale-105 duration-700"
+              className="absolute bottom-0 right-[-10%] sm:right-[5%] h-[90%] sm:h-[95%] object-contain object-bottom drop-shadow-2xl filter contrast-110"
             />
           ) : (
-            // Fallback for no image
-            <div className="mb-20">
-              <div className="w-48 h-48 rounded-full bg-secondary/30 flex items-center justify-center border-4 border-secondary/50 backdrop-blur-md">
-                <span className="text-7xl font-bold text-primary opacity-80">
+            // Fallback: Standard layout but with avatar placeholder in the "photo spot"
+            <div className="absolute bottom-0 right-[5%] sm:right-[15%] h-[50%] flex items-end opacity-80">
+              <div className="w-48 h-48 rounded-full bg-secondary/20 backdrop-blur-sm border-4 border-pink-500/30 flex items-center justify-center mb-12">
+                <span className="text-7xl font-bold text-white/50">
                   {displayName.charAt(0).toUpperCase()}
                 </span>
               </div>
@@ -117,51 +183,13 @@ export function ProfileHeroHeader({
           )}
         </div>
 
-        {/* Layer 3: Info Overlay Gradient */}
-        <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background via-background/90 to-transparent z-30 pointer-events-none"></div>
-
-        {/* Layer 4: Text Content */}
-        <div className="absolute bottom-0 left-0 right-0 z-40 p-6 flex flex-col items-start sm:items-center">
-
-          <div className="flex items-center gap-2 mb-1">
-            {rankingPosition && rankingPosition > 0 && (
-              <Badge className="bg-amber-500 hover:bg-amber-600 text-black font-bold h-6 px-2 shadow-lg shadow-amber-900/20">
-                #{rankingPosition}
-              </Badge>
-            )}
-            {level && (
-              <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 h-6 px-2 backdrop-blur-sm">
-                NÍVEL {level}
-              </Badge>
-            )}
-          </div>
-
-          <h1 className="text-5xl sm:text-6xl font-black text-foreground uppercase tracking-tighter leading-none mb-2" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
-            {displayName}
-          </h1>
-
-          <div className="flex items-center gap-4 text-sm sm:text-base font-medium text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <Shield size={16} className="text-primary" />
-              <span className="text-foreground">{position ? (positionMap[position] || position).toUpperCase() : 'JOGADOR'}</span>
-            </div>
-
-            {age !== null && (
-              <>
-                <span className="w-1 h-1 rounded-full bg-border"></span>
-                <span>{age} ANOS</span>
-              </>
-            )}
-          </div>
-        </div>
-
         {/* Edit Button */}
         {isOwnProfile && !showUpload && (
           <button
             onClick={() => setShowUpload(true)}
-            className="absolute top-4 right-4 z-50 p-3 bg-secondary/80 hover:bg-secondary backdrop-blur-md rounded-full shadow-lg border border-white/10 transition-all active:scale-95 group"
+            className="absolute top-4 right-4 z-50 p-3 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full border border-white/20 text-white transition-all hover:scale-105 active:scale-95"
           >
-            <Camera className="w-5 h-5 text-primary group-hover:text-primary/80" />
+            <Camera className="w-5 h-5" />
           </button>
         )}
       </div>

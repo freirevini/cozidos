@@ -28,6 +28,7 @@ interface ImportClassificationDialogProps {
 export function ImportClassificationDialog({ open, onOpenChange, onImport }: ImportClassificationDialogProps) {
   const [importing, setImporting] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
+  const [fullData, setFullData] = useState<any[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [result, setResult] = useState<ClassificationImportResult | null>(null);
 
@@ -37,6 +38,8 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
 
     setResult(null);
     setValidationErrors([]);
+    setFullData([]);
+    setPreviewData([]);
 
     try {
       // Fetch valid tokens
@@ -58,9 +61,14 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
         complete: (results) => {
           const data = results.data as any[];
 
-          // Validate first 10 rows for preview
+          // Store full data for import
+          setFullData(data);
+          // Store slice for preview
+          setPreviewData(data.slice(0, 10));
+
+          // Validate ALL rows
           const errors: string[] = [];
-          data.slice(0, 10).forEach((row, idx) => {
+          data.forEach((row, idx) => {
             const validation = validateClassificationImportRow(row);
             if (!validation.valid) {
               errors.push(`Linha ${idx + 1}: ${validation.error}`);
@@ -73,7 +81,6 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
           });
 
           setValidationErrors(errors);
-          setPreviewData(data.slice(0, 10));
         }
       });
     } catch (error) {
@@ -84,11 +91,12 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
   };
 
   const handleImport = async () => {
-    if (previewData.length === 0) return;
+    if (fullData.length === 0) return;
 
     setImporting(true);
     try {
-      const importResult = await onImport(previewData);
+      // Send full data to import function
+      const importResult = await onImport(fullData);
       setResult(importResult);
     } finally {
       setImporting(false);
@@ -103,6 +111,7 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
 
   const handleClose = () => {
     setPreviewData([]);
+    setFullData([]);
     setValidationErrors([]);
     setResult(null);
     onOpenChange(false);
