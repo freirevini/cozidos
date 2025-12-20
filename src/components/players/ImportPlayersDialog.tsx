@@ -17,6 +17,7 @@ import {
   generateTokensCSV,
   generateErrorsCSV,
   validatePlayerImportRow,
+  normalizePosition,
   type ImportResult
 } from "@/utils/csv";
 
@@ -29,6 +30,7 @@ interface ImportPlayersDialogProps {
 export function ImportPlayersDialog({ open, onOpenChange, onImport }: ImportPlayersDialogProps) {
   const [importing, setImporting] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
+  const [fullData, setFullData] = useState<any[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [result, setResult] = useState<ImportResult | null>(null);
 
@@ -38,6 +40,8 @@ export function ImportPlayersDialog({ open, onOpenChange, onImport }: ImportPlay
 
     setResult(null);
     setValidationErrors([]);
+    setFullData([]);
+    setPreviewData([]);
 
     try {
       const text = await file.text();
@@ -49,9 +53,24 @@ export function ImportPlayersDialog({ open, onOpenChange, onImport }: ImportPlay
         complete: (results) => {
           const data = results.data as any[];
 
-          // Validate first 10 rows for preview
+          // Normalize Position and Level
+          const normalizedData = data.map(row => {
+            const position = row.Position || row.position || row.Posicao || row.posicao;
+            const level = row.Level || row.level || row.Nivel || row.nivel;
+
+            return {
+              ...row,
+              Position: normalizePosition(position), // Use the robust function
+              Level: level?.toString().toUpperCase().trim()
+            };
+          });
+
+          setFullData(normalizedData);
+
+          // Validate first 10 rows for preview (or all rows if possible, but keeping preview logic simple)
           const errors: string[] = [];
-          data.slice(0, 10).forEach((row, idx) => {
+          normalizedData.forEach((row, idx) => {
+            // Only validate preview or full? Better validate all to show errors
             const validation = validatePlayerImportRow(row);
             if (!validation.valid) {
               errors.push(`Linha ${idx + 1}: ${validation.error}`);
@@ -59,7 +78,7 @@ export function ImportPlayersDialog({ open, onOpenChange, onImport }: ImportPlay
           });
 
           setValidationErrors(errors);
-          setPreviewData(data.slice(0, 10));
+          setPreviewData(normalizedData.slice(0, 10));
         }
       });
     } catch (error) {
@@ -74,7 +93,7 @@ export function ImportPlayersDialog({ open, onOpenChange, onImport }: ImportPlay
 
     setImporting(true);
     try {
-      const importResult = await onImport(previewData);
+      const importResult = await onImport(fullData);
       setResult(importResult);
     } finally {
       setImporting(false);
@@ -95,6 +114,7 @@ export function ImportPlayersDialog({ open, onOpenChange, onImport }: ImportPlay
 
   const handleClose = () => {
     setPreviewData([]);
+    setFullData([]);
     setValidationErrors([]);
     setResult(null);
     onOpenChange(false);
@@ -170,7 +190,7 @@ export function ImportPlayersDialog({ open, onOpenChange, onImport }: ImportPlay
           {/* Preview */}
           {previewData.length > 0 && !result && (
             <div className="space-y-2">
-              <h4 className="font-medium">Preview ({previewData.length} linhas)</h4>
+              <h4 className="font-medium">Preview (mostrando {previewData.length} de {fullData.length} linhas)</h4>
               <div className="max-h-40 overflow-y-auto border rounded-lg">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 sticky top-0">

@@ -87,13 +87,11 @@ export default function DefineTeams() {
         const reasons: string[] = [];
 
         // Critérios mínimos para jogar
-        if (!player.name && !player.nickname) reasons.push("Sem identificação");
+        if (player.name === null && player.nickname === null) reasons.push("Sem identificação");
         if (!player.level) reasons.push("Sem nível");
-        // Position e Nickname são importantes, mas se o usuário disse "Tem Nome, Nível e Status",
-        // vamos ser permissivos com Nickname se tiver Nome, mas idealmente Nickname é usado na UI.
-        // Vou manter a validação de Nickname pois o sistema usa muito, mas remover a do Token.
         if (!player.nickname) reasons.push("Sem apelido");
-        if (!player.position) reasons.push("Sem posição");
+        // Removed position check to allow all approved players.
+        // if (!player.position) reasons.push("Sem posição"); 
 
         if (reasons.length === 0) {
           eligible.push({
@@ -101,7 +99,8 @@ export default function DefineTeams() {
             name: player.name,
             nickname: player.nickname,
             level: player.level!,
-            position: player.position!,
+            // Fallback to 'meio-campista' (generic line player) if position is missing
+            position: player.position || 'meio-campista',
           });
         } else {
           ineligible.push({

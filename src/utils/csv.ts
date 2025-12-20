@@ -159,3 +159,40 @@ export function validateClassificationImportRow(row: any): { valid: boolean; err
 
   return { valid: true };
 }
+
+export function normalizePosition(input: string | null | undefined): string | null {
+  if (!input) return null;
+
+  const cleanInput = input.toString().toLowerCase().trim();
+
+  // Map inputs to standard DB values
+  // Goleiro
+  if (['goleiro', 'gol', 'gk', 'goalkeeper', 'g'].includes(cleanInput)) {
+    return 'goleiro';
+  }
+
+  // Defensor
+  if (['zagueiro', 'defensor', 'lateral', 'def', 'd', 'defender', 'beque'].includes(cleanInput)) {
+    return 'defensor';
+  }
+
+  // Meio-campista
+  if (['meio', 'meia', 'volante', 'mid', 'm', 'meio-campista', 'meio_campo', 'midfielder'].includes(cleanInput)) {
+    return 'meio-campista';
+  }
+
+  // Atacante
+  if (['atacante', 'ponta', 'centroavante', 'ata', 'fwd', 'a', 'striker', 'attack'].includes(cleanInput)) {
+    return 'atacante';
+  }
+
+  // Default fallback (or return original which presumably will fail validation or be accepted if exact match)
+  // Returning null allows validation to catch it if strictly required, or we could default to 'meio-campista' if safer.
+  // The user said: "Se a posição não for reconhecida, defina um valor padrão (ex: "midfielder") ou deixe null"
+  // Let's stick to null to allow validation to catch valid vs invalid, OR default if we want to be permissive.
+  // Given "midfielder" suggestion, maybe default to that?
+  // Let's return the input if it's already one of the valid ones (which are covered above mostly),
+  // but if it's unknown, let's return 'meio-campista' as a safe fallback for "players who play everywhere".
+
+  return 'meio-campista';
+}

@@ -59,10 +59,10 @@ function SwipeableMatchCard({
   const navigateMatch = (direction: 'prev' | 'next') => {
     if (!selectedMatchId) return;
     const currentIndex = matches.findIndex(m => m.id === selectedMatchId);
-    const newIndex = direction === 'prev' 
+    const newIndex = direction === 'prev'
       ? Math.max(0, currentIndex - 1)
       : Math.min(matches.length - 1, currentIndex + 1);
-    
+
     if (newIndex !== currentIndex) {
       onSelectMatch(matches[newIndex].id);
     }
@@ -74,7 +74,7 @@ function SwipeableMatchCard({
   );
 
   return (
-    <div 
+    <div
       className="mt-4 touch-pan-y"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -96,7 +96,7 @@ export default function ManageRounds() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const roundId = searchParams.get("round");
-  
+
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [round, setRound] = useState<Round | null>(null);
@@ -146,17 +146,17 @@ export default function ManageRounds() {
 
     const channel = supabase
       .channel(`round-${roundId}-matches`)
-      .on("postgres_changes", { 
-        event: "*", 
-        schema: "public", 
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
         table: "matches",
         filter: `round_id=eq.${roundId}`
       }, () => {
         loadRoundData();
       })
-      .on("postgres_changes", { 
-        event: "*", 
-        schema: "public", 
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
         table: "goals"
       }, () => {
         loadRoundData();
@@ -202,8 +202,8 @@ export default function ManageRounds() {
     try {
       const date = new Date(dateString + "T00:00:00");
       if (isNaN(date.getTime())) return "A definir";
-      return date.toLocaleDateString('pt-BR', { 
-        weekday: 'long', 
+      return date.toLocaleDateString('pt-BR', {
+        weekday: 'long',
         day: 'numeric',
         month: 'long',
         year: 'numeric'
@@ -221,9 +221,9 @@ export default function ManageRounds() {
           .from('rounds')
           .update({ status: 'em_andamento' })
           .eq('id', round.id);
-        
+
         if (error) throw error;
-        
+
         toast.success('Rodada reaberta para edição');
         await loadRoundData();
       } catch (error: any) {
@@ -231,7 +231,7 @@ export default function ManageRounds() {
         return;
       }
     }
-    
+
     setEditingMatchId(matchId);
   };
 
@@ -290,13 +290,13 @@ export default function ManageRounds() {
         });
       } else if (teamColors.length === 3) {
         const matchPairs: string[][] = [];
-        
+
         for (let i = 0; i < teamColors.length; i++) {
           for (let j = i + 1; j < teamColors.length; j++) {
             matchPairs.push([teamColors[i], teamColors[j]]);
           }
         }
-        
+
         for (let i = 0; i < teamColors.length; i++) {
           for (let j = i + 1; j < teamColors.length; j++) {
             matchPairs.push([teamColors[j], teamColors[i]]);
@@ -409,7 +409,7 @@ export default function ManageRounds() {
     try {
       const { error: updateError } = await supabase
         .from("rounds")
-        .update({ 
+        .update({
           status: 'finalizada',
           completed_at: new Date().toISOString()
         })
@@ -442,15 +442,15 @@ export default function ManageRounds() {
     try {
       const { error } = await supabase
         .from('matches')
-        .update({ 
+        .update({
           status: 'in_progress',
           started_at: new Date().toISOString(),
           match_timer_started_at: new Date().toISOString()
         })
         .eq('id', matchId);
-      
+
       if (error) throw error;
-      
+
       // Update round status if needed
       if (round?.status === 'a_iniciar') {
         await supabase
@@ -458,7 +458,7 @@ export default function ManageRounds() {
           .update({ status: 'em_andamento' })
           .eq('id', roundId);
       }
-      
+
       toast.success('Partida iniciada!');
       await loadRoundData();
     } catch (error: any) {
@@ -476,9 +476,9 @@ export default function ManageRounds() {
         .from('matches')
         .delete()
         .eq('id', matchId);
-      
+
       if (error) throw error;
-      
+
       toast.success('Partida excluída!');
       if (selectedMatchId === matchId) {
         setSelectedMatchId(null);
@@ -519,9 +519,9 @@ export default function ManageRounds() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       {pullDistance > 0 && (
-        <div 
+        <div
           className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-4 pointer-events-none"
           style={{ opacity: Math.min(pullDistance / 80, 1) }}
         >
@@ -542,7 +542,7 @@ export default function ManageRounds() {
           >
             <ArrowLeft size={20} />
           </Button>
-          
+
           <div className="flex-1">
             <h1 className="text-xl font-bold text-primary">Rodada {round?.round_number}</h1>
             <p className="text-sm text-muted-foreground">{formatDate(round?.scheduled_date)}</p>
@@ -558,8 +558,8 @@ export default function ManageRounds() {
               {round.status === 'a_iniciar' && <Clock size={14} className="mr-1" />}
               {round.status === 'em_andamento' && <PlayCircle size={14} className="mr-1" />}
               {round.status === 'finalizada' && <CheckCircle size={14} className="mr-1" />}
-              {round.status === 'a_iniciar' ? 'A Iniciar' : 
-               round.status === 'em_andamento' ? 'Em Andamento' : 'Finalizada'}
+              {round.status === 'a_iniciar' ? 'A Iniciar' :
+                round.status === 'em_andamento' ? 'Em Andamento' : 'Finalizada'}
             </Badge>
           )}
         </div>
@@ -579,7 +579,7 @@ export default function ManageRounds() {
             </Button>
             <Button
               onClick={() => navigate(`/admin/round/${roundId}/attendance`)}
-              disabled={!!actionLoading || !allFinished}
+              disabled={!!actionLoading}
               variant="outline"
               size="sm"
               className="flex-1 min-w-[140px] gap-1"
@@ -608,8 +608,8 @@ export default function ManageRounds() {
           <Card className="bg-card border-border">
             <CardContent className="py-12 text-center">
               <p className="text-muted-foreground mb-4">Nenhuma partida criada</p>
-              <Button 
-                onClick={createMatches} 
+              <Button
+                onClick={createMatches}
                 disabled={actionLoading === 'create'}
                 className="gap-2"
               >
@@ -619,7 +619,7 @@ export default function ManageRounds() {
             </CardContent>
           </Card>
         ) : (
-        <>
+          <>
             {/* Mini Navigation with integrated arrows */}
             <AdminMatchMiniNav
               matches={matches}
@@ -670,7 +670,7 @@ export default function ManageRounds() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={() => deleteConfirmMatch && deleteMatch(deleteConfirmMatch.id)}
               className="bg-destructive hover:bg-destructive/90"
             >

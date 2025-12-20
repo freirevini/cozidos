@@ -62,9 +62,9 @@ function getStatusDisplay(match: Match): { text: string; variant: "live" | "sche
       status: match.status,
     };
     const timerText = formatMatchTimer(timerData);
-    return { 
-      text: timerText !== '--:--' ? timerText : "Ao Vivo", 
-      variant: "live" 
+    return {
+      text: timerText !== '--:--' ? timerText : "Ao Vivo",
+      variant: "live"
     };
   }
   if (match.status === "finished") {
@@ -110,7 +110,7 @@ export function AdminMatchCard({
         <span className={cn(
           "text-[9px] mt-1 font-semibold uppercase tracking-wide",
           status.variant === "live" ? "text-primary" :
-          status.variant === "finished" ? "text-emerald-400" : "text-muted-foreground"
+            status.variant === "finished" ? "text-emerald-400" : "text-muted-foreground"
         )}>
           {status.variant === "live" && (
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary mr-1 animate-pulse" />
@@ -161,15 +161,15 @@ export function AdminMatchCard({
                   {match.score_away}
                 </span>
               </div>
-              
+
               {/* Status pill centered */}
               <div className={cn(
                 "mt-3 px-4 py-1.5 rounded-full text-sm font-medium",
-                status.variant === "live" 
-                  ? "bg-primary/20 text-primary border border-primary/40" 
+                status.variant === "live"
+                  ? "bg-primary/20 text-primary border border-primary/40"
                   : status.variant === "finished"
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                  : "bg-muted text-muted-foreground border border-border"
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                    : "bg-muted text-muted-foreground border border-border"
               )}>
                 {status.variant === "live" && (
                   <span className="inline-block w-2 h-2 rounded-full bg-primary mr-2 animate-pulse" />
@@ -204,7 +204,7 @@ export function AdminMatchCard({
             {match.status === "in_progress" && (
               <Button
                 onClick={onManage}
-                className="flex-1 min-h-[48px] gap-2 bg-primary hover:bg-primary/90"
+                className="flex-1 min-h-[48px] gap-2 bg-green-600 hover:bg-green-700 text-white"
               >
                 <PlayCircle size={18} />
                 Gerenciar Ao Vivo
@@ -214,21 +214,12 @@ export function AdminMatchCard({
             {match.status === "finished" && (
               <Button
                 onClick={onEdit}
-                variant="secondary"
-                className="flex-1 min-h-[48px] gap-2"
+                className="flex-1 min-h-[48px] gap-2 bg-black hover:bg-black/90 text-white"
               >
                 <Edit3 size={18} />
                 Editar
               </Button>
             )}
-
-            <Button
-              onClick={onDelete}
-              variant="outline"
-              className="min-h-[48px] px-4 border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
-            >
-              <Trash2 size={18} />
-            </Button>
           </div>
         </div>
       </CardContent>
@@ -255,7 +246,7 @@ function useSwipeGesture(
 
     const touchEndX = e.changedTouches[0].clientX;
     const touchEndY = e.changedTouches[0].clientY;
-    
+
     const deltaX = touchEndX - touchStartX.current;
     const deltaY = touchEndY - touchStartY.current;
 
@@ -297,10 +288,10 @@ export function AdminMatchMiniNav({
       return;
     }
     const currentIndex = matches.findIndex(m => m.id === selectedMatchId);
-    const newIndex = direction === 'prev' 
+    const newIndex = direction === 'prev'
       ? Math.max(0, currentIndex - 1)
       : Math.min(matches.length - 1, currentIndex + 1);
-    
+
     if (newIndex !== currentIndex) {
       onSelectMatch(matches[newIndex].id);
     }
@@ -316,7 +307,7 @@ export function AdminMatchMiniNav({
   const checkScrollPosition = () => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    
+
     setCanScrollLeft(container.scrollLeft > 10);
     setCanScrollRight(
       container.scrollLeft < container.scrollWidth - container.clientWidth - 10
@@ -326,28 +317,28 @@ export function AdminMatchMiniNav({
   // Auto-scroll to selected item
   useEffect(() => {
     if (!selectedMatchId || !scrollContainerRef.current) return;
-    
+
     const container = scrollContainerRef.current;
     const selectedIndex = matches.findIndex(m => m.id === selectedMatchId);
     if (selectedIndex === -1) return;
 
     const items = container.querySelectorAll('[data-match-item]');
     const selectedItem = items[selectedIndex] as HTMLElement;
-    
+
     if (selectedItem) {
       const containerRect = container.getBoundingClientRect();
       const itemRect = selectedItem.getBoundingClientRect();
-      
+
       // Check if item is not fully visible
       if (itemRect.left < containerRect.left || itemRect.right > containerRect.right) {
-        selectedItem.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'nearest', 
-          inline: 'center' 
+        selectedItem.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center'
         });
       }
     }
-    
+
     // Check scroll position after animation
     setTimeout(checkScrollPosition, 350);
   }, [selectedMatchId, matches]);
@@ -362,10 +353,10 @@ export function AdminMatchMiniNav({
   const scrollBy = (direction: 'left' | 'right') => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    
+
     const scrollAmount = direction === 'left' ? -160 : 160;
     container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-    
+
     setTimeout(checkScrollPosition, 350);
   };
 
@@ -374,7 +365,7 @@ export function AdminMatchMiniNav({
   const isLastMatch = currentIndex === matches.length - 1;
 
   return (
-    <div 
+    <div
       className="relative bg-muted/30 rounded-xl p-2 border border-border/50"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -404,7 +395,7 @@ export function AdminMatchMiniNav({
       </div>
 
       {/* Mini Cards Container */}
-      <div 
+      <div
         ref={scrollContainerRef}
         className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory px-1 py-1"
         onScroll={checkScrollPosition}
@@ -433,7 +424,7 @@ export function AdminMatchMiniNav({
           <ChevronLeft size={14} />
           <span className="hidden xs:inline">Anterior</span>
         </Button>
-        
+
         <div className="flex flex-col items-center">
           <span className="text-xs font-medium text-muted-foreground">
             {currentIndex + 1} / {matches.length}
@@ -442,7 +433,7 @@ export function AdminMatchMiniNav({
             ← Deslize para navegar →
           </span>
         </div>
-        
+
         <Button
           variant="ghost"
           size="sm"
