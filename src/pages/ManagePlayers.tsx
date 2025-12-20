@@ -307,23 +307,10 @@ export default function ManagePlayers() {
         onOpenChange={(open) => { if (!open) { reactRoot.unmount(); cleanup(); } }}
         onAction={async () => {
           try {
-            const { data: user } = await supabase.auth.getUser();
-            if (!user.data.user) throw new Error("Usuário não autenticado");
+            const { data: userData } = await supabase.auth.getUser();
+            if (!userData?.user) throw new Error("Usuário não autenticado");
 
-            const { data, error } = await supabase.rpc('reset_all_players', { p_keep_admin_id: null }); // p_user_id check is inside the rpc logic via auth.uid() usually, but our rpc takes p_keep_admin_id to skip. Actually the RPC logic handles auth.uid() skipping. passing null is fine if logic handles it, or pass user.id.
-
-            /* 
-              Re-reading the RPC I created: 
-              CREATE OR REPLACE FUNCTION public.reset_all_players(p_keep_admin_id uuid)
-              ...
-              AND is_player = true 
-              AND (user_id IS NULL OR user_id != auth.uid());
-              
-              So it already protects the caller. p_keep_admin_id is basically optional or extra safety?
-              The RPC definition I wrote takes `p_keep_admin_id`. I'll pass userId just in case.
-            */
-
-            const { error: rpcError } = await supabase.rpc('reset_all_players', { p_keep_admin_id: user.data.user.id });
+            const { error: rpcError } = await supabase.rpc('reset_all_players', { p_keep_admin_id: userData.user.id });
 
             if (rpcError) throw rpcError;
 
