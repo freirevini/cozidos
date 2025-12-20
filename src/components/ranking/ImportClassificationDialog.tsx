@@ -156,6 +156,7 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
                   <code className="bg-muted px-1.5 py-0.5 rounded">Vitorias</code>
                   <code className="bg-muted px-1.5 py-0.5 rounded">Empates</code>
                   <code className="bg-muted px-1.5 py-0.5 rounded">Derrotas</code>
+                  <code className="bg-muted px-1.5 py-0.5 rounded">Presencas</code>
                   <code className="bg-muted px-1.5 py-0.5 rounded">Pontos_Totais</code>
                   <code className="bg-muted px-1.5 py-0.5 rounded">Ano</code>
                 </div>
@@ -163,9 +164,9 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
             </div>
 
             <div className="mt-3 bg-background rounded p-2 text-xs font-mono overflow-x-auto">
-              Nickname,Token,Level,Position,Gols,Assistencias,Vitorias,Empates,Derrotas,Pontos_Totais,Ano<br />
-              felipe,ABC12345,A,atacante,10,4,6,2,2,20,2023<br />
-              joesley,XYZ67890,B,meio-campista,8,6,5,3,2,18,2023
+              Nickname,Token,Level,Position,Gols,Assistencias,Vitorias,Empates,Derrotas,Presencas,Pontos_Totais,Ano<br />
+              felipe,ABC12345,A,atacante,10,4,6,2,2,8,20,2023<br />
+              joesley,XYZ67890,B,meio-campista,8,6,5,3,2,8,18,2023
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
@@ -216,6 +217,7 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
                       <th className="p-2 text-right">V</th>
                       <th className="p-2 text-right">E</th>
                       <th className="p-2 text-right">D</th>
+                      <th className="p-2 text-right">Pres</th>
                       <th className="p-2 text-right">Pts</th>
                       <th className="p-2 text-right">Ano</th>
                     </tr>
@@ -230,6 +232,7 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
                         <td className="p-2 text-right">{row.Vitorias || row.vitorias || 0}</td>
                         <td className="p-2 text-right">{row.Empates || row.empates || 0}</td>
                         <td className="p-2 text-right">{row.Derrotas || row.derrotas || 0}</td>
+                        <td className="p-2 text-right">{row.Presencas || row.presencas || 0}</td>
                         <td className="p-2 text-right">{row.Pontos_Totais || row.pontos_totais || 0}</td>
                         <td className="p-2 text-right">{row.Ano || row.ano || '-'}</td>
                       </tr>

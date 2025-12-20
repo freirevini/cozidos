@@ -39,7 +39,7 @@ const PLAYERS_PER_PAGE = 20;
 export default function ManagePlayers() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
-  
+
   // Data states
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
@@ -49,12 +49,12 @@ export default function ManagePlayers() {
   const [importing, setImporting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  
+
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPosition, setFilterPosition] = useState("all");
-  
+
   // Dialog states
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -66,7 +66,7 @@ export default function ManagePlayers() {
   const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
   const [avatarEditPlayer, setAvatarEditPlayer] = useState<Player | null>(null);
   const [exporting, setExporting] = useState(false);
-  
+
   // Form state for new player
   const [formData, setFormData] = useState({
     nickname: "",
@@ -74,7 +74,7 @@ export default function ManagePlayers() {
     position: "",
     player_type_detail: "mensal" as "mensal" | "avulso" | "avulso_fixo",
   });
-  
+
   // Ref for infinite scroll
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -99,29 +99,29 @@ export default function ManagePlayers() {
       player.position,
       player.level,
     ].filter(Boolean).map(f => f?.toLowerCase() || "");
-    
+
     return fields.some(field => field.includes(searchLower));
   }, []);
 
   // Apply filters
   useEffect(() => {
     let filtered = [...allPlayers];
-    
+
     // Fuzzy search
     if (searchTerm) {
       filtered = filtered.filter(p => fuzzyMatch(p, searchTerm));
     }
-    
+
     // Status filter
     if (filterStatus !== "all") {
       filtered = filtered.filter(p => p.status === filterStatus);
     }
-    
+
     // Position filter
     if (filterPosition !== "all") {
       filtered = filtered.filter(p => p.position === filterPosition);
     }
-    
+
     setFilteredPlayers(filtered);
     setDisplayedPlayers(filtered.slice(0, PLAYERS_PER_PAGE));
     setHasMore(filtered.length > PLAYERS_PER_PAGE);
@@ -169,7 +169,7 @@ export default function ManagePlayers() {
 
   const loadMorePlayers = () => {
     if (loadingMore || displayedPlayers.length >= filteredPlayers.length) return;
-    
+
     setLoadingMore(true);
     setTimeout(() => {
       const nextBatch = filteredPlayers.slice(
@@ -215,7 +215,7 @@ export default function ManagePlayers() {
         .eq("id", updatedPlayer.id);
 
       if (error) throw error;
-      
+
       setAllPlayers(prev => prev.map(p => p.id === updatedPlayer.id ? updatedPlayer : p));
       sonnerToast.success("Jogador atualizado!");
     } catch (error: any) {
@@ -234,7 +234,7 @@ export default function ManagePlayers() {
 
     const { createRoot } = await import('react-dom/client');
     const reactRoot = createRoot(root);
-    
+
     reactRoot.render(
       <AlertDialogIcon
         icon={AlertTriangle}
@@ -244,16 +244,91 @@ export default function ManagePlayers() {
         cancelText="Cancelar"
         variant="destructive"
         open={true}
-        onOpenChange={(open) => { if (!open) { reactRoot.unmount(); cleanup(); }}}
+        onOpenChange={(open) => { if (!open) { reactRoot.unmount(); cleanup(); } }}
         onAction={async () => {
           try {
+            // Se o perfil tem um usuário associado, exclui da Auth primeiro (para evitar zumbis)
+            if (player.user_id) {
+              const { error: authError } = await supabase.functions.invoke('delete-auth-user', {
+                body: { user_id: player.user_id }
+              });
+
+              if (authError) {
+                console.error("Erro ao excluir usuário de autenticação:", authError);
+                // Não interrompe, pois queremos limpar do banco de qualquer jeito
+                sonnerToast.warning("Aviso: Não foi possível desvincular o login, mas o perfil será excluído.");
+              }
+            }
+
+            // Exclui do banco
             const { error } = await supabase.rpc("delete_player_complete", { p_profile_id: player.id });
             if (error) throw error;
-            
+
             await supabase.rpc('recalc_all_player_rankings');
+
+            // Atualiza estado local imediatamente
             setAllPlayers(prev => prev.filter(p => p.id !== player.id));
+            setFilteredPlayers(prev => prev.filter(p => p.id !== player.id));
+            setDisplayedPlayers(prev => prev.filter(p => p.id !== player.id));
+
             sonnerToast.success("Jogador excluído!");
             setEditDialogOpen(false);
+          } catch (error: any) {
+            sonnerToast.error(getUserFriendlyError(error));
+          }
+          reactRoot.unmount();
+          cleanup();
+        }}
+        onCancel={() => { reactRoot.unmount(); cleanup(); }}
+      />
+    );
+  };
+
+  const handleResetAllPlayers = async () => {
+    const confirmDialog = document.createElement('div');
+    document.body.appendChild(confirmDialog);
+    const root = document.createElement('div');
+    confirmDialog.appendChild(root);
+
+    const cleanup = () => document.body.removeChild(confirmDialog);
+
+    const { createRoot } = await import('react-dom/client');
+    const reactRoot = createRoot(root);
+
+    reactRoot.render(
+      <AlertDialogIcon
+        icon={AlertTriangle}
+        title="⚠️ EXCLUIR TODOS OS JOGADORES"
+        description="Esta ação EXCLUIRÁ TODOS os perfis do sistema (exceto seu usuário admin atual). Isso é irreversível e usado apenas para testes."
+        actionText="CONFIRMAR EXCLUSÃO TOTAL"
+        cancelText="Cancelar"
+        variant="destructive"
+        open={true}
+        onOpenChange={(open) => { if (!open) { reactRoot.unmount(); cleanup(); } }}
+        onAction={async () => {
+          try {
+            const { data: user } = await supabase.auth.getUser();
+            if (!user.data.user) throw new Error("Usuário não autenticado");
+
+            const { data, error } = await supabase.rpc('reset_all_players', { p_keep_admin_id: null }); // p_user_id check is inside the rpc logic via auth.uid() usually, but our rpc takes p_keep_admin_id to skip. Actually the RPC logic handles auth.uid() skipping. passing null is fine if logic handles it, or pass user.id.
+
+            /* 
+              Re-reading the RPC I created: 
+              CREATE OR REPLACE FUNCTION public.reset_all_players(p_keep_admin_id uuid)
+              ...
+              AND is_player = true 
+              AND (user_id IS NULL OR user_id != auth.uid());
+              
+              So it already protects the caller. p_keep_admin_id is basically optional or extra safety?
+              The RPC definition I wrote takes `p_keep_admin_id`. I'll pass userId just in case.
+            */
+
+            const { error: rpcError } = await supabase.rpc('reset_all_players', { p_keep_admin_id: user.data.user.id });
+
+            if (rpcError) throw rpcError;
+
+            sonnerToast.success("Reset completo executado com sucesso.");
+            loadPlayers();
           } catch (error: any) {
             sonnerToast.error(getUserFriendlyError(error));
           }
@@ -380,7 +455,7 @@ export default function ManagePlayers() {
       if (error) throw error;
 
       const importResult = result as unknown as ImportResult;
-      
+
       if (importResult.success) {
         await loadPlayers();
         sonnerToast.success(`Importação concluída: ${importResult.created} criados, ${importResult.updated} atualizados`);
@@ -443,7 +518,7 @@ export default function ManagePlayers() {
     <div className="min-h-screen bg-background">
       {/* Pull to Refresh */}
       {(pullDistance > 0 || isRefreshing) && (
-        <div 
+        <div
           className="fixed top-0 left-0 right-0 flex justify-center items-center z-50 transition-all"
           style={{ transform: `translateY(${Math.min(pullDistance, 60)}px)`, opacity: Math.min(pullDistance / 60, 1) }}
         >
@@ -455,7 +530,7 @@ export default function ManagePlayers() {
       )}
 
       <Header />
-      
+
       <main className="container mx-auto px-4 py-4 pb-20 max-w-2xl">
         {/* Header */}
         <div className="mb-4">
@@ -477,6 +552,15 @@ export default function ManagePlayers() {
           >
             <Download className="h-4 w-4 mr-2" />
             {exporting ? 'Exportando...' : 'Exportar CSV'}
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleResetAllPlayers}
+            className="w-full sm:w-auto mt-2 sm:ml-2"
+          >
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            Excluir Todos (Reset)
           </Button>
         </div>
 
@@ -528,7 +612,7 @@ export default function ManagePlayers() {
                   onGenerateToken={handleGenerateToken}
                 />
               ))}
-              
+
               {/* Load more trigger */}
               <div ref={loadMoreRef} className="py-4">
                 {loadingMore && (

@@ -27,7 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   isPending: false,
   profileData: null,
   loading: true,
-  refreshAuth: async () => {},
+  refreshAuth: async () => { },
 });
 
 export const useAuth = () => {
@@ -50,9 +50,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadUserData = async () => {
+  const loadUserData = async (forceLoading = true) => {
     try {
-      setLoading(true);
+      if (forceLoading) setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
 
@@ -72,22 +72,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         ]);
 
         setIsAdmin(roleData.data?.role === "admin");
-        
+
         // Se houver múltiplos perfis, priorizar o aprovado ou o mais recente
         const profiles = profileResult.data || [];
-        const profile = profiles.length > 0 
+        const profile = profiles.length > 0
           ? (profiles.find(p => p.status === 'aprovado') || profiles[0])
           : null;
-        
+
         setProfileData(profile);
         setIsPlayer(profile?.is_player || false);
-        
+
         // Jogador pendente: is_player=true E status='pendente'
         setIsPending(
-          profile?.is_player === true && 
+          profile?.is_player === true &&
           profile?.status === 'pendente'
         );
-        
+
         // Log warning se houver múltiplos perfis (mas não quebrar a aplicação)
         if (profiles.length > 1) {
           console.warn(`[AuthContext] Múltiplos perfis encontrados para user_id ${user.id}. Usando perfil: ${profile?.id}`);
@@ -106,20 +106,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setIsPending(false);
       setProfileData(null);
     } finally {
-      setLoading(false);
+      if (forceLoading) setLoading(false);
     }
   };
 
   useEffect(() => {
-    // Carregar dados do usuário na montagem
-    loadUserData();
+    // Carregar dados do usuário na montagem (com loading)
+    loadUserData(true);
 
     // Escutar mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         // Usar setTimeout para evitar deadlock
         setTimeout(() => {
-          loadUserData();
+          // Silent refresh (sem loading global) para não piscar a tela
+          loadUserData(false);
         }, 0);
       } else {
         setUser(null);
@@ -137,14 +138,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isAdmin, 
-      isPlayer, 
-      isPending, 
-      profileData, 
-      loading, 
-      refreshAuth: loadUserData 
+    <AuthContext.Provider value={{
+      user,
+      isAdmin,
+      isPlayer,
+      isPending,
+      profileData,
+      loading,
+      refreshAuth: async () => loadUserData(true)
     }}>
       {children}
     </AuthContext.Provider>

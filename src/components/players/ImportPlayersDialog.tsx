@@ -11,10 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Download, Upload, FileText, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
-import { 
-  downloadTemplate, 
-  downloadCSV, 
-  generateTokensCSV, 
+import {
+  downloadTemplate,
+  downloadCSV,
+  generateTokensCSV,
   generateErrorsCSV,
   validatePlayerImportRow,
   type ImportResult
@@ -42,13 +42,13 @@ export function ImportPlayersDialog({ open, onOpenChange, onImport }: ImportPlay
     try {
       const text = await file.text();
       const Papa = (await import('papaparse')).default;
-      
+
       Papa.parse(text, {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
           const data = results.data as any[];
-          
+
           // Validate first 10 rows for preview
           const errors: string[] = [];
           data.slice(0, 10).forEach((row, idx) => {
@@ -57,7 +57,7 @@ export function ImportPlayersDialog({ open, onOpenChange, onImport }: ImportPlay
               errors.push(`Linha ${idx + 1}: ${validation.error}`);
             }
           });
-          
+
           setValidationErrors(errors);
           setPreviewData(data.slice(0, 10));
         }
@@ -65,13 +65,13 @@ export function ImportPlayersDialog({ open, onOpenChange, onImport }: ImportPlay
     } catch (error) {
       setValidationErrors(['Erro ao ler arquivo']);
     }
-    
+
     event.target.value = '';
   };
 
   const handleImport = async () => {
     if (previewData.length === 0) return;
-    
+
     setImporting(true);
     try {
       const importResult = await onImport(previewData);
@@ -109,7 +109,7 @@ export function ImportPlayersDialog({ open, onOpenChange, onImport }: ImportPlay
             Importar Jogadores
           </DialogTitle>
           <DialogDescription>
-            Importe jogadores via CSV/Excel. Apenas Nickname e Nível são obrigatórios.
+            Importe jogadores via CSV/Excel. Nickname, Nível e Posição são obrigatórios.
           </DialogDescription>
         </DialogHeader>
 
@@ -131,17 +131,22 @@ export function ImportPlayersDialog({ open, onOpenChange, onImport }: ImportPlay
                 <code className="bg-muted px-2 py-0.5 rounded">Level</code>
                 <span className="text-muted-foreground">- nível (A, B, C, D ou E)</span>
               </div>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-primary/20 text-primary">Obrigatório</Badge>
+                <code className="bg-muted px-2 py-0.5 rounded">Position</code>
+                <span className="text-muted-foreground">- goleiro, defensor, meio-campista, atacante</span>
+              </div>
             </div>
-            
+
             <div className="mt-3 bg-background rounded p-2 text-xs font-mono">
-              Nickname,Level<br />
-              felipe,A<br />
-              joesley,B
+              Nickname,Level,Position<br />
+              felipe,A,atacante<br />
+              joesley,B,meio-campista
             </div>
-            
-            <Button 
-              variant="outline" 
-              size="sm" 
+
+            <Button
+              variant="outline"
+              size="sm"
               className="mt-3"
               onClick={() => downloadTemplate('players')}
             >
@@ -172,6 +177,7 @@ export function ImportPlayersDialog({ open, onOpenChange, onImport }: ImportPlay
                     <tr>
                       <th className="p-2 text-left">Nickname</th>
                       <th className="p-2 text-left">Level</th>
+                      <th className="p-2 text-left">Position</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -179,12 +185,13 @@ export function ImportPlayersDialog({ open, onOpenChange, onImport }: ImportPlay
                       <tr key={idx} className="border-t">
                         <td className="p-2">{row.Nickname || row.nickname || '-'}</td>
                         <td className="p-2">{row.Level || row.level || row.Nivel || '-'}</td>
+                        <td className="p-2">{row.Position || row.position || row.Posicao || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              
+
               {validationErrors.length > 0 && (
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />

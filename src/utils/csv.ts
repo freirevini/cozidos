@@ -45,9 +45,9 @@ joesley,B,meio-campista
 lulu,C,defensor`;
 
 // Classification template - Token required to identify existing players
-export const CLASSIFICATION_TEMPLATE = `Nickname,Token,Level,Position,Gols,Assistencias,Vitorias,Empates,Derrotas,Pontos_Totais,Ano
-felipe,ABC12345,A,atacante,10,4,6,2,2,20,2023
-joesley,XYZ67890,B,meio-campista,8,6,5,3,2,18,2023`;
+export const CLASSIFICATION_TEMPLATE = `Nickname,Token,Level,Position,Gols,Assistencias,Vitorias,Empates,Derrotas,Presencas,Pontos_Totais,Ano
+felipe,ABC12345,A,atacante,10,4,6,2,2,8,20,2023
+joesley,XYZ67890,B,meio-campista,8,6,5,3,2,8,18,2023`;
 
 export function generateCSV(headers: string[], rows: any[][]): string {
   const csvContent = [

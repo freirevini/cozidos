@@ -83,6 +83,7 @@ const ManageRanking = () => {
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showResetAllDialog, setShowResetAllDialog] = useState(false);
   const [availablePlayers, setAvailablePlayers] = useState<AvailablePlayer[]>([]);
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -109,15 +110,15 @@ const ManageRanking = () => {
   // Restore pending changes after re-authentication
   useEffect(() => {
     const pendingChanges = localStorage.getItem('pending_ranking_changes');
-    
+
     if (pendingChanges) {
       try {
         const parsedChanges = JSON.parse(pendingChanges);
         const restoredMap = new Map<string, Partial<PlayerRanking>>(parsedChanges);
-        
+
         setEditedRankings(restoredMap);
         localStorage.removeItem('pending_ranking_changes');
-        
+
         toast({
           title: "Alterações restauradas",
           description: `${restoredMap.size} jogador(es) com alterações pendentes foram restaurados.`,
@@ -182,22 +183,22 @@ const ManageRanking = () => {
       const { data: rankingPlayerIds } = await supabase
         .from("player_rankings")
         .select("player_id");
-      
+
       const excludeIds = rankingPlayerIds?.map(r => r.player_id) || [];
-      
+
       let query = supabase
         .from("profiles")
         .select("id, nickname, name, email")
         .eq("is_player", true)
         .eq("status", "aprovado")
         .order("nickname");
-      
+
       if (excludeIds.length > 0) {
         query = query.not("id", "in", `(${excludeIds.join(",")})`);
       }
-      
+
       const { data, error } = await query;
-      
+
       if (error) throw error;
       setAvailablePlayers(data || []);
     } catch (error: any) {
@@ -250,7 +251,7 @@ const ManageRanking = () => {
         title: `${selectedPlayers.length} jogador(es) adicionado(s)`,
         description: "Jogadores incluídos na classificação com valores zerados.",
       });
-      
+
       setShowAddDialog(false);
       setSelectedPlayers([]);
       await loadRankings();
@@ -269,7 +270,7 @@ const ManageRanking = () => {
         .from("player_rankings")
         .delete()
         .eq("player_id", playerId);
-      
+
       if (rankError) throw rankError;
 
       const { error: statsError } = await supabase
@@ -298,11 +299,11 @@ const ManageRanking = () => {
     setRecalculating(true);
     try {
       const { data, error } = await supabase.rpc('recalc_all_player_rankings');
-      
+
       if (error) throw error;
-      
+
       await loadRankings();
-      
+
       toast({
         title: "Classificação recalculada",
         description: "Todas as estatísticas foram atualizadas com base nas rodadas finalizadas.",
@@ -335,7 +336,7 @@ const ManageRanking = () => {
 
   const updateRankingField = (id: string, field: keyof PlayerRanking, value: number | string) => {
     const numValue = typeof value === 'string' ? parseInt(value) || 0 : value;
-    
+
     const validation = rankingSchema.partial().safeParse({ [field]: numValue });
     if (!validation.success) {
       toast({
@@ -394,7 +395,7 @@ const ManageRanking = () => {
     }
 
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
+
     if (sessionError || !session) {
       toast({
         title: "Sessão expirada",
@@ -405,13 +406,13 @@ const ManageRanking = () => {
       navigate('/auth');
       return;
     }
-    
+
     const tokenExpiry = session.expires_at;
     const now = Math.floor(Date.now() / 1000);
-    
+
     if (tokenExpiry && tokenExpiry < now) {
       const { error: refreshError } = await supabase.auth.refreshSession();
-      
+
       if (refreshError) {
         toast({
           title: "Token expirado",
@@ -425,7 +426,7 @@ const ManageRanking = () => {
     }
 
     setSaving(true);
-    
+
     try {
       toast({
         title: "⏳ Aplicando ajustes...",
@@ -476,14 +477,14 @@ const ManageRanking = () => {
         const data = r.data as any;
         return data?.success === false;
       });
-      
+
       if (dataErrors.length > 0) {
         const errorData = dataErrors[0].data as any;
         throw new Error(errorData?.error || "Erro ao aplicar ajustes");
       }
 
       const { error: recalcError } = await supabase.rpc('recalc_all_player_rankings');
-      
+
       if (recalcError) {
         throw new Error("Erro ao recalcular classificação: " + recalcError.message);
       }
@@ -515,10 +516,10 @@ const ManageRanking = () => {
     try {
       const { data, error } = await supabase.rpc('reset_full_classification');
       if (error) throw error;
-      
+
       const result = data as { success: boolean; error?: string };
       if (!result.success) throw new Error(result.error);
-      
+
       await loadRankings();
       toast({
         title: "Classificação resetada",
@@ -538,26 +539,26 @@ const ManageRanking = () => {
 
   const resetAndRecalculate = async () => {
     setResetting(true);
-    
+
     try {
       const { data: resetData, error: resetError } = await supabase.rpc('reset_full_classification');
       if (resetError) throw resetError;
-      
+
       const resetResult = resetData as { success: boolean; error?: string };
       if (!resetResult.success) throw new Error(resetResult.error);
-      
+
       const { data: rounds } = await supabase
         .from('rounds')
         .select('id')
         .eq('status', 'finalizada');
-      
+
       for (const round of rounds || []) {
         await supabase.rpc('recalc_round_aggregates', { p_round_id: round.id });
       }
-      
+
       const { error: recalcError } = await supabase.rpc('recalc_all_player_rankings');
       if (recalcError) throw recalcError;
-      
+
       await loadRankings();
       toast({
         title: "Concluído!",
@@ -600,7 +601,7 @@ const ManageRanking = () => {
 
       if (importResult.success) {
         await loadRankings();
-        
+
         toast({
           title: "Importação concluída",
           description: `${importResult.created} criados, ${importResult.updated} atualizados, ${importResult.profiles_created} perfis criados`,
@@ -621,7 +622,7 @@ const ManageRanking = () => {
   };
 
   // Filter rankings by search
-  const filteredRankings = rankings.filter(r => 
+  const filteredRankings = rankings.filter(r =>
     r.nickname.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (r.email?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -668,10 +669,10 @@ const ManageRanking = () => {
               onRecalculate={recalculateRankings}
               onImportClick={() => setShowImportDialog(true)}
               onHelpClick={() => setShowHelpDialog(true)}
-              onResetClick={() => setShowResetDialog(true)}
+              onResetClick={() => setShowResetAllDialog(true)}
             />
           </CardHeader>
-          
+
           <CardContent className="pt-0">
             {/* Pending Changes Alert */}
             {editedRankings.size > 0 && (
@@ -751,6 +752,29 @@ const ManageRanking = () => {
         </Card>
       </div>
 
+      <AlertDialog open={showResetAllDialog} onOpenChange={setShowResetAllDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Limpar TODA Classificação?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso apagará TODOS os dados das tabelas de ranking e estatísticas de rodada.
+              Esta ação é ideal para reiniciar a temporada ou importar novos dados do zero.
+              <br /><br />
+              <strong className="text-destructive">Esta ação é irreversível.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={resetOnly}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Apagar Tudo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Add Players Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -769,7 +793,7 @@ const ManageRanking = () => {
             ) : (
               <div className="space-y-2">
                 {availablePlayers.map(player => (
-                  <div 
+                  <div
                     key={player.id}
                     className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
                     onClick={() => {
@@ -804,7 +828,7 @@ const ManageRanking = () => {
             <Button variant="outline" onClick={() => setShowAddDialog(false)}>
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={addPlayersToRanking}
               disabled={selectedPlayers.length === 0}
             >
@@ -823,7 +847,7 @@ const ManageRanking = () => {
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-3">
               <p>Esta ação irá <strong>deletar todos os registros</strong> da tabela de classificação.</p>
-              
+
               <div className="bg-destructive/10 p-3 rounded-lg">
                 <p className="font-medium text-destructive mb-1">O que será deletado:</p>
                 <ul className="list-disc ml-4 text-sm">
