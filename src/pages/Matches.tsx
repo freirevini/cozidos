@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { TeamLogo } from "@/components/match/TeamLogo";
+import { MatchEventsSummary } from "@/components/match/MatchEventsSummary";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatMatchTimer, formatEventMinute, getMatchCurrentMinute } from "@/lib/matchTimer";
@@ -143,19 +144,19 @@ export default function Matches() {
   // Safe time formatting - handles both ISO strings and time-only strings
   const formatTime = (timeString: string | null | undefined): string => {
     if (!timeString) return "--:--";
-    
+
     try {
       // If it's a time-only string (HH:MM:SS or HH:MM), extract hours and minutes
       if (timeString.match(/^\d{2}:\d{2}(:\d{2})?$/)) {
         return timeString.substring(0, 5);
       }
-      
+
       // Try parsing as ISO date
       const date = new Date(timeString);
       if (!isNaN(date.getTime())) {
         return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       }
-      
+
       return "--:--";
     } catch {
       return "--:--";
@@ -167,12 +168,12 @@ export default function Matches() {
     if (match.status === "finished") {
       return "Encerrado";
     }
-    
+
     if (match.status === "in_progress") {
       // Use centralized timer for MM:SS format
       return formatMatchTimer(match);
     }
-    
+
     // Not started - show scheduled time
     return formatTime(match.scheduled_time);
   };
@@ -248,12 +249,12 @@ export default function Matches() {
                       </div>
 
                       {/* Status Chip - Central */}
-                      <div 
+                      <div
                         className={cn(
                           "px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border text-xs sm:text-sm font-medium",
                           "min-w-[70px] sm:min-w-[90px] text-center whitespace-nowrap flex items-center justify-center gap-1.5",
-                          match.status === "in_progress" 
-                            ? "bg-primary/20 border-primary/50 text-foreground" 
+                          match.status === "in_progress"
+                            ? "bg-primary/20 border-primary/50 text-foreground"
                             : "bg-muted border-border text-foreground"
                         )}
                       >
@@ -276,6 +277,16 @@ export default function Matches() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Match Events Summary - Goals */}
+                    {match.status !== "not_started" && (
+                      <MatchEventsSummary
+                        matchId={match.id}
+                        teamHome={match.team_home}
+                        teamAway={match.team_away}
+                        compact={true}
+                      />
+                    )}
                   </CardContent>
                 </Card>
               ))

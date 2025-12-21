@@ -14,6 +14,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { AdminMatchCard, AdminMatchMiniNav, useSwipeGesture } from "@/components/admin/AdminMatchCard";
+import { RoundCarousel } from "@/components/admin/RoundCarousel";
 
 interface Match {
   id: string;
@@ -100,6 +101,7 @@ export default function ManageRounds() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [round, setRound] = useState<Round | null>(null);
+  const [allRounds, setAllRounds] = useState<Round[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
@@ -127,8 +129,11 @@ export default function ManageRounds() {
     if (!isAdmin) {
       toast.error("Acesso não autorizado");
       navigate("/");
-    } else if (roundId) {
-      loadRoundData();
+    } else {
+      loadAllRounds();
+      if (roundId) {
+        loadRoundData();
+      }
     }
   }, [isAdmin, roundId, navigate]);
 
@@ -167,6 +172,20 @@ export default function ManageRounds() {
       supabase.removeChannel(channel);
     };
   }, [roundId]);
+
+  const loadAllRounds = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("rounds")
+        .select("*")
+        .order("round_number", { ascending: false });
+
+      if (error) throw error;
+      setAllRounds(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar rodadas:", error);
+    }
+  };
 
   const loadRoundData = async () => {
     if (!roundId) return;
@@ -563,6 +582,17 @@ export default function ManageRounds() {
             </Badge>
           )}
         </div>
+
+        {/* Round Navigation Carousel */}
+        {allRounds.length > 1 && roundId && (
+          <RoundCarousel
+            rounds={allRounds}
+            selectedRoundId={roundId}
+            onSelectRound={(newRoundId) => {
+              navigate(`/admin/rounds?round=${newRoundId}`);
+            }}
+          />
+        )}
 
         {/* Action Buttons */}
         {matches.length > 0 && (

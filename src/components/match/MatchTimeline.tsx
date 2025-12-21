@@ -45,61 +45,51 @@ interface MatchTimelineProps {
   matchYear?: number;
 }
 
-// Realistic Soccer Ball SVG Icon
+// Soccer Ball PNG Icon
 function GoalIcon() {
   return (
-    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-black border-2 border-emerald-500/20 flex items-center justify-center z-10 shadow-lg shadow-emerald-500/10 relative overflow-hidden">
-      <svg viewBox="0 0 512 512" className="w-full h-full text-white bg-white">
-        <path d="M256 0C114.6 0 0 114.6 0 256s114.6 256 256 256 256-114.6 256-256S397.4 0 256 0zM37.5 256c0-43 12.4-83.3 33.7-117.8L163.6 254l-53.9 105.7C70.3 328.1 37.5 293 37.5 256zm148.5 210.5l56.8-111.4 87.8 77.3-39.7 18.6c-29.8 14-63.8 21.5-99.2 21.5-1.9 0-3.8-.1-5.7-.3zm153.2-30.8l-72.3-63.6 86.8-67.4 56.6 62.1c-19.1 27.5-44.4 50.8-74.1 68.9zm80-108.6l-67.6-74.1 33.1-99.3c35.4 33.7 58.1 80.2 59.8 132.3l-25.3 41.1zm-84.5-194.9l-54.8 107.5-102.3-39.4 55.4-90.8c30.1-13.3 63.6-20.8 98.7-20.8 1.1 0 2.1 0 3.2.1l-.2 43.4zM77.4 121.2l61.7 82.3L237 172l-25.1-105.4C179.3 75.8 152.1 94.7 121.9 119l-44.5 2.2z" fill="#1a1a1a" />
-      </svg>
-    </div>
+    <img
+      src="/assets/icons/ball-icon.png"
+      alt="Gol"
+      className="w-5 h-5 sm:w-6 sm:h-6 object-contain flex-shrink-0"
+    />
   );
 }
 
-// Angled Card Icon (CSS only)
+// Card PNG Icon - Yellow or Blue
 function CardIcon({ type }: { type: "amarelo" | "azul" }) {
   const isYellow = type === "amarelo";
   return (
-    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#1e1e1e] flex items-center justify-center z-10 shadow-lg relative border border-white/10">
-      <div
-        className={cn(
-          "w-5 h-7 rounded-[2px] shadow-sm transform rotate-12",
-          isYellow
-            ? "bg-yellow-400 shadow-yellow-400/20"
-            : "bg-blue-600 shadow-blue-600/20"
-        )}
-        style={{
-          boxShadow: "2px 2px 4px rgba(0,0,0,0.5)"
-        }}
-      />
-    </div>
+    <img
+      src={isYellow ? "/assets/icons/yellow-card.png" : "/assets/icons/blue-card.png"}
+      alt={isYellow ? "Cartão Amarelo" : "Cartão Azul"}
+      className="w-5 h-5 sm:w-6 sm:h-6 object-contain flex-shrink-0"
+    />
   );
 }
 
-// Substitution icon - circular with arrows
+// Substitution icon - SVG arrows (no background)
 function SubstitutionIcon() {
   return (
-    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#1e1e1e] border border-white/10 flex items-center justify-center z-10 shadow-lg">
-      <svg
-        viewBox="0 0 24 24"
-        className="w-5 h-5 sm:w-6 sm:h-6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M4 12v6" className="text-red-500" />
-        <path d="M4 18l-3-3" className="text-red-500" />
-        <path d="M4 18l3-3" className="text-red-500" />
+    <svg
+      viewBox="0 0 24 24"
+      className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 12v6" className="text-red-500" />
+      <path d="M4 18l-3-3" className="text-red-500" />
+      <path d="M4 18l3-3" className="text-red-500" />
 
-        <path d="M20 12V6" className="text-emerald-500" />
-        <path d="M20 6l3 3" className="text-emerald-500" />
-        <path d="M20 6l-3 3" className="text-emerald-500" />
+      <path d="M20 12V6" className="text-emerald-500" />
+      <path d="M20 6l3 3" className="text-emerald-500" />
+      <path d="M20 6l-3 3" className="text-emerald-500" />
 
-        <path d="M8 12h8" className="text-muted-foreground opacity-50" />
-      </svg>
-    </div>
+      <path d="M8 12h8" className="text-muted-foreground opacity-50" />
+    </svg>
   );
 }
 

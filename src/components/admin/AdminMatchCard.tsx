@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TeamLogo } from "@/components/match/TeamLogo";
+import { MatchEventsSummary } from "@/components/match/MatchEventsSummary";
 import { PlayCircle, Edit3, Trash2, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatMatchTimer, formatEventMinute, getMatchCurrentMinute } from "@/lib/matchTimer";
@@ -187,6 +188,15 @@ export function AdminMatchCard({
             </div>
           </div>
         </div>
+
+        {/* Match Events Summary - Goals and Assists */}
+        {match.status !== "not_started" && (
+          <MatchEventsSummary
+            matchId={match.id}
+            teamHome={match.team_home}
+            teamAway={match.team_away}
+          />
+        )}
 
         {/* Actions */}
         <div className="px-4 py-3 border-t border-border/50 bg-muted/10">

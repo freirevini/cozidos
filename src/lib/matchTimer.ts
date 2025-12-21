@@ -49,7 +49,7 @@ export function formatMatchTimer(match: MatchTimerData): string {
   if (match.status === 'finished') {
     return 'Encerrado';
   }
-  
+
   if (match.status !== 'in_progress' || !match.match_timer_started_at) {
     return '--:--';
   }
@@ -57,17 +57,17 @@ export function formatMatchTimer(match: MatchTimerData): string {
   const totalSeconds = getMatchElapsedSeconds(match);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  
+
   return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
 /**
  * Formata o minuto para exibição de eventos
- * Regra: <= 12 minutos = "X'", > 12 minutos = "12' + Y"
+ * Regra: <= 12 minutos = "X'", > 12 minutos = "12'+Y"
  */
 export function formatEventMinute(minute: number, matchDuration: number = 12): string {
   if (minute > matchDuration) {
-    return `${matchDuration}' + ${minute - matchDuration}`;
+    return `${matchDuration}'+${minute - matchDuration}`;
   }
   return `${minute}'`;
 }
@@ -79,7 +79,7 @@ export function formatMinuteOnly(match: MatchTimerData, matchDuration: number = 
   if (match.status === 'finished') {
     return 'Encerrado';
   }
-  
+
   if (match.status !== 'in_progress' || !match.match_timer_started_at) {
     return '--';
   }
