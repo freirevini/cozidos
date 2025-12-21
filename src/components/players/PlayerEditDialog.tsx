@@ -331,13 +331,14 @@ export function PlayerEditDialog({
                   Nível
                 </Label>
                 <Select
-                  value={formData.level || ""}
-                  onValueChange={(value) => setFormData({ ...formData, level: value })}
+                  value={formData.level || "__none__"}
+                  onValueChange={(value) => setFormData({ ...formData, level: value === "__none__" ? "" : value })}
                 >
                   <SelectTrigger id="edit-level" className="h-12 text-base rounded-lg">
                     <SelectValue placeholder="Selecione o nível" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__none__">— Sem nível</SelectItem>
                     <SelectItem value="A">A - Elite</SelectItem>
                     <SelectItem value="B">B - Avançado</SelectItem>
                     <SelectItem value="C">C - Intermediário</SelectItem>
@@ -353,13 +354,14 @@ export function PlayerEditDialog({
                   Posição
                 </Label>
                 <Select
-                  value={formData.position || ""}
-                  onValueChange={(value) => setFormData({ ...formData, position: value })}
+                  value={formData.position || "__none__"}
+                  onValueChange={(value) => setFormData({ ...formData, position: value === "__none__" ? "" : value })}
                 >
                   <SelectTrigger id="edit-position" className="h-12 text-base rounded-lg">
                     <SelectValue placeholder="Selecione a posição" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__none__">— Sem posição</SelectItem>
                     <SelectItem value="goleiro">🧤 Goleiro</SelectItem>
                     <SelectItem value="defensor">🛡️ Defensor</SelectItem>
                     <SelectItem value="meio-campista">⚡ Meio-Campista</SelectItem>
