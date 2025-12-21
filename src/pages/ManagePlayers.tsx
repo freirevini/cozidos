@@ -202,23 +202,31 @@ export default function ManagePlayers() {
 
   const handleSavePlayer = async (updatedPlayer: Player) => {
     try {
+      // Normalize empty strings to null to avoid ENUM validation errors
+      const normalizedData = {
+        nickname: updatedPlayer.nickname?.trim() || null,
+        email: updatedPlayer.email?.trim() || null,
+        birth_date: updatedPlayer.birth_date || null,
+        level: updatedPlayer.level && updatedPlayer.level.trim() !== "" 
+          ? updatedPlayer.level as any 
+          : null,
+        position: updatedPlayer.position && updatedPlayer.position.trim() !== "" 
+          ? updatedPlayer.position as any 
+          : null,
+        status: updatedPlayer.status as any || 'pendente',
+      };
+
       const { error } = await supabase
         .from("profiles")
-        .update({
-          nickname: updatedPlayer.nickname,
-          email: updatedPlayer.email,
-          birth_date: updatedPlayer.birth_date,
-          level: updatedPlayer.level as any,
-          position: updatedPlayer.position as any,
-          status: updatedPlayer.status as any,
-        })
+        .update(normalizedData)
         .eq("id", updatedPlayer.id);
 
       if (error) throw error;
 
-      setAllPlayers(prev => prev.map(p => p.id === updatedPlayer.id ? updatedPlayer : p));
+      setAllPlayers(prev => prev.map(p => p.id === updatedPlayer.id ? { ...p, ...normalizedData } : p));
       sonnerToast.success("Jogador atualizado!");
     } catch (error: any) {
+      console.error("[handleSavePlayer] Error:", error);
       sonnerToast.error(getUserFriendlyError(error));
       throw error;
     }
