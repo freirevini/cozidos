@@ -116,19 +116,19 @@ export function MatchEventsSummary({
 
     const loadGoals = async () => {
         try {
-            const { data, error } = await supabase
-                .from("goals")
-                .select(`
-          id,
-          minute,
-          team_color,
-          player:profiles!goals_player_id_fkey(name, nickname),
-          assists(
-            player:profiles!assists_player_id_fkey(name, nickname)
-          )
-        `)
-                .eq("match_id", matchId)
-                .order("minute", { ascending: true });
+        const { data, error } = await supabase
+            .from("goals")
+            .select(`
+              id,
+              minute,
+              team_color,
+              player:profiles!goals_player_id_fkey(name, nickname),
+              assists(
+                player:profiles(name, nickname)
+              )
+            `)
+            .eq("match_id", matchId)
+            .order("minute", { ascending: true });
 
             if (error) throw error;
             setGoals((data as any) || []);
