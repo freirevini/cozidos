@@ -861,6 +861,7 @@ export type Database = {
         }
         Returns: Json
       }
+      auto_finalize_stale_rounds: { Args: never; Returns: Json }
       calculate_age_years: { Args: { birth_date: string }; Returns: number }
       check_profile_sync_status: {
         Args: never
