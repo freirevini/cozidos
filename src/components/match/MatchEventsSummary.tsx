@@ -75,7 +75,7 @@ function GoalItem({ goal, isHome }: { goal: Goal; isHome: boolean }) {
             {/* Line 3: Assist (Lighter, smaller) */}
             {assistName && (
                 <span className="text-xs sm:text-sm font-normal text-muted-foreground leading-tight break-words max-w-[130px] sm:max-w-[170px]">
-                    {assistName} (Assist)
+                    {assistName}
                 </span>
             )}
         </div>
@@ -124,7 +124,7 @@ export function MatchEventsSummary({
               team_color,
               player:profiles!goals_player_id_fkey(name, nickname),
               assists(
-                player:profiles(name, nickname)
+                player:profiles!assists_player_id_fkey(name, nickname)
               )
             `)
             .eq("match_id", matchId)
