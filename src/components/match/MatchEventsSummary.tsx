@@ -29,7 +29,18 @@ interface MatchEventsSummaryProps {
 // Single Goal Item - Mirrored Layout
 function GoalItem({ goal, isHome }: { goal: Goal; isHome: boolean }) {
     const playerName = goal.player?.nickname || goal.player?.name || "Jogador";
-    const assistData = Array.isArray(goal.assists) && goal.assists.length > 0 ? goal.assists[0] : null;
+    
+    // Handle assists - can be array or single object depending on Supabase response
+    const getAssistData = () => {
+        if (!goal.assists) return null;
+        if (Array.isArray(goal.assists)) {
+            return goal.assists.length > 0 ? goal.assists[0] : null;
+        }
+        // Single object case (when there's only one assist)
+        return goal.assists as { player?: { name: string; nickname: string | null } };
+    };
+    
+    const assistData = getAssistData();
     const assistName = assistData?.player?.nickname || assistData?.player?.name;
 
     return (
