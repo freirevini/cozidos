@@ -526,15 +526,11 @@ const ManageRanking = () => {
         }
       }
 
-      // Recalcula pontos totais após as alterações
-      const { error: recalcError } = await supabase.rpc('recalc_all_player_rankings');
+      // NÃO chama recalc_all_player_rankings aqui!
+      // Isso sobrescreveria dados importados/manuais com zeros
+      // O update direto já salvou os valores corretos
 
-      if (recalcError) {
-        console.error('Erro ao recalcular rankings:', recalcError);
-        // Não bloqueia o fluxo, apenas loga
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       const lastData = await fetchRankingsRaw();
       setRankings(lastData);
