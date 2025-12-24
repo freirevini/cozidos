@@ -50,6 +50,7 @@ export function ImportPlayersDialog({ open, onOpenChange, onImport }: ImportPlay
       Papa.parse(text, {
         header: true,
         skipEmptyLines: true,
+        delimiter: '', // Auto-detect delimiter (supports , and ;)
         complete: (results) => {
           const data = results.data as any[];
 
