@@ -433,12 +433,24 @@ const ManageRanking = () => {
         description: `Processando ${editedRankings.size} jogador(es)`,
       });
 
-      const adjustmentPromises = Array.from(editedRankings.entries()).flatMap(
-        ([rankingId, fields]) => {
-          const ranking = rankings.find(r => r.id === rankingId);
-          if (!ranking) return [];
+      let successCount = 0;
+      let fallbackCount = 0;
 
-          return Object.entries(fields).map(([field, value]) => {
+      for (const [rankingId, fields] of Array.from(editedRankings.entries())) {
+        const ranking = rankings.find(r => r.id === rankingId);
+        if (!ranking) {
+          console.warn(`Ranking não encontrado para ID: ${rankingId}`);
+          continue;
+        }
+
+        // Verifica se o jogador tem player_id válido para usar RPC
+        const hasValidPlayerId = ranking.player_id && ranking.player_id.length > 0;
+
+        if (hasValidPlayerId) {
+          // Tenta usar o RPC para jogadores com player_id válido
+          let rpcSuccess = true;
+
+          for (const [field, value] of Object.entries(fields)) {
             const adjustmentTypeMap: Record<string, string> = {
               gols: 'gols',
               assistencias: 'assistencias',
@@ -454,53 +466,84 @@ const ManageRanking = () => {
             };
 
             const adjustmentType = adjustmentTypeMap[field];
-            if (!adjustmentType) return null;
+            if (!adjustmentType) continue;
 
-            return supabase.rpc('apply_ranking_adjustment', {
+            const { data, error } = await supabase.rpc('apply_ranking_adjustment', {
               p_player_id: ranking.player_id,
               p_adjustment_type: adjustmentType,
               p_new_total: value as number,
               p_reason: `Ajuste manual via interface administrativa`,
             });
-          }).filter(Boolean);
+
+            if (error) {
+              console.error(`RPC falhou para ${ranking.nickname} (${field}):`, error);
+              rpcSuccess = false;
+              break;
+            }
+
+            const result = data as any;
+            if (result?.success === false) {
+              console.error(`RPC retornou erro para ${ranking.nickname}:`, result);
+              rpcSuccess = false;
+              break;
+            }
+          }
+
+          if (rpcSuccess) {
+            successCount++;
+            continue;
+          }
+
+          // Fallback para update direto se RPC falhou
+          console.log(`Usando fallback para ${ranking.nickname} (RPC falhou)`);
         }
-      );
 
-      const results = await Promise.all(adjustmentPromises);
+        // Fallback: Update direto na tabela usando o ID da linha (não player_id)
+        // Isso funciona para jogadores importados sem conta (Ghost Profiles)
+        const updatePayload: Record<string, number> = {};
+        
+        for (const [field, value] of Object.entries(fields)) {
+          if (['gols', 'assistencias', 'vitorias', 'empates', 'derrotas', 
+               'presencas', 'faltas', 'atrasos', 'punicoes', 
+               'cartoes_amarelos', 'cartoes_azuis', 'pontos_totais'].includes(field)) {
+            updatePayload[field] = value as number;
+          }
+        }
 
-      const rpcErrors = results.filter(r => r.error);
-      if (rpcErrors.length > 0) {
-        throw new Error(rpcErrors[0].error.message || "Erro ao aplicar ajustes");
+        if (Object.keys(updatePayload).length > 0) {
+          const { error: updateError } = await supabase
+            .from('player_rankings')
+            .update(updatePayload)
+            .eq('id', rankingId); // <-- Usa ID da linha, não player_id
+
+          if (updateError) {
+            console.error(`Update direto falhou para ${ranking.nickname}:`, updateError);
+            throw new Error(`Erro ao salvar ${ranking.nickname}: ${updateError.message}`);
+          }
+
+          fallbackCount++;
+          console.log(`✅ Update direto bem-sucedido para ${ranking.nickname}`);
+        }
       }
 
-      const dataErrors = results.filter(r => {
-        const data = r.data as any;
-        return data?.success === false;
-      });
+      // NÃO chama recalc_all_player_rankings aqui!
+      // Isso sobrescreveria dados importados/manuais com zeros
+      // O update direto já salvou os valores corretos
 
-      if (dataErrors.length > 0) {
-        const errorData = dataErrors[0].data as any;
-        throw new Error(errorData?.error || "Erro ao aplicar ajustes");
-      }
-
-      const { error: recalcError } = await supabase.rpc('recalc_all_player_rankings');
-
-      if (recalcError) {
-        throw new Error("Erro ao recalcular classificação: " + recalcError.message);
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       const lastData = await fetchRankingsRaw();
       setRankings(lastData);
 
+      const totalProcessed = successCount + fallbackCount;
       toast({
         title: "✅ Alterações salvas!",
-        description: `${editedRankings.size} jogador(es) atualizado(s).`,
+        description: `${totalProcessed} jogador(es) atualizado(s)${fallbackCount > 0 ? ` (${fallbackCount} via update direto)` : ''}.`,
       });
 
       setEditedRankings(new Map());
     } catch (error: any) {
+      console.error('Erro ao salvar alterações:', error);
       toast({
         title: "❌ Erro ao salvar",
         description: error.message,
