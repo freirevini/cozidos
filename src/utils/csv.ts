@@ -102,9 +102,10 @@ export function generateTokensCSV(results: Array<{ nickname: string; claim_token
 }
 
 export function validatePlayerImportRow(row: any): { valid: boolean; error?: string } {
-  const nickname = row?.Nickname || row?.nickname;
-  const level = row?.Level || row?.level || row?.Nivel || row?.nivel;
-  const position = row?.Position || row?.position || row?.Posicao || row?.posicao;
+  // Check normalized keys first (nickname, level, position)
+  const nickname = row?.nickname || row?.Nickname;
+  const level = row?.level || row?.Level;
+  const position = row?.position || row?.Position;
 
   if (!nickname || !nickname.toString().trim()) {
     return { valid: false, error: 'Nickname é obrigatório' };
@@ -115,10 +116,14 @@ export function validatePlayerImportRow(row: any): { valid: boolean; error?: str
     return { valid: false, error: 'Level inválido (deve ser A, B, C, D ou E)' };
   }
 
-  const validPositions = ['goleiro', 'defensor', 'meio-campista', 'meio_campo', 'atacante'];
+  // Position should already be normalized to English content by handleFileSelect
+  const validPositions = ['goalkeeper', 'defender', 'midfielder', 'striker'];
   const lowerPosition = position?.toString().toLowerCase().trim();
+
+  // If we receive "meio-campista" here it means normalization failed or wasn't applied?
+  // But strict check ensures we only allow DB compatible values.
   if (!lowerPosition || !validPositions.includes(lowerPosition)) {
-    return { valid: false, error: `Posição inválida: '${position || ''}'. Valores aceitos: goleiro, defensor, meio-campista, atacante` };
+    return { valid: false, error: `Posição inválida: '${position || ''}'. Valores aceitos: goalkeeper, defender, midfielder, striker` };
   }
 
   return { valid: true };
@@ -135,19 +140,19 @@ export function validateClassificationImportRow(row: any): { valid: boolean; err
     return { valid: false, error: 'Nickname é obrigatório' };
   }
 
-  if (!token || !token.toString().trim()) {
-    return { valid: false, error: 'Token é obrigatório' };
+  if (!nickname || !nickname.toString().trim()) {
+    return { valid: false, error: 'Nickname é obrigatório' };
   }
 
-  const upperLevel = level?.toString().toUpperCase().trim();
-  if (!upperLevel || !['A', 'B', 'C', 'D', 'E'].includes(upperLevel)) {
-    return { valid: false, error: 'Level inválido (deve ser A, B, C, D ou E)' };
-  }
+  // Token is no longer required in CSV (Smart Binding will handle it via Nickname)
+  // Level is no longer required (Optional update)
 
-  const validPositions = ['goleiro', 'defensor', 'meio-campista', 'meio_campo', 'atacante'];
+  // Position is already normalized to English by the caller, so validate against DB enums
+  const validPositions = ['goalkeeper', 'defender', 'midfielder', 'striker'];
   const lowerPosition = position?.toString().toLowerCase().trim();
-  if (!lowerPosition || !validPositions.includes(lowerPosition)) {
-    return { valid: false, error: `Posição inválida: '${position || ''}'. Valores aceitos: goleiro, defensor, meio-campista, atacante` };
+
+  if (position && lowerPosition && !validPositions.includes(lowerPosition)) {
+    return { valid: false, error: `Posição inválida: '${position}'. Valores aceitos: goalkeeper, defender, midfielder, striker` };
   }
 
   if (ano) {
@@ -165,34 +170,28 @@ export function normalizePosition(input: string | null | undefined): string | nu
 
   const cleanInput = input.toString().toLowerCase().trim();
 
-  // Map inputs to standard DB values
-  // Goleiro
+  // Map Portuguese/English inputs to English DB enum values
+  // Goleiro -> goalkeeper
   if (['goleiro', 'gol', 'gk', 'goalkeeper', 'g'].includes(cleanInput)) {
-    return 'goleiro';
+    return 'goalkeeper';
   }
 
-  // Defensor
-  if (['zagueiro', 'defensor', 'lateral', 'def', 'd', 'defender', 'beque'].includes(cleanInput)) {
-    return 'defensor';
+  // Defensor -> defender
+  if (['zagueiro', 'defensor', 'lateral', 'def', 'd', 'defender', 'beque', 'defesa'].includes(cleanInput)) {
+    return 'defender';
   }
 
-  // Meio-campista
+  // Meio-campista -> midfielder
   if (['meio', 'meia', 'volante', 'mid', 'm', 'meio-campista', 'meio_campo', 'midfielder'].includes(cleanInput)) {
-    return 'meio-campista';
+    return 'midfielder';
   }
 
-  // Atacante
-  if (['atacante', 'ponta', 'centroavante', 'ata', 'fwd', 'a', 'striker', 'attack'].includes(cleanInput)) {
-    return 'atacante';
+  // Atacante -> striker
+  if (['atacante', 'ponta', 'centroavante', 'ata', 'fwd', 'a', 'striker', 'attack', 'ataque'].includes(cleanInput)) {
+    return 'striker';
   }
 
-  // Default fallback (or return original which presumably will fail validation or be accepted if exact match)
-  // Returning null allows validation to catch it if strictly required, or we could default to 'meio-campista' if safer.
-  // The user said: "Se a posição não for reconhecida, defina um valor padrão (ex: "midfielder") ou deixe null"
-  // Let's stick to null to allow validation to catch valid vs invalid, OR default if we want to be permissive.
-  // Given "midfielder" suggestion, maybe default to that?
-  // Let's return the input if it's already one of the valid ones (which are covered above mostly),
-  // but if it's unknown, let's return 'meio-campista' as a safe fallback for "players who play everywhere".
-
-  return 'meio-campista';
+  // Default fallback to midfielder if position is unrecognized
+  // This prevents breaking the import for other valid data
+  return 'midfielder';
 }

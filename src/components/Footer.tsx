@@ -9,7 +9,7 @@ export default function Footer() {
           <p className="text-foreground text-sm font-medium">Sigam-nos em:</p>
           <div className="flex items-center gap-4">
             <a
-              href="https://www.instagram.com"
+              href="https://www.instagram.com/cozidos.futebolclube/"
               target="_blank"
               rel="noopener noreferrer"
               className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500 flex items-center justify-center hover:opacity-80 transition-opacity"

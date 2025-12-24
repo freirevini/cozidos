@@ -53,15 +53,22 @@ export function ImportPlayersDialog({ open, onOpenChange, onImport }: ImportPlay
         complete: (results) => {
           const data = results.data as any[];
 
-          // Normalize Position and Level
+          // Normalize keys and sanitization (Strict Lowercase Keys for RPC)
           const normalizedData = data.map(row => {
-            const position = row.Position || row.position || row.Posicao || row.posicao;
-            const level = row.Level || row.level || row.Nivel || row.nivel;
+            // 1. Identify values (Case insensitive lookup)
+            const nicknameVal = row.Nickname || row.nickname || row.Apelido || row.apelido || '';
+            const positionVal = row.Position || row.position || row.Posicao || row.posicao || '';
+            const levelVal = row.Level || row.level || row.Nivel || row.nivel || '';
+            const emailVal = row.Email || row.email || '';
+            const nameVal = row.Name || row.name || row.Nome || row.nome || '';
 
+            // 2. Return object with strict keys (LOWERCASE)
             return {
-              ...row,
-              Position: normalizePosition(position), // Use the robust function
-              Level: level?.toString().toUpperCase().trim()
+              nickname: nicknameVal.toString().trim(),
+              name: nameVal.toString().trim() || nicknameVal.toString().trim(), // Fallback name = nickname
+              email: emailVal.toString().trim(),
+              level: levelVal.toString().toUpperCase().trim(),
+              position: normalizePosition(positionVal) // Returns English Enum or 'midfielder' fallback
             };
           });
 
