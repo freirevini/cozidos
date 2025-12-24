@@ -13,6 +13,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { RefreshCw, Trophy, Target, Award, Equal, TrendingDown } from "lucide-react";
 import { toast } from "sonner";
 import PlayerComparisonChart from "@/components/PlayerComparisonChart";
+import { VirtualizedList } from "@/components/ui/virtualized-list";
 
 interface PlayerRanking {
   id: string;
@@ -236,7 +237,7 @@ export default function Statistics() {
   };
 
   const renderStatsList = (type: FilterType) => {
-    const sortedStats = getSortedStats(type);
+    const sortedStats = getSortedStats(type).filter(p => getStatValue(p, type) > 0);
 
     if (loading) {
       return (
@@ -256,52 +257,47 @@ export default function Statistics() {
       );
     }
 
-    return (
-      <div className="space-y-3">
-        {sortedStats.map((player, index) => {
-          const statValue = getStatValue(player, type);
-          if (statValue === 0) return null;
-
-          return (
-            <div
-              key={player.player_id}
-              className="flex items-center justify-between p-4 rounded-lg bg-muted/20 border border-border hover:bg-muted/30 transition-colors"
-            >
-              <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
-                {/* Posição */}
-                <span className="text-xl md:text-2xl font-bold text-primary w-6 md:w-8 flex-shrink-0">
-                  {index + 1}
-                </span>
-
-                {/* Avatar */}
-                <Avatar className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0 bg-muted">
-                  {player.avatar_url ? (
-                    <AvatarImage
-                      src={player.avatar_url}
-                      alt={player.nickname}
-                      className="object-cover"
-                    />
-                  ) : (
-                    <AvatarFallback className="text-xs md:text-sm">
-                      {player.nickname.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  )}
-                </Avatar>
-
-                {/* Nome */}
-                <div className="font-bold text-sm md:text-base text-foreground truncate">
-                  {player.nickname}
-                </div>
-              </div>
-
-              {/* Valor do stat */}
-              <div className="text-2xl md:text-3xl font-bold text-primary flex-shrink-0 ml-2">
-                {statValue}
-              </div>
+    const renderPlayerRow = (player: PlayerRanking, index: number) => {
+      const statValue = getStatValue(player, type);
+      return (
+        <div
+          className="flex items-center justify-between p-4 rounded-lg bg-muted/20 border border-border hover:bg-muted/30 transition-colors"
+        >
+          <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+            <span className="text-xl md:text-2xl font-bold text-primary w-6 md:w-8 flex-shrink-0">
+              {index + 1}
+            </span>
+            <Avatar className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0 bg-muted">
+              {player.avatar_url ? (
+                <AvatarImage
+                  src={player.avatar_url}
+                  alt={player.nickname}
+                  className="object-cover"
+                />
+              ) : (
+                <AvatarFallback className="text-xs md:text-sm">
+                  {player.nickname.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              )}
+            </Avatar>
+            <div className="font-bold text-sm md:text-base text-foreground truncate">
+              {player.nickname}
             </div>
-          );
-        })}
-      </div>
+          </div>
+          <div className="text-2xl md:text-3xl font-bold text-primary flex-shrink-0 ml-2">
+            {statValue}
+          </div>
+        </div>
+      );
+    };
+
+    // Use virtualization for mobile (lg:hidden handled in parent)
+    return (
+      <VirtualizedList
+        items={sortedStats}
+        itemHeight={88}
+        renderItem={renderPlayerRow}
+      />
     );
   };
 

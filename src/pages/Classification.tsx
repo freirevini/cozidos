@@ -12,6 +12,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { SeasonSelector, MonthChips, LevelSelector, PlayerRankItem, PlayerStatsDrawer } from "@/components/classification";
 import { cn } from "@/lib/utils";
+import { VirtualizedList } from "@/components/ui/virtualized-list";
 interface PlayerStats {
   player_id: string;
   nickname: string;
@@ -323,19 +324,33 @@ export default function Classification() {
                   <Skeleton className="h-8 w-16" />
                 </div>)}
             </div> : <>
-              {/* Mobile: Lista vertical MLS-style */}
+              {/* Mobile: Lista virtualizada MLS-style */}
               <div className="lg:hidden">
-                {filteredStats.length === 0 ? <div className="text-center py-12 text-muted-foreground">
+                {filteredStats.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
                     Nenhum jogador encontrado
-                  </div> : <>
-                    {filteredStats.map((stat, index) => <PlayerRankItem key={stat.player_id} rank={index + 1} nickname={stat.nickname} avatarUrl={stat.avatar_url} level={stat.level} points={stat.pontos_totais} presence={stat.presencas} onClick={() => {
-                setSelectedPlayer(stat);
-                setDrawerOpen(true);
-              }} />)}
-
-                    {/* Count indicator */}
-                    
-                  </>}
+                  </div>
+                ) : (
+                  <VirtualizedList
+                    items={filteredStats}
+                    itemHeight={64}
+                    renderItem={(stat, index) => (
+                      <PlayerRankItem
+                        key={stat.player_id}
+                        rank={index + 1}
+                        nickname={stat.nickname}
+                        avatarUrl={stat.avatar_url}
+                        level={stat.level}
+                        points={stat.pontos_totais}
+                        presence={stat.presencas}
+                        onClick={() => {
+                          setSelectedPlayer(stat);
+                          setDrawerOpen(true);
+                        }}
+                      />
+                    )}
+                  />
+                )}
               </div>
 
               {/* Desktop: Tabela completa */}
