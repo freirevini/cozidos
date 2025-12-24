@@ -403,7 +403,7 @@ export default function Classification() {
                   </div>
                 ) : (
                   <>
-                    {paginatedStats.map((stat, index) => (
+                    {filteredStats.map((stat, index) => (
                       <PlayerRankItem
                         key={stat.player_id}
                         rank={index + 1}
@@ -419,18 +419,9 @@ export default function Classification() {
                       />
                     ))}
 
-                    {/* Infinite scroll loader */}
-                    {hasMore && (
-                      <div ref={loaderRef} className="flex justify-center py-4">
-                        {loadingMore && (
-                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                        )}
-                      </div>
-                    )}
-
                     {/* Count indicator */}
                     <div className="text-center py-3 text-sm text-muted-foreground">
-                      Exibindo {paginatedStats.length} de {filteredStats.length} jogadores
+                      Total: {filteredStats.length} jogadores
                     </div>
                   </>
                 )}
