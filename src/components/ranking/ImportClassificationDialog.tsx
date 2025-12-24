@@ -43,6 +43,16 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
     setPreviewData([]);
 
     try {
+      // Fetch valid tokens
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('claim_token')
+        .not('claim_token', 'is', null);
+
+      if (profileError) throw profileError;
+
+      const validTokens = new Set(profiles?.map(p => p.claim_token) || []);
+
       const text = await file.text();
       const Papa = (await import('papaparse')).default;
 
@@ -63,8 +73,12 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
             const validation = validateClassificationImportRow(row);
             if (!validation.valid) {
               errors.push(`Linha ${idx + 1}: ${validation.error}`);
+            } else {
+              const token = row.Token || row.token || row.ClaimToken || row.claim_token;
+              if (token && !validTokens.has(token)) {
+                errors.push(`Linha ${idx + 1}: Token '${token}' não encontrado no sistema.`);
+              }
             }
-            // Token validation removed - handled by Smart Binding in ManageRanking
           });
 
           setValidationErrors(errors);
@@ -129,6 +143,9 @@ export function ImportClassificationDialog({ open, onOpenChange, onImport }: Imp
                 <Badge className="bg-primary/20 text-primary w-fit">Campos Obrigatórios</Badge>
                 <div className="flex flex-wrap gap-1">
                   <code className="bg-muted px-2 py-0.5 rounded">Nickname</code>
+                  <code className="bg-muted px-2 py-0.5 rounded">Token</code>
+                  <code className="bg-muted px-2 py-0.5 rounded">Level</code>
+                  <code className="bg-muted px-2 py-0.5 rounded">Position</code>
                 </div>
               </div>
 

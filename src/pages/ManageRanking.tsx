@@ -633,65 +633,8 @@ const ManageRanking = () => {
         return null;
       }
 
-      // --- NEW BINDING LOGIC START ---
-      // Fetch all profiles to perform binding logic in frontend
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, nickname, name, claim_token');
-
-      if (profilesError) throw profilesError;
-
-      // Create Lookup Maps
-      const tokenMap = new Map<string, typeof profiles[0]>();
-      const nicknameMap = new Map<string, typeof profiles[0]>();
-
-      profiles?.forEach(p => {
-        if (p.claim_token) tokenMap.set(p.claim_token.trim(), p);
-        if (p.nickname) nicknameMap.set(p.nickname.toLowerCase().trim(), p);
-      });
-
-      // Process and Bind Data
-      const processedData = data.map(row => {
-        // Find existing keys
-        const tokenKey = Object.keys(row).find(k => ['token', 'claimtoken', 'claim_token'].includes(k.toLowerCase())) || 'Token';
-        const nicknameKey = Object.keys(row).find(k => ['nickname', 'name', 'nome', 'jogador'].includes(k.toLowerCase())) || 'Nickname';
-
-        const rawToken = row[tokenKey]?.toString().trim();
-        const rawNickname = row[nicknameKey]?.toString().toLowerCase().trim();
-
-        let resolvedProfile = null;
-
-        // Priority 1: Check Token
-        if (rawToken && tokenMap.has(rawToken)) {
-          resolvedProfile = tokenMap.get(rawToken);
-        }
-
-        // Priority 2: Check Nickname (if no valid token found yet)
-        if (!resolvedProfile && rawNickname) {
-          // Try exact match first
-          if (nicknameMap.has(rawNickname)) {
-            resolvedProfile = nicknameMap.get(rawNickname);
-          }
-          // If needed, we could add fuzzy search here, but prompt requested Case Insensitive + Trim only.
-        }
-
-        // If we resolved a profile, FORCE the token in the row data
-        // This ensures the RPC finds the correct player by Token (Priority 1)
-        if (resolvedProfile && resolvedProfile.claim_token) {
-          return {
-            ...row,
-            [tokenKey]: resolvedProfile.claim_token, // Inject valid token
-            // Ensure we use the exact keys expected by RPC if they differ? 
-            // We update the existing key to be safe.
-          };
-        }
-
-        return row;
-      });
-      // --- NEW BINDING LOGIC END ---
-
       const { data: result, error } = await supabase.rpc('import_classification_csv', {
-        p_rows: processedData,
+        p_rows: data,
         p_actor_id: user.id
       });
 
