@@ -2,7 +2,6 @@ import { Badge } from "@/components/ui/badge";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { Camera, Trophy } from "lucide-react";
 import { useState } from "react";
-import logoPink from "@/assets/logo-pink.png";
 import bgCard from "@/assets/bg-card.png";
 
 interface ProfileHeroHeaderProps {
@@ -103,14 +102,7 @@ export function ProfileHeroHeader({
           {/* LEFT COLUMN: Info */}
           <div className="flex flex-col items-start justify-between h-full py-4">
 
-            {/* Top: Team Logo */}
-            <div className="animate-in fade-in slide-in-from-left-4 duration-700">
-              <img
-                src={logoPink}
-                alt="Cozidos FC"
-                className="w-20 sm:w-24 drop-shadow-[0_0_15px_rgba(236,72,153,0.5)]"
-              />
-            </div>
+
 
             {/* Middle/Bottom: Player Details */}
             <div className="flex flex-col items-start gap-4 mb-8">
