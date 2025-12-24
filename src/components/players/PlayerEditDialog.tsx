@@ -161,9 +161,16 @@ export function PlayerEditDialog({
 
       onOpenChange(false);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // Check for unique constraint violation (duplicate email)
+      if (errorMessage.includes('23505') || errorMessage.includes('duplicate') || errorMessage.includes('unique') || errorMessage.includes('já existe')) {
+        setErrors({ ...errors, email: "Este e-mail já está cadastrado para outro jogador." });
+      }
+
       toast({
         title: "Erro ao salvar",
-        description: error instanceof Error ? error.message : "Não foi possível salvar as alterações.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

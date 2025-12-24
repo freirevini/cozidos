@@ -207,11 +207,11 @@ export default function ManagePlayers() {
         nickname: updatedPlayer.nickname?.trim() || null,
         email: updatedPlayer.email?.trim() || null,
         birth_date: updatedPlayer.birth_date || null,
-        level: updatedPlayer.level && updatedPlayer.level.trim() !== "" 
-          ? updatedPlayer.level as any 
+        level: updatedPlayer.level && updatedPlayer.level.trim() !== ""
+          ? updatedPlayer.level as any
           : null,
-        position: updatedPlayer.position && updatedPlayer.position.trim() !== "" 
-          ? updatedPlayer.position as any 
+        position: updatedPlayer.position && updatedPlayer.position.trim() !== ""
+          ? updatedPlayer.position as any
           : null,
         status: updatedPlayer.status as any || 'pendente',
       };
@@ -282,6 +282,8 @@ export default function ManagePlayers() {
             sonnerToast.success("Jogador excluído!");
             setEditDialogOpen(false);
           } catch (error: any) {
+            // Reload to revert optimistic update if deletion failed
+            await loadPlayers();
             sonnerToast.error(getUserFriendlyError(error));
           }
           reactRoot.unmount();
