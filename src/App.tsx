@@ -8,6 +8,7 @@ import { AnimatePresence } from "framer-motion";
 import PageTransition from "@/components/PageTransition";
 import LoadingLogo from "@/components/LoadingLogo";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { GlobalPendingBanner } from "@/components/GlobalPendingBanner";
 import Classification from "./pages/Classification";
 import Matches from "./pages/Matches";
 import MatchDetails from "./pages/MatchDetails";
@@ -48,6 +49,31 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return user ? <>{children}</> : null;
 }
 
+// ApprovedOnlyRoute: Blocks access to profile pages for pending users
+function ApprovedOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { user, profileData, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [loading, user, navigate]);
+
+  if (loading) {
+    return <LoadingLogo />;
+  }
+
+  if (!user) return null;
+
+  // Block pending users from accessing profile
+  if (profileData?.status !== 'aprovado') {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 function AnimatedRoutes() {
   const location = useLocation();
 
@@ -71,8 +97,8 @@ function AnimatedRoutes() {
         <Route path="/admin/round/:roundId/attendance" element={<ProtectedRoute><PageTransition><AttendanceRecord /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/round" element={<ProtectedRoute><PageTransition><StartRound /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/round/manage" element={<ProtectedRoute><PageTransition><ManageRounds /></PageTransition></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><PageTransition><Profile /></PageTransition></ProtectedRoute>} />
-        <Route path="/profile/:id" element={<ProtectedRoute><PageTransition><Profile /></PageTransition></ProtectedRoute>} />
+        <Route path="/profile" element={<ApprovedOnlyRoute><PageTransition><Profile /></PageTransition></ApprovedOnlyRoute>} />
+        <Route path="/profile/:id" element={<ApprovedOnlyRoute><PageTransition><Profile /></PageTransition></ApprovedOnlyRoute>} />
         <Route path="/times" element={<ProtectedRoute><PageTransition><ViewTeams /></PageTransition></ProtectedRoute>} />
         <Route path="/teams/view" element={<ProtectedRoute><PageTransition><ViewTeams /></PageTransition></ProtectedRoute>} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
@@ -89,6 +115,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <GlobalPendingBanner />
           <AnimatedRoutes />
         </AuthProvider>
       </BrowserRouter>
