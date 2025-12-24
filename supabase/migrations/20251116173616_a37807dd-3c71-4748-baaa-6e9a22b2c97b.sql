@@ -1,6 +1,7 @@
 -- Criar bucket público para avatares de jogadores
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('player-avatars', 'player-avatars', true);
+VALUES ('player-avatars', 'player-avatars', true)
+ON CONFLICT (id) DO NOTHING;
 
 -- Política RLS: Qualquer pessoa pode VER avatares (público)
 CREATE POLICY "Public Access to view avatars"

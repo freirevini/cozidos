@@ -27,7 +27,7 @@ TO authenticated
 USING (true);
 
 -- Add index for performance
-CREATE INDEX idx_substitutions_match_id ON public.substitutions(match_id);
+CREATE INDEX IF NOT EXISTS idx_substitutions_match_id ON public.substitutions(match_id);
 
 -- Enable realtime for substitutions
 ALTER PUBLICATION supabase_realtime ADD TABLE public.substitutions;
