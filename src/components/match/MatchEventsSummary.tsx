@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { formatEventMinute } from "@/lib/matchTimer";
@@ -7,11 +8,13 @@ interface Goal {
     id: string;
     minute: number;
     team_color: string;
+    player_id: string | null;
     player?: {
         name: string;
         nickname: string | null;
     };
     assists?: Array<{
+        player_id: string | null;
         player?: {
             name: string;
             nickname: string | null;
@@ -27,7 +30,7 @@ interface MatchEventsSummaryProps {
 }
 
 // Single Goal Item - Mirrored Layout
-function GoalItem({ goal, isHome }: { goal: Goal; isHome: boolean }) {
+function GoalItem({ goal, isHome, onPlayerClick }: { goal: Goal; isHome: boolean; onPlayerClick: (id: string) => void }) {
     const playerName = goal.player?.nickname || goal.player?.name || "Jogador";
     
     // Handle assists - can be array or single object depending on Supabase response
@@ -37,7 +40,7 @@ function GoalItem({ goal, isHome }: { goal: Goal; isHome: boolean }) {
             return goal.assists.length > 0 ? goal.assists[0] : null;
         }
         // Single object case (when there's only one assist)
-        return goal.assists as { player?: { name: string; nickname: string | null } };
+        return goal.assists as { player_id: string | null; player?: { name: string; nickname: string | null } };
     };
     
     const assistData = getAssistData();
@@ -78,14 +81,26 @@ function GoalItem({ goal, isHome }: { goal: Goal; isHome: boolean }) {
                 )}
             </div>
 
-            {/* Line 2: Goal Scorer (Bold) */}
-            <span className="text-sm sm:text-base font-bold text-white leading-tight break-words max-w-[140px] sm:max-w-[180px]">
+            {/* Line 2: Goal Scorer (Bold) - Clickable */}
+            <span 
+                onClick={() => goal.player_id && onPlayerClick(goal.player_id)}
+                className={cn(
+                    "text-sm sm:text-base font-bold text-white leading-tight break-words max-w-[140px] sm:max-w-[180px]",
+                    goal.player_id && "cursor-pointer hover:text-primary transition-colors"
+                )}
+            >
                 {playerName}
             </span>
 
-            {/* Line 3: Assist (Lighter, smaller) */}
+            {/* Line 3: Assist (Lighter, smaller) - Clickable */}
             {assistName && (
-                <span className="text-xs sm:text-sm font-normal text-muted-foreground leading-tight break-words max-w-[130px] sm:max-w-[170px]">
+                <span 
+                    onClick={() => assistData?.player_id && onPlayerClick(assistData.player_id)}
+                    className={cn(
+                        "text-xs sm:text-sm font-normal text-muted-foreground leading-tight break-words max-w-[130px] sm:max-w-[170px]",
+                        assistData?.player_id && "cursor-pointer hover:text-primary transition-colors"
+                    )}
+                >
                     {assistName}
                 </span>
             )}
@@ -99,6 +114,7 @@ export function MatchEventsSummary({
     teamAway,
     compact = false
 }: MatchEventsSummaryProps) {
+    const navigate = useNavigate();
     const [goals, setGoals] = useState<Goal[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -133,8 +149,10 @@ export function MatchEventsSummary({
               id,
               minute,
               team_color,
+              player_id,
               player:profiles!goals_player_id_fkey(name, nickname),
               assists(
+                player_id,
                 player:profiles!assists_player_id_fkey(name, nickname)
               )
             `)
@@ -157,6 +175,10 @@ export function MatchEventsSummary({
     const homeGoals = goals.filter(g => g.team_color === teamHome);
     const awayGoals = goals.filter(g => g.team_color === teamAway);
 
+    const handlePlayerClick = (playerId: string) => {
+        navigate(`/profile/${playerId}`);
+    };
+
     return (
         <div className={cn(
             "grid grid-cols-2 gap-3 sm:gap-6 border-t border-border/50 bg-muted/5",
@@ -165,14 +187,14 @@ export function MatchEventsSummary({
             {/* Left Column - Home Team (Right-aligned) */}
             <div className="flex flex-col items-end pr-1 sm:pr-2 border-r border-border/30">
                 {homeGoals.map(goal => (
-                    <GoalItem key={goal.id} goal={goal} isHome={true} />
+                    <GoalItem key={goal.id} goal={goal} isHome={true} onPlayerClick={handlePlayerClick} />
                 ))}
             </div>
 
             {/* Right Column - Away Team (Left-aligned) */}
             <div className="flex flex-col items-start pl-1 sm:pl-2">
                 {awayGoals.map(goal => (
-                    <GoalItem key={goal.id} goal={goal} isHome={false} />
+                    <GoalItem key={goal.id} goal={goal} isHome={false} onPlayerClick={handlePlayerClick} />
                 ))}
             </div>
         </div>
