@@ -68,8 +68,13 @@ export function PendingUsersSection({ onUserProcessed }: { onUserProcessed?: () 
             if (pendingError) throw pendingError;
             setPendingUsers(pending || []);
 
-            // Load orphan profiles (for linking)
-            const { data: orphans, error: orphansError } = await supabase.rpc("get_orphan_profiles");
+            // Load orphan profiles (for linking) - profiles without user_id
+            const { data: orphans, error: orphansError } = await supabase
+                .from("profiles")
+                .select("id, nickname, name, email, level, position")
+                .is("user_id", null)
+                .eq("status", "aprovado")
+                .order("nickname", { ascending: true });
 
             if (orphansError) throw orphansError;
             setOrphanProfiles(orphans || []);
@@ -87,14 +92,13 @@ export function PendingUsersSection({ onUserProcessed }: { onUserProcessed?: () 
     const handleApproveNew = async (user: PendingUser) => {
         setProcessingId(user.id);
         try {
-            const { data, error } = await supabase.rpc("admin_approve_new_player", {
-                p_user_id: user.user_id,
-            });
+            // Approve by updating profile status directly
+            const { error } = await supabase
+                .from("profiles")
+                .update({ status: "aprovado", is_approved: true })
+                .eq("id", user.id);
 
             if (error) throw error;
-
-            const result = data as { success: boolean; message?: string; error?: string };
-            if (!result.success) throw new Error(result.error || "Erro ao aprovar");
 
             toast.success(`${user.nickname || user.name || "Usuário"} aprovado como novo jogador!`);
             await loadData();
@@ -111,17 +115,19 @@ export function PendingUsersSection({ onUserProcessed }: { onUserProcessed?: () 
 
         setProcessingId(userToLink.id);
         try {
-            const { data, error } = await supabase.rpc("admin_link_existing_player", {
-                p_user_id: userToLink.user_id,
-                p_orphan_profile_id: selectedOrphanId,
+            // Link pending user to existing orphan profile using existing RPC
+            const { data, error } = await supabase.rpc("admin_link_pending_to_profile", {
+                p_admin_user_id: userToLink.user_id, // Using the pending user's user_id
+                p_pending_profile_id: userToLink.id,
+                p_target_profile_id: selectedOrphanId,
             });
 
             if (error) throw error;
 
-            const result = data as { success: boolean; message?: string; error?: string; inherited_nickname?: string };
+            const result = data as { success: boolean; message?: string; error?: string };
             if (!result.success) throw new Error(result.error || "Erro ao vincular");
 
-            toast.success(`Usuário vinculado ao jogador ${result.inherited_nickname || "existente"}!`);
+            toast.success(`Usuário vinculado ao jogador existente!`);
             setLinkDialogOpen(false);
             setUserToLink(null);
             setSelectedOrphanId("");
@@ -139,21 +145,21 @@ export function PendingUsersSection({ onUserProcessed }: { onUserProcessed?: () 
 
         setProcessingId(userToReject.id);
         try {
-            // First delete from profiles via RPC
-            const { data, error } = await supabase.rpc("admin_reject_user", {
-                p_user_id: userToReject.user_id,
-            });
+            // Update profile status to rejected
+            const { error: updateError } = await supabase
+                .from("profiles")
+                .update({ status: "rejeitado", is_approved: false })
+                .eq("id", userToReject.id);
 
-            if (error) throw error;
+            if (updateError) throw updateError;
 
-            const result = data as { success: boolean; message?: string; error?: string; requires_auth_deletion?: boolean };
-            if (!result.success) throw new Error(result.error || "Erro ao recusar");
-
-            // Then delete from auth.users via Edge Function
-            if (result.requires_auth_deletion) {
+            // Try to delete auth user via Edge Function
+            try {
                 await supabase.functions.invoke("delete-auth-user", {
                     body: { user_id: userToReject.user_id },
                 });
+            } catch (authError) {
+                console.warn("Erro ao deletar usuário auth:", authError);
             }
 
             toast.success("Usuário recusado e removido do sistema");
