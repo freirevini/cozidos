@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
@@ -37,6 +38,7 @@ type FilterType = "goals" | "assists" | "wins" | "draws" | "defeats";
 
 export default function Statistics() {
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [rankings, setRankings] = useState<PlayerRanking[]>([]);
   const [loading, setLoading] = useState(true);
   const [rounds, setRounds] = useState<Round[]>([]);
@@ -261,7 +263,8 @@ export default function Statistics() {
       const statValue = getStatValue(player, type);
       return (
         <div
-          className="flex items-center justify-between p-4 rounded-lg bg-muted/20 border border-border hover:bg-muted/30 transition-colors"
+          onClick={() => navigate(`/profile/${player.player_id}`)}
+          className="flex items-center justify-between p-4 rounded-lg bg-muted/20 border border-border hover:bg-muted/30 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
             <span className="text-xl md:text-2xl font-bold text-primary w-6 md:w-8 flex-shrink-0">

@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { TeamLogo } from "@/components/match/TeamLogo";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +49,8 @@ const levelColors: Record<string, string> = {
 };
 
 export function TeamCardModern({ teamColor, players, onClick, className }: TeamCardModernProps) {
+  const navigate = useNavigate();
+  
   // Separar goleiros dos jogadores de linha
   const goalkeepers = players.filter(p => p.profiles.position === "goleiro");
   const fieldPlayers = players.filter(p => p.profiles.position !== "goleiro");
@@ -67,12 +70,18 @@ export function TeamCardModern({ teamColor, players, onClick, className }: TeamC
     return acc;
   }, {} as Record<string, TeamPlayer[]>);
 
+  const handlePlayerClick = (e: React.MouseEvent, playerId: string) => {
+    e.stopPropagation();
+    navigate(`/profile/${playerId}`);
+  };
+
   const renderPlayer = (player: TeamPlayer) => (
     <div
       key={player.id}
-      className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/10 hover:bg-muted/20 transition-colors"
+      onClick={(e) => handlePlayerClick(e, player.player_id)}
+      className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/10 hover:bg-muted/30 transition-colors cursor-pointer"
     >
-      <span className="text-sm font-medium text-foreground truncate">
+      <span className="text-sm font-medium text-foreground truncate hover:text-primary transition-colors">
         {player.profiles.nickname || player.profiles.name}
       </span>
       {player.profiles.level && (
