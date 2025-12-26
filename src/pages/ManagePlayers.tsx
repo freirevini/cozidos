@@ -33,7 +33,7 @@ import {
   PlayerQuickActions,
   type Player,
 } from "@/components/players";
-import { PendingUsersSection } from "@/components/players/PendingUsersSection";
+
 
 const PLAYERS_PER_PAGE = 20;
 
@@ -561,9 +561,6 @@ export default function ManagePlayers() {
             Excluir Todos (Reset)
           </Button>
         </div>
-
-        {/* Pending Users Section (Admin) */}
-        <PendingUsersSection onUserProcessed={loadPlayers} />
 
         {/* Filters */}
         <div className="mb-4">

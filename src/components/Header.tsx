@@ -20,21 +20,21 @@ export default function Header() {
 
   const getCurrentPath = () => {
     const path = location.pathname;
-    
+
     // Verificar correspondências parciais para rotas aninhadas de admin
     if (path.startsWith('/admin/round')) return '/admin/round';
     if (path.startsWith('/admin/match')) return '/admin/round';
     if (path.startsWith('/admin/teams')) return '/admin/teams';
     if (path.startsWith('/admin/players')) return '/admin/players';
-    if (path.startsWith('/admin/ranking')) return '/admin/ranking';
+
     if (path.startsWith('/admin/monitoring')) return '/admin/monitoring';
-    
+
     // Verificar correspondências parciais para outras rotas
     if (path.startsWith('/times')) return '/times';
     if (path.startsWith('/profile')) return '/profile';
     if (path.startsWith('/matches')) return '/matches';
     if (path.startsWith('/statistics')) return '/statistics';
-    
+
     // Retornar o path original se não houver correspondência
     return path;
   };
@@ -68,21 +68,21 @@ export default function Header() {
     { href: "/admin/teams", label: "Times" },
     { href: "/admin/round", label: "Gerenciar Rodada" },
     { href: "/admin/players", label: "Gerenciar Jogadores" },
-    { href: "/admin/ranking", label: "Gerenciar Classificação Geral" },
+
     { href: "/admin/monitoring", label: "Monitoramento" },
   ];
 
-  const userLinks = isPlayer 
+  const userLinks = isPlayer
     ? [
-        { href: "/times", label: "Times" },
-        { href: "/profile", label: "Meu Perfil" },
-      ]
+      { href: "/times", label: "Times" },
+      { href: "/profile", label: "Meu Perfil" },
+    ]
     : [
-        { href: "/profile", label: "Meu Perfil" },
-      ];
+      { href: "/profile", label: "Meu Perfil" },
+    ];
 
-  const allLinks = isAdmin 
-    ? [...navLinks, ...adminLinks] 
+  const allLinks = isAdmin
+    ? [...navLinks, ...adminLinks]
     : [...navLinks, ...userLinks];
 
   const checkScrollPosition = () => {
@@ -130,12 +130,12 @@ export default function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center justify-center flex-1">
-            <SlideTabs 
-              tabs={allLinks.map(link => ({ title: link.label, url: link.href }))} 
+            <SlideTabs
+              tabs={allLinks.map(link => ({ title: link.label, url: link.href }))}
               currentPath={getCurrentPath()}
             />
           </nav>
-          
+
           <button
             onClick={handleLogout}
             className="hidden lg:flex px-4 py-2 rounded-md text-sm font-medium text-foreground hover:bg-muted transition-colors items-center gap-2"
@@ -155,13 +155,13 @@ export default function Header() {
                   <ChevronLeft size={20} />
                 </button>
               )}
-              <div 
+              <div
                 ref={scrollContainerRef}
                 className="flex-1 overflow-x-auto scrollbar-hide"
               >
                 <div className="inline-block min-w-max">
-                  <SlideTabs 
-                    tabs={allLinks.map(link => ({ title: link.label, url: link.href }))} 
+                  <SlideTabs
+                    tabs={allLinks.map(link => ({ title: link.label, url: link.href }))}
                     currentPath={getCurrentPath()}
                   />
                 </div>
@@ -206,11 +206,10 @@ export default function Header() {
               <Link
                 key={link.href}
                 to={link.href}
-                className={`block px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 menu-glow ${
-                  isActive(link.href)
+                className={`block px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 menu-glow ${isActive(link.href)
                     ? "bg-primary text-primary-foreground"
                     : "text-foreground hover:bg-muted"
-                }`}
+                  }`}
                 onClick={() => setMobileMenuOpen(false)}
                 style={{
                   animation: `fade-in 0.3s ease-out ${index * 0.05}s both`

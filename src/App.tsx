@@ -27,7 +27,7 @@ import ViewRound from "./pages/ViewRound";
 import ManageMatch from "./pages/ManageMatch";
 import AttendanceRecord from "./pages/AttendanceRecord";
 import ViewTeams from "./pages/ViewTeams";
-import ManageRanking from "./pages/ManageRanking";
+
 import ProfileMonitoring from "./pages/ProfileMonitoring";
 
 const queryClient = new QueryClient();
@@ -86,7 +86,7 @@ function AnimatedRoutes() {
         <Route path="/match/:matchId" element={<ProtectedRoute><PageTransition><MatchDetails /></PageTransition></ProtectedRoute>} />
         <Route path="/statistics" element={<ProtectedRoute><PageTransition><Statistics /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/players" element={<ProtectedRoute><PageTransition><ManagePlayers /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/ranking" element={<ProtectedRoute><PageTransition><ManageRanking /></PageTransition></ProtectedRoute>} />
+
         <Route path="/admin/monitoring" element={<ProtectedRoute><PageTransition><ProfileMonitoring /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/teams" element={<ProtectedRoute><PageTransition><Teams /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/teams/define" element={<ProtectedRoute><PageTransition><DefineTeams /></PageTransition></ProtectedRoute>} />
