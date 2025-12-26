@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -10,7 +11,7 @@ import { Info, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { SeasonSelector, MonthChips, LevelSelector, PlayerRankItem, PlayerStatsDrawer } from "@/components/classification";
+import { SeasonSelector, MonthChips, LevelSelector, PlayerRankItem } from "@/components/classification";
 import { cn } from "@/lib/utils";
 import { VirtualizedList } from "@/components/ui/virtualized-list";
 interface PlayerStats {
@@ -34,13 +35,10 @@ interface PlayerStats {
 type TabType = "todos" | "nivel";
 const PAGE_SIZE = 20;
 export default function Classification() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<PlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRules, setShowRules] = useState(false);
-
-  // Player details drawer
-  const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Pagination state
   const [displayedCount, setDisplayedCount] = useState(PAGE_SIZE);
@@ -343,10 +341,7 @@ export default function Classification() {
                         level={stat.level}
                         points={stat.pontos_totais}
                         presence={stat.presencas}
-                        onClick={() => {
-                          setSelectedPlayer(stat);
-                          setDrawerOpen(true);
-                        }}
+                        onClick={() => navigate(`/profile/${stat.player_id}`)}
                       />
                     )}
                   />
@@ -372,10 +367,7 @@ export default function Classification() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedStats.map((stat, index) => <TableRow key={stat.player_id} className="border-border/30 hover:bg-muted/10 cursor-pointer" onClick={() => {
-                  setSelectedPlayer(stat);
-                  setDrawerOpen(true);
-                }}>
+                    {paginatedStats.map((stat, index) => <TableRow key={stat.player_id} className="border-border/30 hover:bg-muted/20 cursor-pointer" onClick={() => navigate(`/profile/${stat.player_id}`)}>
                         <TableCell className="font-bold text-primary text-lg">{index + 1}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-3">
@@ -419,9 +411,6 @@ export default function Classification() {
             </>}
         </div>
       </main>
-
-      {/* Player Stats Drawer */}
-      <PlayerStatsDrawer open={drawerOpen} onOpenChange={setDrawerOpen} player={selectedPlayer} selectedYear={selectedSeason} selectedMonth={selectedMonth} />
 
       <Footer />
     </div>;
