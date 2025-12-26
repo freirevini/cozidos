@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
@@ -14,8 +14,9 @@ import {
   ProfileEvolutionChart,
   ProfileBestWorstCards,
 } from "@/components/profile";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 
 interface UserProfile {
   id: string;
@@ -34,6 +35,7 @@ interface UserProfile {
 export default function Profile() {
   const { id: urlProfileId } = useParams<{ id?: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const initialYear = searchParams.get("year") ? Number(searchParams.get("year")) : null;
   const initialMonth = searchParams.get("month") ? Number(searchParams.get("month")) : null;
 
@@ -193,6 +195,20 @@ export default function Profile() {
       <Header />
 
       <main className="max-w-2xl mx-auto pb-8">
+        {/* Botão Voltar - apenas quando visualizando perfil de outro jogador */}
+        {urlProfileId && (
+          <div className="px-4 pt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate(-1)}
+              className="gap-2 text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </Button>
+          </div>
+        )}
         {/* Profile Hero Header - MLS Style */}
         <ProfileHeroHeader
           id={profile.id}
