@@ -178,6 +178,7 @@ export default function ManageRounds() {
       const { data, error } = await supabase
         .from("rounds")
         .select("*")
+        .or("is_historical.is.null,is_historical.eq.false")
         .order("round_number", { ascending: false });
 
       if (error) throw error;

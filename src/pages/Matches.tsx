@@ -68,6 +68,7 @@ export default function Matches() {
       const { data: roundsData } = await supabase
         .from("rounds")
         .select("*")
+        .or("is_historical.is.null,is_historical.eq.false")
         .order("round_number", { ascending: false });
 
       if (!roundsData) {

@@ -90,6 +90,7 @@ export default function ViewTeams() {
       const { data, error } = await supabase
         .from("rounds")
         .select("*")
+        .or("is_historical.is.null,is_historical.eq.false")
         .order("round_number", { ascending: false });
 
       if (error) throw error;
@@ -176,7 +177,7 @@ export default function ViewTeams() {
 
   const handleGenerateImage = async () => {
     if (!shareRef.current) return;
-    
+
     setGenerating(true);
     try {
       const dataUrl = await toPng(shareRef.current, {
@@ -184,12 +185,12 @@ export default function ViewTeams() {
         pixelRatio: 2,
         backgroundColor: "#0a0a0a",
       });
-      
+
       const link = document.createElement("a");
       link.download = `cozidos-rodada-${selectedRoundData?.round_number || "times"}.png`;
       link.href = dataUrl;
       link.click();
-      
+
       toast({
         title: "Imagem gerada!",
         description: "A imagem foi baixada com sucesso.",
@@ -208,7 +209,7 @@ export default function ViewTeams() {
 
   const handleShare = async () => {
     if (!shareRef.current) return;
-    
+
     setGenerating(true);
     try {
       const dataUrl = await toPng(shareRef.current, {
@@ -216,11 +217,11 @@ export default function ViewTeams() {
         pixelRatio: 2,
         backgroundColor: "#0a0a0a",
       });
-      
+
       const response = await fetch(dataUrl);
       const blob = await response.blob();
       const file = new File([blob], `cozidos-rodada-${selectedRoundData?.round_number}.png`, { type: "image/png" });
-      
+
       if (navigator.share && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
@@ -244,12 +245,12 @@ export default function ViewTeams() {
       <main className="container mx-auto px-4 py-6 max-w-4xl">
         {/* Header com informações da rodada */}
         <div className="flex flex-col items-center mb-6">
-          <img 
-            src={logoCozidosNovo} 
-            alt="Cozidos FC" 
+          <img
+            src={logoCozidosNovo}
+            alt="Cozidos FC"
             className="h-20 w-auto object-contain mb-4"
           />
-          
+
           {/* Seletor de rodada */}
           <div className="w-full max-w-xs mb-4">
             <Select value={selectedRound} onValueChange={setSelectedRound}>
@@ -311,8 +312,8 @@ export default function ViewTeams() {
                   onClick={() => setSelectedTeam(color)}
                   className={`
                     flex-shrink-0 p-2 rounded-xl transition-all duration-200
-                    ${selectedTeam === color 
-                      ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-105" 
+                    ${selectedTeam === color
+                      ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-105"
                       : "opacity-60 hover:opacity-100"
                     }
                   `}
@@ -320,8 +321,8 @@ export default function ViewTeams() {
                     backgroundColor: selectedTeam === color ? "hsl(var(--card))" : "transparent"
                   }}
                 >
-                  <img 
-                    src={teamLogos[color]} 
+                  <img
+                    src={teamLogos[color]}
                     alt={color}
                     className="h-14 w-14 object-contain"
                   />
@@ -356,7 +357,7 @@ export default function ViewTeams() {
                   </>
                 )}
               </Button>
-              
+
               {showShareView && (
                 <div className="flex gap-3">
                   <Button
@@ -367,7 +368,7 @@ export default function ViewTeams() {
                     <Download className="h-5 w-5" />
                     {generating ? "Gerando..." : "Baixar"}
                   </Button>
-                  
+
                   <Button
                     onClick={handleShare}
                     disabled={generating}
