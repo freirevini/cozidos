@@ -191,7 +191,7 @@ RETURNS TABLE (
   name text,
   email text,
   level text,
-  position text
+  "position" text
 )
 LANGUAGE sql
 SECURITY DEFINER

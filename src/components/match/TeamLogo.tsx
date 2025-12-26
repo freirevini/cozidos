@@ -34,11 +34,12 @@ export function TeamLogo({ teamColor, size = "md", className }: TeamLogoProps) {
 
   return (
     <div className={cn("flex items-center justify-center", className)}>
-      <img 
-        src={logo} 
+      <img
+        src={logo}
         alt={`Time ${teamColor}`}
         width={pixelSize}
         height={pixelSize}
+        loading="lazy"
         className="object-contain drop-shadow-lg"
       />
     </div>
