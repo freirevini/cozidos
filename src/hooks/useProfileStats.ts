@@ -275,8 +275,8 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
 
         aggregated = filteredRoundStats.reduce((acc: ProfileStats, rs: any) => ({
           presencas: acc.presencas + ((rs.presence_points || 0) > 0 ? 1 : 0),
-          gols: acc.gols, // Will update from goals query
-          assistencias: acc.assistencias, // Will update from assists query
+          gols: acc.gols + (rs.goals || 0), // Include goals from player_round_stats (historical)
+          assistencias: acc.assistencias + (rs.assists || 0), // Include assists from player_round_stats (historical)
           vitorias: acc.vitorias + (rs.victories || 0),
           empates: acc.empates + (rs.draws || 0),
           derrotas: acc.derrotas + (rs.defeats || 0),
@@ -287,8 +287,9 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
           partidas: acc.partidas + (rs.victories || 0) + (rs.draws || 0) + (rs.defeats || 0),
         }), { ...emptyStats });
 
-        aggregated.gols = filteredGoals.length;
-        aggregated.assistencias = filteredAssists.length;
+        // Add goals/assists from separate tables (real matches)
+        aggregated.gols += filteredGoals.length;
+        aggregated.assistencias += filteredAssists.length;
         aggregated.punicoes = filteredPunishments.reduce((sum, p) => sum + Math.abs(p.points || 0), 0);
       }
 
@@ -305,8 +306,8 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
         round_number: rs.round?.round_number || 0,
         round_date: rs.round?.scheduled_date || null,
         presencas: (rs.presence_points || 0) > 0 ? 1 : 0,
-        gols: 0,
-        assistencias: 0,
+        gols: rs.goals || 0, // Use goals from player_round_stats (historical)
+        assistencias: rs.assists || 0, // Use assists from player_round_stats (historical)
         vitorias: rs.victories || 0,
         empates: rs.draws || 0,
         derrotas: rs.defeats || 0,
