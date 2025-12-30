@@ -264,13 +264,13 @@ export default function Statistics() {
       return (
         <div
           onClick={() => navigate(`/profile/${player.player_id}`)}
-          className="flex items-center justify-between p-4 rounded-lg bg-muted/20 border border-border hover:bg-muted/30 transition-colors cursor-pointer"
+          className="group flex items-center justify-between p-4 rounded-lg bg-muted/20 border border-border hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 cursor-pointer"
         >
           <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
             <span className="text-xl md:text-2xl font-bold text-primary w-6 md:w-8 flex-shrink-0">
               {index + 1}
             </span>
-            <Avatar className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0 bg-muted">
+            <Avatar className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0 bg-muted ring-2 ring-transparent group-hover:ring-primary/50 transition-all duration-200">
               {player.avatar_url ? (
                 <AvatarImage
                   src={player.avatar_url}
@@ -283,7 +283,7 @@ export default function Statistics() {
                 </AvatarFallback>
               )}
             </Avatar>
-            <div className="font-bold text-sm md:text-base text-foreground truncate">
+            <div className="font-bold text-sm md:text-base text-foreground truncate group-hover:text-primary transition-colors duration-200">
               {player.nickname}
             </div>
           </div>

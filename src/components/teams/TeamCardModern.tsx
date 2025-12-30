@@ -79,9 +79,9 @@ export function TeamCardModern({ teamColor, players, onClick, className }: TeamC
     <div
       key={player.id}
       onClick={(e) => handlePlayerClick(e, player.player_id)}
-      className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/10 hover:bg-muted/30 transition-colors cursor-pointer"
+      className="group flex items-center justify-between py-2 px-3 rounded-lg bg-muted/10 hover:bg-primary/15 hover:border-primary/30 border border-transparent transition-all duration-200 cursor-pointer"
     >
-      <span className="text-sm font-medium text-foreground truncate hover:text-primary transition-colors">
+      <span className="text-sm font-medium text-foreground truncate group-hover:text-primary group-hover:underline group-hover:underline-offset-2 transition-all duration-200">
         {player.profiles.nickname || player.profiles.name}
       </span>
       {player.profiles.level && (
