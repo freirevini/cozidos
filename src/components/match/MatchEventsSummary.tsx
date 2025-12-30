@@ -86,7 +86,7 @@ function GoalItem({ goal, isHome, onPlayerClick }: { goal: Goal; isHome: boolean
                 onClick={() => goal.player_id && onPlayerClick(goal.player_id)}
                 className={cn(
                     "text-sm sm:text-base font-bold text-white leading-tight break-words max-w-[140px] sm:max-w-[180px]",
-                    goal.player_id && "cursor-pointer hover:text-primary transition-colors"
+                    goal.player_id && "cursor-pointer hover:text-primary hover:underline hover:underline-offset-2 transition-all duration-200"
                 )}
             >
                 {playerName}
@@ -98,7 +98,7 @@ function GoalItem({ goal, isHome, onPlayerClick }: { goal: Goal; isHome: boolean
                     onClick={() => assistData?.player_id && onPlayerClick(assistData.player_id)}
                     className={cn(
                         "text-xs sm:text-sm font-normal text-muted-foreground leading-tight break-words max-w-[130px] sm:max-w-[170px]",
-                        assistData?.player_id && "cursor-pointer hover:text-primary transition-colors"
+                        assistData?.player_id && "cursor-pointer hover:text-primary hover:underline hover:underline-offset-2 transition-all duration-200"
                     )}
                 >
                     {assistName}
