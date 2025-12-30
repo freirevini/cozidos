@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { TeamLogo } from "@/components/match/TeamLogo";
 
@@ -60,6 +61,13 @@ export function TeamCard({ teamColor, players, onClick, compact = false, classNa
     return acc;
   }, {} as Record<string, TeamPlayer[]>);
 
+  const navigate = useNavigate();
+
+  const handlePlayerClick = (e: React.MouseEvent, playerId: string) => {
+    e.stopPropagation();
+    navigate(`/profile/${playerId}`);
+  };
+
   return (
     <div
       onClick={onClick}
@@ -100,7 +108,8 @@ export function TeamCard({ teamColor, players, onClick, compact = false, classNa
               {posPlayers.map((player) => (
                 <div
                   key={player.id}
-                  className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors"
+                  onClick={(e) => handlePlayerClick(e, player.player_id)}
+                  className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-muted/20 hover:bg-muted/40 hover:text-primary transition-colors cursor-pointer"
                 >
                   <span className="text-sm font-medium text-foreground truncate">
                     {player.profiles.nickname || player.profiles.name}
