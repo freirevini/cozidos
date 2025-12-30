@@ -71,44 +71,52 @@ export function PlayerFilters({
       </div>
 
       {/* Chips de Status */}
-      <div className="overflow-x-auto scrollbar-hide -mx-4 px-4">
-        <div className="flex gap-2 pb-1">
-          {statusChips.map((chip) => (
-            <button
-              key={chip.value}
-              onClick={() => onStatusChange(chip.value)}
-              className={cn(
-                "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200",
-                filterStatus === chip.value
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
-              )}
-            >
-              {chip.label}
-            </button>
-          ))}
+      <div className="relative -mx-4">
+        <div className="absolute left-0 top-0 bottom-1 w-4 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
+        <div className="overflow-x-auto scrollbar-hide px-4">
+          <div className="flex gap-2 pb-1 px-2">
+            {statusChips.map((chip) => (
+              <button
+                key={chip.value}
+                onClick={() => onStatusChange(chip.value)}
+                className={cn(
+                  "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200",
+                  filterStatus === chip.value
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                )}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
         </div>
+        <div className="absolute right-0 top-0 bottom-1 w-4 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
       </div>
 
       {/* Chips de Posição */}
-      <div className="overflow-x-auto scrollbar-hide -mx-4 px-4">
-        <div className="flex gap-2 pb-1">
-          {positionChips.map((chip) => (
-            <button
-              key={chip.value}
-              onClick={() => onPositionChange(chip.value === filterPosition ? "all" : chip.value)}
-              className={cn(
-                "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1",
-                filterPosition === chip.value
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
-              )}
-            >
-              <span>{chip.icon}</span>
-              <span>{chip.label}</span>
-            </button>
-          ))}
+      <div className="relative -mx-4">
+        <div className="absolute left-0 top-0 bottom-1 w-4 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
+        <div className="overflow-x-auto scrollbar-hide px-4">
+          <div className="flex gap-2 pb-1 px-2">
+            {positionChips.map((chip) => (
+              <button
+                key={chip.value}
+                onClick={() => onPositionChange(chip.value === filterPosition ? "all" : chip.value)}
+                className={cn(
+                  "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1",
+                  filterPosition === chip.value
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                )}
+              >
+                <span>{chip.icon}</span>
+                <span>{chip.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
+        <div className="absolute right-0 top-0 bottom-1 w-4 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
       </div>
 
       {/* Contador */}
