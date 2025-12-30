@@ -7,7 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Info, RefreshCw, Loader2 } from "lucide-react";
+import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
+import { Info, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -283,18 +284,7 @@ export default function Classification() {
     E: "bg-red-500/20 text-red-400 border-red-500/30"
   };
   return <div className="min-h-screen bg-background flex flex-col">
-    {/* Pull to Refresh Indicator */}
-    {(pullDistance > 0 || isRefreshing) && <div className="fixed top-0 left-0 right-0 flex justify-center items-center z-50 transition-all" style={{
-      transform: `translateY(${Math.min(pullDistance, 60)}px)`,
-      opacity: Math.min(pullDistance / 60, 1)
-    }}>
-      <div className="bg-primary/90 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
-        <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-        <span className="text-sm font-medium">
-          {isRefreshing ? 'Atualizando...' : 'Solte para atualizar'}
-        </span>
-      </div>
-    </div>}
+    <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
 
     <Header />
 

@@ -6,8 +6,11 @@ import Footer from "@/components/Footer";
 import { TeamLogo } from "@/components/match/TeamLogo";
 import { MatchEventsSummary } from "@/components/match/MatchEventsSummary";
 import { Card, CardContent } from "@/components/ui/card";
+import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { cn } from "@/lib/utils";
 import { formatMatchTimer, formatEventMinute, getMatchCurrentMinute } from "@/lib/matchTimer";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { toast } from "sonner";
 
 interface Match {
   id: string;
@@ -46,6 +49,14 @@ export default function Matches() {
   const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [, setTick] = useState(0); // For timer updates
+
+  const { isRefreshing, pullDistance } = usePullToRefresh({
+    onRefresh: async () => {
+      await loadRounds();
+      toast.success("Rodadas atualizadas!");
+    },
+    enabled: true,
+  });
 
   useEffect(() => {
     loadRounds();
@@ -181,6 +192,8 @@ export default function Matches() {
 
   return (
     <div className="min-h-screen bg-background">
+      <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
+      
       <Header />
 
       <main className="container mx-auto px-4 py-6 max-w-6xl">

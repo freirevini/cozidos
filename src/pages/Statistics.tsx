@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { RefreshCw, Trophy, Target, Award, Equal, TrendingDown } from "lucide-react";
+import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
+import { Trophy, Target, Award, Equal, TrendingDown } from "lucide-react";
 import { toast } from "sonner";
 import PlayerComparisonChart from "@/components/PlayerComparisonChart";
 import { VirtualizedList } from "@/components/ui/virtualized-list";
@@ -306,17 +307,7 @@ export default function Statistics() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Pull-to-refresh indicator */}
-      {(pullDistance > 0 || isRefreshing) && (
-        <div className="fixed top-0 left-0 right-0 flex justify-center items-center z-50 pt-4">
-          <div className="bg-primary/90 text-primary-foreground px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="text-sm font-medium">
-              {isRefreshing ? 'Atualizando...' : 'Solte para atualizar'}
-            </span>
-          </div>
-        </div>
-      )}
+      <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
 
       <Header />
 
