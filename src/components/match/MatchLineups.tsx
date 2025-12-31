@@ -35,13 +35,16 @@ const teamNames: Record<string, string> = {
   laranja: "LAR",
 };
 
-// Formação fixa 3-2-1 (1 goleiro, 2 defesa, 2 meio, 1 ataque)
-function distributePlayers(players: Player[]): {
+// Formação dinâmica baseada nas posições dos jogadores (máx 3 por linha)
+interface FormationResult {
   goalkeeper: Player | null;
   defenders: Player[];
   midfielders: Player[];
   forwards: Player[];
-} {
+  formation: string; // e.g., "2-2-1", "3-2-1", "2-3-1"
+}
+
+function distributePlayers(players: Player[]): FormationResult {
   const byPosition = {
     goleiro: players.filter((p) => p.position === "goleiro"),
     defensor: players.filter((p) => p.position === "defensor"),
@@ -50,64 +53,149 @@ function distributePlayers(players: Player[]): {
     outros: players.filter((p) => !p.position),
   };
 
-  const usedIds = new Set<string>();
-
   // 1 Goleiro
   const goalkeeper = byPosition.goleiro[0] || null;
+  const usedIds = new Set<string>();
   if (goalkeeper) usedIds.add(goalkeeper.id);
 
-  // 2 Defenders
+  // Contagem inicial por posição
+  let defCount = byPosition.defensor.length;
+  let midCount = byPosition["meio-campista"].length;
+  let fwdCount = byPosition.atacante.length;
+  let outrosCount = byPosition.outros.length;
+
+  // Arrays para distribuir
   const defenders: Player[] = [];
+  const midfielders: Player[] = [];
+  const forwards: Player[] = [];
+
+  // Redistribuir excessos para manter máximo de 3 por linha
+  // Se 4+ atacantes: 1 vira meio
+  let extraFromFwd = 0;
+  if (fwdCount > 3) {
+    extraFromFwd = fwdCount - 3;
+    fwdCount = 3;
+  }
+  midCount += extraFromFwd;
+
+  // Se 4+ meios: distribui para defesa ou ataque
+  let extraFromMid = 0;
+  if (midCount > 3) {
+    extraFromMid = midCount - 3;
+    midCount = 3;
+  }
+  // Preferir defesa se tiver menos de 3
+  if (defCount < 3 && extraFromMid > 0) {
+    const toDefense = Math.min(extraFromMid, 3 - defCount);
+    defCount += toDefense;
+    extraFromMid -= toDefense;
+  }
+  // Resto vai para ataque se tiver menos de 3
+  if (fwdCount < 3 && extraFromMid > 0) {
+    const toAttack = Math.min(extraFromMid, 3 - fwdCount);
+    fwdCount += toAttack;
+    extraFromMid -= toAttack;
+  }
+
+  // Se 4+ defensores: avança para meio
+  if (defCount > 3) {
+    const extra = defCount - 3;
+    midCount = Math.min(3, midCount + extra);
+    defCount = 3;
+  }
+
+  // Distribuir "outros" nas linhas com menos jogadores
+  while (outrosCount > 0 && (defCount < 3 || midCount < 3 || fwdCount < 3)) {
+    if (midCount < defCount && midCount < fwdCount && midCount < 3) {
+      midCount++;
+    } else if (defCount <= fwdCount && defCount < 3) {
+      defCount++;
+    } else if (fwdCount < 3) {
+      fwdCount++;
+    } else {
+      break;
+    }
+    outrosCount--;
+  }
+
+  // Agora preencher os arrays respeitando os limites calculados
+  // Defensores
   byPosition.defensor.forEach((p) => {
-    if (defenders.length < 2 && !usedIds.has(p.id)) {
+    if (defenders.length < 3 && !usedIds.has(p.id)) {
       defenders.push(p);
       usedIds.add(p.id);
     }
   });
-  if (defenders.length < 2) {
-    byPosition["meio-campista"].forEach((p) => {
-      if (defenders.length < 2 && !usedIds.has(p.id)) {
-        defenders.push(p);
-        usedIds.add(p.id);
-      }
-    });
-  }
-
-  // 2 Midfielders
-  const midfielders: Player[] = [];
+  // Preencher com meios se precisar (e foi redirecionado)
   byPosition["meio-campista"].forEach((p) => {
-    if (midfielders.length < 2 && !usedIds.has(p.id)) {
+    if (defenders.length < defCount && !usedIds.has(p.id)) {
+      defenders.push(p);
+      usedIds.add(p.id);
+    }
+  });
+  // Preencher com outros
+  byPosition.outros.forEach((p) => {
+    if (defenders.length < defCount && !usedIds.has(p.id)) {
+      defenders.push(p);
+      usedIds.add(p.id);
+    }
+  });
+
+  // Meio-campistas
+  byPosition["meio-campista"].forEach((p) => {
+    if (midfielders.length < 3 && !usedIds.has(p.id)) {
       midfielders.push(p);
       usedIds.add(p.id);
     }
   });
-  if (midfielders.length < 2) {
-    [...byPosition.defensor, ...byPosition.atacante].forEach((p) => {
-      if (midfielders.length < 2 && !usedIds.has(p.id)) {
-        midfielders.push(p);
-        usedIds.add(p.id);
-      }
-    });
-  }
-
-  // 1 Forward
-  const forwards: Player[] = [];
+  // Preencher com atacantes redirecionados
   byPosition.atacante.forEach((p) => {
-    if (forwards.length < 1 && !usedIds.has(p.id)) {
+    if (midfielders.length < midCount && !usedIds.has(p.id)) {
+      midfielders.push(p);
+      usedIds.add(p.id);
+    }
+  });
+  // Preencher com defensores redirecionados
+  byPosition.defensor.forEach((p) => {
+    if (midfielders.length < midCount && !usedIds.has(p.id)) {
+      midfielders.push(p);
+      usedIds.add(p.id);
+    }
+  });
+  // Preencher com outros
+  byPosition.outros.forEach((p) => {
+    if (midfielders.length < midCount && !usedIds.has(p.id)) {
+      midfielders.push(p);
+      usedIds.add(p.id);
+    }
+  });
+
+  // Atacantes
+  byPosition.atacante.forEach((p) => {
+    if (forwards.length < 3 && !usedIds.has(p.id)) {
       forwards.push(p);
       usedIds.add(p.id);
     }
   });
-  if (forwards.length < 1) {
-    byPosition["meio-campista"].forEach((p) => {
-      if (forwards.length < 1 && !usedIds.has(p.id)) {
-        forwards.push(p);
-        usedIds.add(p.id);
-      }
-    });
-  }
+  // Preencher com meios
+  byPosition["meio-campista"].forEach((p) => {
+    if (forwards.length < fwdCount && !usedIds.has(p.id)) {
+      forwards.push(p);
+      usedIds.add(p.id);
+    }
+  });
+  // Preencher com outros
+  byPosition.outros.forEach((p) => {
+    if (forwards.length < fwdCount && !usedIds.has(p.id)) {
+      forwards.push(p);
+      usedIds.add(p.id);
+    }
+  });
 
-  return { goalkeeper, defenders, midfielders, forwards };
+  // Calcular string da formação
+  const formation = `${defenders.length}-${midfielders.length}-${forwards.length}`;
+
+  return { goalkeeper, defenders, midfielders, forwards, formation };
 }
 
 function getInitials(name: string): string {
@@ -116,15 +204,22 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-// Player positions (percentage from top/left) - MLS style layout
-const positions = {
-  forward: { x: 50, y: 12 },
-  midLeft: { x: 30, y: 35 },
-  midRight: { x: 70, y: 35 },
-  defLeft: { x: 30, y: 58 },
-  defRight: { x: 70, y: 58 },
-  goalkeeper: { x: 50, y: 82 },
-};
+// Posições dinâmicas baseadas no número de jogadores em cada linha
+function getPositions(defCount: number, midCount: number, fwdCount: number) {
+  // Posições X para 1, 2 ou 3 jogadores
+  const xPositions: Record<number, number[]> = {
+    1: [50],
+    2: [30, 70],
+    3: [20, 50, 80],
+  };
+
+  return {
+    forwards: (fwdCount > 0 ? xPositions[Math.min(fwdCount, 3)] : []).map((x, i) => ({ x, y: 12 + (i % 2) * 3 })),
+    midfielders: (midCount > 0 ? xPositions[Math.min(midCount, 3)] : []).map((x, i) => ({ x, y: 35 + (i % 2) * 3 })),
+    defenders: (defCount > 0 ? xPositions[Math.min(defCount, 3)] : []).map((x, i) => ({ x, y: 58 + (i % 2) * 3 })),
+    goalkeeper: { x: 50, y: 82 },
+  };
+}
 
 interface PlayerNodeProps {
   player: Player | null;
@@ -218,10 +313,19 @@ interface FieldFormationProps {
   players: Player[];
   getPlayerEvents: (playerId: string) => PlayerEventCounts | null;
   onPlayerClick?: (playerId: string) => void;
+  onFormationChange?: (formation: string) => void;
 }
 
-function FieldFormation({ players, getPlayerEvents, onPlayerClick }: FieldFormationProps) {
-  const { goalkeeper, defenders, midfielders, forwards } = distributePlayers(players);
+function FieldFormation({ players, getPlayerEvents, onPlayerClick, onFormationChange }: FieldFormationProps) {
+  const { goalkeeper, defenders, midfielders, forwards, formation } = distributePlayers(players);
+
+  // Notificar formação ao parent
+  if (onFormationChange) {
+    onFormationChange(formation);
+  }
+
+  // Obter posições dinâmicas baseadas na quantidade de jogadores
+  const positions = getPositions(defenders.length, midfielders.length, forwards.length);
 
   return (
     <div
@@ -288,37 +392,41 @@ function FieldFormation({ players, getPlayerEvents, onPlayerClick }: FieldFormat
           }}
         />
 
-        {/* Player nodes - positioned by percentage */}
-        <PlayerNode
-          player={forwards[0] || null}
-          position={positions.forward}
-          eventData={forwards[0] ? getPlayerEvents(forwards[0].id) : null}
-          onPlayerClick={onPlayerClick}
-        />
-        <PlayerNode
-          player={midfielders[0] || null}
-          position={positions.midLeft}
-          eventData={midfielders[0] ? getPlayerEvents(midfielders[0].id) : null}
-          onPlayerClick={onPlayerClick}
-        />
-        <PlayerNode
-          player={midfielders[1] || null}
-          position={positions.midRight}
-          eventData={midfielders[1] ? getPlayerEvents(midfielders[1].id) : null}
-          onPlayerClick={onPlayerClick}
-        />
-        <PlayerNode
-          player={defenders[0] || null}
-          position={positions.defLeft}
-          eventData={defenders[0] ? getPlayerEvents(defenders[0].id) : null}
-          onPlayerClick={onPlayerClick}
-        />
-        <PlayerNode
-          player={defenders[1] || null}
-          position={positions.defRight}
-          eventData={defenders[1] ? getPlayerEvents(defenders[1].id) : null}
-          onPlayerClick={onPlayerClick}
-        />
+        {/* Player nodes - dynamic positions */}
+        {/* Forwards */}
+        {forwards.map((player, i) => (
+          <PlayerNode
+            key={player.id}
+            player={player}
+            position={positions.forwards[i] || { x: 50, y: 12 }}
+            eventData={getPlayerEvents(player.id)}
+            onPlayerClick={onPlayerClick}
+          />
+        ))}
+
+        {/* Midfielders */}
+        {midfielders.map((player, i) => (
+          <PlayerNode
+            key={player.id}
+            player={player}
+            position={positions.midfielders[i] || { x: 50, y: 35 }}
+            eventData={getPlayerEvents(player.id)}
+            onPlayerClick={onPlayerClick}
+          />
+        ))}
+
+        {/* Defenders */}
+        {defenders.map((player, i) => (
+          <PlayerNode
+            key={player.id}
+            player={player}
+            position={positions.defenders[i] || { x: 50, y: 58 }}
+            eventData={getPlayerEvents(player.id)}
+            onPlayerClick={onPlayerClick}
+          />
+        ))}
+
+        {/* Goalkeeper */}
         <PlayerNode
           player={goalkeeper}
           position={positions.goalkeeper}
@@ -342,6 +450,7 @@ function FieldFormation({ players, getPlayerEvents, onPlayerClick }: FieldFormat
 export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, matchId, matchYear, className }: MatchLineupsProps) {
   const navigate = useNavigate();
   const [selectedTeam, setSelectedTeam] = useState<"home" | "away">("home");
+  const [currentFormation, setCurrentFormation] = useState("2-2-1");
   const { getPlayerEvents } = useMatchPlayerEvents(matchId);
   const { substitutions, loading: subsLoading } = useMatchSubstitutions(matchId);
 
@@ -487,7 +596,7 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
 
       {/* Formation label */}
       <div className="text-center">
-        <span className="text-lg sm:text-xl font-bold text-foreground">2-2-1</span>
+        <span className="text-lg sm:text-xl font-bold text-foreground">{currentFormation}</span>
       </div>
 
       {/* 3D Field with players */}
@@ -496,6 +605,7 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
           players={currentPlayers}
           getPlayerEvents={getPlayerEventsWithSub}
           onPlayerClick={handlePlayerClick}
+          onFormationChange={setCurrentFormation}
         />
       </div>
     </div>
