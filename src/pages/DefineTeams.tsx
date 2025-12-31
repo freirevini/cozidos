@@ -4,11 +4,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertCircle, ChevronDown, ChevronUp, Shuffle, Calendar, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Shuffle, Calendar, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { z } from "zod";
@@ -40,6 +40,13 @@ const teamColors: Record<string, string> = {
   laranja: "bg-orange-500 text-white",
 };
 
+const teamColorsBg: Record<string, string> = {
+  branco: "border-gray-300 bg-white/10",
+  vermelho: "border-red-600 bg-red-600/10",
+  azul: "border-blue-600 bg-blue-600/10",
+  laranja: "border-orange-500 bg-orange-500/10",
+};
+
 const positionLabels: Record<string, string> = {
   goleiro: "GR",
   defensor: "DF",
@@ -52,14 +59,19 @@ export default function DefineTeams() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [numTeams, setNumTeams] = useState<number>(0);
-  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+  const [numTeams, setNumTeams] = useState<number>(4);
+  const [selectedTeams, setSelectedTeams] = useState<string[]>(['branco', 'vermelho', 'azul', 'laranja']);
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Record<string, TeamPlayer[]>>({});
   const [ineligiblePlayers, setIneligiblePlayers] = useState<IneligiblePlayer[]>([]);
   const [showIneligible, setShowIneligible] = useState(false);
-  const [step, setStep] = useState<'select-teams' | 'select-date' | 'define-players'>('select-teams');
-  const [scheduledDate, setScheduledDate] = useState<string>("");
+  const [step, setStep] = useState<'config' | 'define-players'>('config');
+  const [scheduledDate, setScheduledDate] = useState<string>(() => {
+    // Default to today
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
+  const [expandedTeams, setExpandedTeams] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!isAdmin) {
@@ -70,9 +82,18 @@ export default function DefineTeams() {
     }
   }, [isAdmin, navigate]);
 
+  // Auto-select teams when numTeams changes
+  useEffect(() => {
+    if (numTeams === 4) {
+      setSelectedTeams(['branco', 'vermelho', 'azul', 'laranja']);
+    } else if (numTeams === 3 && selectedTeams.length > 3) {
+      // Keep only first 3 selected if switching from 4 to 3
+      setSelectedTeams(prev => prev.slice(0, 3));
+    }
+  }, [numTeams]);
+
   const loadAvailablePlayers = async () => {
     try {
-      // Buscar jogadores com status 'aprovado'
       const { data: allPlayers, error } = await supabase
         .from("profiles")
         .select("id, name, nickname, level, position, status, claim_token")
@@ -86,12 +107,9 @@ export default function DefineTeams() {
       (allPlayers || []).forEach((player) => {
         const reasons: string[] = [];
 
-        // Critérios mínimos para jogar
         if (player.name === null && player.nickname === null) reasons.push("Sem identificação");
         if (!player.level) reasons.push("Sem nível");
         if (!player.nickname) reasons.push("Sem apelido");
-        // Removed position check to allow all approved players.
-        // if (!player.position) reasons.push("Sem posição"); 
 
         if (reasons.length === 0) {
           eligible.push({
@@ -99,7 +117,6 @@ export default function DefineTeams() {
             name: player.name,
             nickname: player.nickname,
             level: player.level!,
-            // Fallback to 'meio-campista' (generic line player) if position is missing
             position: player.position || 'meio-campista',
           });
         } else {
@@ -120,13 +137,16 @@ export default function DefineTeams() {
     }
   };
 
-  const handleTeamSelection = () => {
-    if (selectedTeams.length !== numTeams) {
-      toast.error(`Selecione exatamente ${numTeams} times`);
-      return;
-    }
+  const toggleTeamSelection = (team: string) => {
+    if (numTeams === 4) return; // Can't toggle when 4 teams
 
-    setStep('select-date');
+    if (selectedTeams.includes(team)) {
+      if (selectedTeams.length > 1) {
+        setSelectedTeams(selectedTeams.filter(t => t !== team));
+      }
+    } else if (selectedTeams.length < numTeams) {
+      setSelectedTeams([...selectedTeams, team]);
+    }
   };
 
   const dateSchema = z.string().refine((date) => {
@@ -134,167 +154,117 @@ export default function DefineTeams() {
     return !isNaN(parsed.getTime()) && parsed >= new Date(new Date().setHours(0, 0, 0, 0) - 86400000 * 7);
   }, "Data inválida ou muito antiga (máximo 7 dias atrás)");
 
-  const handleDateSelection = () => {
+  const handleContinue = () => {
+    if (selectedTeams.length !== numTeams) {
+      toast.error(`Selecione exatamente ${numTeams} times`);
+      return;
+    }
+
     const validation = dateSchema.safeParse(scheduledDate);
     if (!validation.success) {
       toast.error(validation.error.errors[0].message);
       return;
     }
 
-    // Inicializar os times vazios
+    // Initialize teams
     const initialTeams: Record<string, TeamPlayer[]> = {};
-    selectedTeams.forEach(team => {
+    const initialExpanded: Record<string, boolean> = {};
+    selectedTeams.forEach((team, index) => {
       initialTeams[team] = [];
+      initialExpanded[team] = index === 0; // Expand first team by default
     });
     setTeams(initialTeams);
+    setExpandedTeams(initialExpanded);
     setStep('define-players');
   };
 
   const balanceTeams = () => {
-    setLoading(true);
+    const goalkeepers = availablePlayers.filter(p => p.position === 'goleiro');
+    const linePlayers = availablePlayers.filter(p => p.position !== 'goleiro');
 
-    try {
-      // Separar jogadores por posição e nível
-      const goalkeepers = availablePlayers.filter(p => p.position === 'goleiro');
-      const defenders = availablePlayers.filter(p => p.position === 'defensor');
-      const midfielders = availablePlayers.filter(p => p.position === 'meio-campista' || p.position === 'meio_campo');
-      const forwards = availablePlayers.filter(p => p.position === 'atacante');
+    const levels = ['A', 'B', 'C', 'D', 'E'];
+    const teamKeys = [...selectedTeams];
 
-      const levels = ['A', 'B', 'C', 'D', 'E'];
-      const playersByLevel: Record<string, Player[]> = {};
-
-      levels.forEach(level => {
-        playersByLevel[level] = availablePlayers.filter(
-          p => p.level?.toUpperCase() === level && p.position !== 'goleiro'
-        );
-      });
-
-      const totalFieldPlayers = Object.values(playersByLevel).flat().length;
-      const requiredPlayers = selectedTeams.length * 5; // 5 jogadores de linha por time
-
-      if (totalFieldPlayers < requiredPlayers) {
-        toast.error(`Não há jogadores de linha suficientes. Necessário: ${requiredPlayers}, Disponível: ${totalFieldPlayers}`);
-        setLoading(false);
-        return;
+    const shuffle = <T,>(array: T[]): T[] => {
+      const shuffled = [...array];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
+      return shuffled;
+    };
 
-      const shuffle = <T,>(array: T[]): T[] => {
-        const arr = [...array];
-        for (let i = arr.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [arr[i], arr[j]] = [arr[j], arr[i]];
-        }
-        return arr;
-      };
+    const newTeams: Record<string, TeamPlayer[]> = {};
+    teamKeys.forEach(team => {
+      newTeams[team] = [];
+    });
 
-      const newTeams: Record<string, TeamPlayer[]> = {};
-      selectedTeams.forEach(team => {
-        newTeams[team] = [];
-      });
+    // Assign players by level
+    levels.forEach((level) => {
+      const playersAtLevel = shuffle(linePlayers.filter(p => p.level?.toUpperCase() === level));
 
-      // Distribuir jogadores de linha por nível (garante balanceamento)
-      levels.forEach(level => {
-        const shuffled = shuffle(playersByLevel[level]);
-        let playerIndex = 0;
-        selectedTeams.forEach((team) => {
-          if (shuffled[playerIndex]) {
-            newTeams[team].push({ ...shuffled[playerIndex], team_color: team });
-            playerIndex++;
-          }
-        });
-      });
-
-      // Adicionar goleiros disponíveis (1 por time se houver)
-      const shuffledGoalkeepers = shuffle(goalkeepers);
-      selectedTeams.forEach((team, index) => {
-        if (shuffledGoalkeepers[index]) {
-          newTeams[team].push({ ...shuffledGoalkeepers[index], team_color: team });
+      teamKeys.forEach((team, idx) => {
+        if (playersAtLevel[idx]) {
+          newTeams[team].push({ ...playersAtLevel[idx], team_color: team });
         }
       });
+    });
 
-      // Tentar balancear por posições - critério adicional
-      // Garantir distribuição mínima: 1-2 DEF, 1-3 MC, 1-3 FWD por time
-      const assignByPosition = (positionPlayers: Player[], teamKey: string[], max: number) => {
-        const shuffled = shuffle(positionPlayers);
-        let assigned = 0;
-        selectedTeams.forEach((team) => {
-          if (assigned < shuffled.length && newTeams[team].length < 6 && assigned < max * selectedTeams.length) {
-            newTeams[team].push({ ...shuffled[assigned], team_color: team });
-            assigned++;
-          }
-        });
-      };
+    // Assign goalkeepers
+    const shuffledGKs = shuffle(goalkeepers);
+    teamKeys.forEach((team, idx) => {
+      if (shuffledGKs[idx]) {
+        newTeams[team].push({ ...shuffledGKs[idx], team_color: team });
+      }
+    });
 
-      // assignByPosition(defenders, selectedTeams, 2);
-      // assignByPosition(midfielders, selectedTeams, 3);
-      // assignByPosition(forwards, selectedTeams, 3);
-
-      setTeams(newTeams);
-      toast.success("Times balanceados com sucesso!");
-    } catch (error) {
-      console.error("Erro ao balancear times:", error);
-      toast.error("Erro ao balancear times");
-    } finally {
-      setLoading(false);
-    }
+    setTeams(newTeams);
+    toast.success("Times gerados automaticamente!");
   };
 
-  const updateTeamPlayer = (teamColor: string, index: number, playerId: string) => {
-    const newTeams = { ...teams };
-    if (!newTeams[teamColor]) newTeams[teamColor] = [];
+  const updateTeamPlayer = (teamColor: string, slotIndex: number, playerId: string) => {
+    const player = playerId === 'none' ? null : availablePlayers.find(p => p.id === playerId);
 
-    // Remover seleção
-    if (!playerId || playerId === "none") {
-      if (newTeams[teamColor][index] !== undefined) {
-        newTeams[teamColor].splice(index, 1);
+    setTeams(prev => {
+      const newTeams = { ...prev };
+      const teamArray = [...(newTeams[teamColor] || [])];
+
+      // Ensure array has enough slots
+      while (teamArray.length <= slotIndex) {
+        teamArray.push(null as any);
       }
-      setTeams(newTeams);
-      return;
-    }
 
-    const selectedPlayer = availablePlayers.find(p => p.id === playerId);
-    if (!selectedPlayer) return;
+      if (player) {
+        teamArray[slotIndex] = { ...player, team_color: teamColor };
+      } else {
+        teamArray[slotIndex] = null as any;
+      }
 
-    newTeams[teamColor][index] = { ...selectedPlayer, team_color: teamColor };
-    setTeams(newTeams);
+      // Filter out nulls but preserve indices for mapping
+      newTeams[teamColor] = teamArray;
+      return newTeams;
+    });
   };
 
   const validateTeams = (): boolean => {
-    for (const teamColor of selectedTeams) {
-      const teamPlayers = teams[teamColor] || [];
-      const fieldPlayers = teamPlayers.filter(p => p.position !== 'goleiro');
+    for (const team of selectedTeams) {
+      const teamPlayers = (teams[team] || []).filter(p => p && p.id);
+      const linePlayers = teamPlayers.filter(p => p.position !== 'goleiro');
 
-      if (fieldPlayers.length < 5) {
-        toast.error(`Time ${teamColor} precisa ter pelo menos 5 jogadores de linha`);
+      if (linePlayers.length < 5) {
+        toast.error(`Time ${team} precisa ter 5 jogadores de linha (atualmente tem ${linePlayers.length})`);
         return false;
-      }
-
-      // Validar que tem pelo menos um jogador de cada nível A, B, C, D, E
-      const levels = ['A', 'B', 'C', 'D', 'E'];
-      for (const level of levels) {
-        const hasLevel = fieldPlayers.some(p => p.level?.toUpperCase() === level);
-        if (!hasLevel) {
-          toast.error(`Time ${teamColor} precisa ter pelo menos um jogador de nível ${level}`);
-          return false;
-        }
       }
     }
     return true;
   };
 
   const handleSaveTeams = async () => {
-    if (Object.keys(teams).length === 0) {
-      toast.error("Defina os times primeiro");
-      return;
-    }
-
-    if (!validateTeams()) {
-      return;
-    }
+    if (!validateTeams()) return;
 
     setLoading(true);
-
     try {
+      // Create round
       const { data: latestRound } = await supabase
         .from("rounds")
         .select("round_number")
@@ -304,56 +274,47 @@ export default function DefineTeams() {
 
       const newRoundNumber = (latestRound?.round_number || 0) + 1;
 
-      const { data: newRound, error: roundError } = await supabase
+      const { data: roundData, error: roundError } = await supabase
         .from("rounds")
         .insert({
           round_number: newRoundNumber,
           scheduled_date: scheduledDate,
-          status: 'a_iniciar',
+          status: 'a_iniciar'
         })
         .select()
         .single();
 
       if (roundError) throw roundError;
 
-      for (const teamColor of Object.keys(teams)) {
+      // Create teams
+      for (const teamColor of selectedTeams) {
         const { error: teamError } = await supabase
           .from("round_teams")
           .insert({
-            round_id: newRound.id,
-            team_color: teamColor as "branco" | "vermelho" | "azul" | "laranja",
+            round_id: roundData.id,
+            team_color: teamColor
           });
 
         if (teamError) throw teamError;
 
-        const teamPlayers = teams[teamColor].map(player => ({
-          round_id: newRound.id,
-          player_id: player.id,
-          team_color: teamColor as "branco" | "vermelho" | "azul" | "laranja",
-        }));
+        // Add players to team
+        const teamPlayers = (teams[teamColor] || []).filter(p => p && p.id);
+        for (const player of teamPlayers) {
+          const { error: playerError } = await supabase
+            .from("round_team_players")
+            .insert({
+              round_id: roundData.id,
+              team_color: teamColor,
+              player_id: player.id,
+              is_goalkeeper: player.position === 'goleiro'
+            });
 
-        const { error: playersError } = await supabase
-          .from("round_team_players")
-          .insert(teamPlayers);
-
-        if (playersError) throw playersError;
-
-        const attendanceRecords = teams[teamColor].map(player => ({
-          round_id: newRound.id,
-          player_id: player.id,
-          team_color: teamColor as "branco" | "vermelho" | "azul" | "laranja",
-          status: 'presente' as "presente" | "atrasado" | "falta",
-        }));
-
-        const { error: attendanceError } = await supabase
-          .from("player_attendance")
-          .insert(attendanceRecords);
-
-        if (attendanceError) throw attendanceError;
+          if (playerError) throw playerError;
+        }
       }
 
-      toast.success("Times salvos com sucesso!");
-      navigate("/admin/teams/manage");
+      toast.success("Times definidos com sucesso!");
+      navigate("/admin/teams");
     } catch (error: any) {
       console.error("Erro ao salvar times:", error);
       toast.error(getUserFriendlyError(error));
@@ -362,197 +323,236 @@ export default function DefineTeams() {
     }
   };
 
+  const toggleTeamExpanded = (team: string) => {
+    setExpandedTeams(prev => ({
+      ...prev,
+      [team]: !prev[team]
+    }));
+  };
+
+  const getUsedPlayerIds = () => {
+    return Object.values(teams).flat().filter(p => p && p.id).map(p => p.id);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-6">
         <Card className="card-glow bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-3xl font-bold text-primary glow-text text-center">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-2xl sm:text-3xl font-bold text-primary glow-text text-center">
               DEFINIR TIMES
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {step === 'select-teams' ? (
-              <div className="space-y-6">
+            {step === 'config' ? (
+              <div className="space-y-5">
+                {/* Toggle 3/4 times */}
                 <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Quantos times jogarão nessa rodada?
+                  <label className="block text-sm font-medium mb-3 text-muted-foreground">
+                    Quantos times?
                   </label>
-                  <Select value={numTeams ? numTeams.toString() : undefined} onValueChange={(v) => setNumTeams(parseInt(v))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="3">3 times</SelectItem>
-                      <SelectItem value="4">4 times</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setNumTeams(3)}
+                      className={`py-4 rounded-xl font-bold text-lg transition-all ${numTeams === 3
+                          ? 'bg-primary text-primary-foreground shadow-lg scale-[1.02]'
+                          : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                        }`}
+                    >
+                      3 times
+                    </button>
+                    <button
+                      onClick={() => setNumTeams(4)}
+                      className={`py-4 rounded-xl font-bold text-lg transition-all ${numTeams === 4
+                          ? 'bg-primary text-primary-foreground shadow-lg scale-[1.02]'
+                          : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                        }`}
+                    >
+                      4 times
+                    </button>
+                  </div>
                 </div>
 
-                {numTeams > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Selecione os {numTeams} times:
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      {['branco', 'vermelho', 'azul', 'laranja'].map((team) => (
+                {/* Team selection */}
+                <div>
+                  <label className="block text-sm font-medium mb-3 text-muted-foreground">
+                    {numTeams === 4 ? 'Times selecionados:' : `Selecione ${numTeams} times:`}
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {['branco', 'vermelho', 'azul', 'laranja'].map((team) => {
+                      const isSelected = selectedTeams.includes(team);
+                      const isDisabled = numTeams === 4;
+
+                      return (
                         <button
                           key={team}
-                          onClick={() => {
-                            if (selectedTeams.includes(team)) {
-                              setSelectedTeams(selectedTeams.filter(t => t !== team));
-                            } else if (selectedTeams.length < numTeams) {
-                              setSelectedTeams([...selectedTeams, team]);
-                            }
-                          }}
-                          className={`p-4 rounded-lg font-bold capitalize transition-all ${selectedTeams.includes(team)
-                            ? teamColors[team]
-                            : 'bg-muted text-muted-foreground'
-                            }`}
+                          onClick={() => toggleTeamSelection(team)}
+                          disabled={isDisabled}
+                          className={`p-4 rounded-xl font-bold capitalize transition-all min-h-[60px] border-2 ${isSelected
+                              ? teamColors[team] + ' shadow-md'
+                              : 'bg-muted/30 text-muted-foreground border-transparent'
+                            } ${isDisabled ? 'cursor-default' : 'cursor-pointer hover:scale-[1.02]'}`}
                         >
                           {team}
+                          {isSelected && (
+                            <span className="ml-2">✓</span>
+                          )}
                         </button>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                )}
-
-                <div className="flex gap-3">
-                  <Button onClick={() => navigate("/admin/teams")} variant="outline" className="flex-1">
-                    Voltar
-                  </Button>
-                  <Button
-                    onClick={handleTeamSelection}
-                    disabled={selectedTeams.length !== numTeams}
-                    className="flex-1"
-                  >
-                    Continuar
-                  </Button>
                 </div>
-              </div>
-            ) : step === 'select-date' ? (
-              <div className="space-y-6">
+
+                {/* Date picker */}
                 <div>
-                  <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                  <label className="block text-sm font-medium mb-3 text-muted-foreground flex items-center gap-2">
                     <Calendar size={16} />
-                    Data da rodada:
+                    Data da rodada
                   </label>
                   <Input
                     type="date"
                     value={scheduledDate}
                     onChange={(e) => setScheduledDate(e.target.value)}
-                    className="w-full"
+                    className="w-full h-14 text-lg"
                   />
                 </div>
 
-                <div className="flex gap-3">
-                  <Button onClick={() => setStep('select-teams')} variant="outline" className="flex-1">
+                {/* Action buttons */}
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    onClick={() => navigate("/admin/teams")}
+                    variant="outline"
+                    className="flex-1 h-14 text-base"
+                  >
                     Voltar
                   </Button>
                   <Button
-                    onClick={handleDateSelection}
-                    disabled={!scheduledDate}
-                    className="flex-1"
+                    onClick={handleContinue}
+                    disabled={selectedTeams.length !== numTeams || !scheduledDate}
+                    className="flex-1 h-14 text-base"
                   >
+                    <Users className="mr-2 h-5 w-5" />
                     Definir Jogadores
                   </Button>
                 </div>
               </div>
             ) : (
               <div className="space-y-4">
+                {/* Info banner */}
                 <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-                  <p className="text-sm sm:text-base text-foreground leading-relaxed">
+                  <p className="text-sm text-foreground leading-relaxed">
                     Cada time precisa ter <strong>5 jogadores de linha</strong> (um de cada nível A, B, C, D, E)
                     e pode ter <strong>1 goleiro</strong> (opcional).
                   </p>
                 </div>
 
+                {/* Auto-generate button */}
                 <Button
                   onClick={balanceTeams}
                   disabled={loading}
                   variant="secondary"
-                  className="w-full py-6 text-base sm:text-lg flex items-center justify-center gap-2 min-h-[56px]"
+                  className="w-full py-6 text-base flex items-center justify-center gap-2 min-h-[56px]"
                 >
                   <Shuffle size={20} />
                   Gerar Times Automaticamente
                 </Button>
 
-                <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide scroll-smooth">
-                  <table className="w-full min-w-[600px] border-collapse">
-                    <thead>
-                      <tr className="bg-muted/50">
-                        <th className="p-3 border border-border text-left font-semibold">Níveis</th>
-                        {selectedTeams.map((team) => (
-                          <th key={team} className="p-3 border border-border">
-                            <Badge className={teamColors[team] + " text-base py-2 px-4"}>
-                              {team.toUpperCase()}
-                            </Badge>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {['A', 'B', 'C', 'D', 'E', 'GR'].map((level, index) => (
-                        <tr key={index} className={index % 2 === 0 ? 'bg-muted/20' : ''}>
-                          <td className="p-3 border border-border font-bold text-center">
-                            {level}
-                          </td>
-                          {selectedTeams.map((team) => {
-                            const player = teams[team]?.[index];
-                            const usedPlayerIds = Object.values(teams).flat().map(p => p.id);
+                {/* Team cards - vertical layout for mobile */}
+                <div className="space-y-3">
+                  {selectedTeams.map((teamColor) => {
+                    const isExpanded = expandedTeams[teamColor] ?? true;
+                    const teamPlayers = teams[teamColor] || [];
+                    const linePlayersCount = teamPlayers.filter(p => p && p.position !== 'goleiro').length;
+                    const hasGoalkeeper = teamPlayers.some(p => p && p.position === 'goleiro');
 
-                            return (
-                              <td key={team} className="p-3 border border-border">
-                                <Select
-                                  value={player?.id || ""}
-                                  onValueChange={(playerId) => updateTeamPlayer(team, index, playerId)}
+                    return (
+                      <Card
+                        key={teamColor}
+                        className={`border-2 ${teamColorsBg[teamColor]} overflow-hidden`}
+                      >
+                        {/* Team header - always visible */}
+                        <button
+                          onClick={() => toggleTeamExpanded(teamColor)}
+                          className="w-full p-4 flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Badge className={teamColors[teamColor] + " text-base py-2 px-4"}>
+                              {teamColor.toUpperCase()}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">
+                              {linePlayersCount}/5 linha {hasGoalkeeper ? '• GR ✓' : ''}
+                            </span>
+                          </div>
+                          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        </button>
+
+                        {/* Team players - collapsible */}
+                        {isExpanded && (
+                          <div className="px-4 pb-4 space-y-2">
+                            {['A', 'B', 'C', 'D', 'E', 'GR'].map((level, index) => {
+                              const player = teamPlayers[index];
+                              const usedPlayerIds = getUsedPlayerIds();
+                              const isGoalkeeperSlot = level === 'GR';
+
+                              return (
+                                <div
+                                  key={level}
+                                  className="flex items-center gap-3 bg-background/50 rounded-lg p-2"
                                 >
-                                  <SelectTrigger className="w-full h-12 text-base">
-                                    <SelectValue placeholder={level === 'GR' ? "Goleiro (opcional)" : `Jogador ${level}`}>
-                                      {player && (
-                                        <div className="flex items-center justify-between w-full">
-                                          <span className="flex-1 text-left truncate">
-                                            {player.nickname || player.name}
-                                          </span>
-                                          <span className="text-xs font-bold text-muted-foreground ml-2">
-                                            {positionLabels[player.position] || player.position || "N/A"}
-                                          </span>
-                                        </div>
-                                      )}
-                                    </SelectValue>
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="none">Nenhum</SelectItem>
-                                    {availablePlayers
-                                      .filter(p => {
-                                        if (level === 'GR') {
-                                          return p.position === 'goleiro' && (!usedPlayerIds.includes(p.id) || p.id === player?.id);
-                                        }
-                                        return p.level?.toUpperCase() === level && p.position !== 'goleiro' && (!usedPlayerIds.includes(p.id) || p.id === player?.id);
-                                      })
-                                      .map((p) => (
-                                        <SelectItem key={p.id} value={p.id}>
-                                          <div className="flex items-center gap-2">
-                                            <span>{p.nickname || p.name}</span>
-                                            <span className="text-xs text-muted-foreground">
-                                              ({positionLabels[p.position] || p.position || "N/A"})
+                                  <span className="w-8 text-center font-bold text-sm text-muted-foreground">
+                                    {level}
+                                  </span>
+                                  <Select
+                                    value={player?.id || ""}
+                                    onValueChange={(playerId) => updateTeamPlayer(teamColor, index, playerId)}
+                                  >
+                                    <SelectTrigger className="flex-1 h-12">
+                                      <SelectValue placeholder={isGoalkeeperSlot ? "Goleiro (opcional)" : `Jogador ${level}`}>
+                                        {player && (
+                                          <div className="flex items-center justify-between w-full">
+                                            <span className="truncate">
+                                              {player.nickname || player.name}
+                                            </span>
+                                            <span className="text-xs font-bold text-muted-foreground ml-2">
+                                              {positionLabels[player.position] || player.position || "N/A"}
                                             </span>
                                           </div>
-                                        </SelectItem>
-                                      ))}
-                                  </SelectContent>
-                                </Select>
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                                        )}
+                                      </SelectValue>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">Nenhum</SelectItem>
+                                      {availablePlayers
+                                        .filter(p => {
+                                          if (isGoalkeeperSlot) {
+                                            return p.position === 'goleiro' && (!usedPlayerIds.includes(p.id) || p.id === player?.id);
+                                          }
+                                          return p.level?.toUpperCase() === level && p.position !== 'goleiro' && (!usedPlayerIds.includes(p.id) || p.id === player?.id);
+                                        })
+                                        .map((p) => (
+                                          <SelectItem key={p.id} value={p.id}>
+                                            <div className="flex items-center gap-2">
+                                              <span>{p.nickname || p.name}</span>
+                                              <span className="text-xs text-muted-foreground">
+                                                ({positionLabels[p.position] || p.position || "N/A"})
+                                              </span>
+                                            </div>
+                                          </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })}
                 </div>
 
-                {/* Lista de jogadores não elegíveis */}
+                {/* Ineligible players */}
                 {ineligiblePlayers.length > 0 && (
                   <Collapsible open={showIneligible} onOpenChange={setShowIneligible}>
                     <CollapsibleTrigger asChild>
@@ -585,11 +585,12 @@ export default function DefineTeams() {
                   </Collapsible>
                 )}
 
+                {/* Action buttons */}
                 <div className="flex flex-col sm:flex-row gap-3">
-                  <Button onClick={() => setStep('select-teams')} variant="outline" className="w-full sm:flex-1">
+                  <Button onClick={() => setStep('config')} variant="outline" className="w-full sm:flex-1 h-14">
                     Voltar
                   </Button>
-                  <Button onClick={handleSaveTeams} disabled={loading} className="w-full sm:flex-1">
+                  <Button onClick={handleSaveTeams} disabled={loading} className="w-full sm:flex-1 h-14">
                     {loading ? "Salvando..." : "Finalizar Times"}
                   </Button>
                 </div>
