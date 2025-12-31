@@ -14,8 +14,6 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { Trophy, Target, Award, Equal, TrendingDown } from "lucide-react";
 import { toast } from "sonner";
-import PlayerComparisonChart from "@/components/PlayerComparisonChart";
-import { VirtualizedList } from "@/components/ui/virtualized-list";
 
 interface PlayerRanking {
   id: string;
@@ -295,13 +293,11 @@ export default function Statistics() {
       );
     };
 
-    // Use virtualization for mobile (lg:hidden handled in parent)
+    // Use native scroll for better mobile compatibility
     return (
-      <VirtualizedList
-        items={sortedStats}
-        itemHeight={88}
-        renderItem={renderPlayerRow}
-      />
+      <div className="space-y-3">
+        {sortedStats.map((player, index) => renderPlayerRow(player, index))}
+      </div>
     );
   };
 
@@ -329,10 +325,6 @@ export default function Statistics() {
           </Select>
         </div>
 
-        {/* Comparação de Jogadores */}
-        {!loading && rankings.length >= 2 && (
-          <PlayerComparisonChart players={rankings} />
-        )}
 
         <Card className="card-glow bg-card border-border">
           <CardHeader>
