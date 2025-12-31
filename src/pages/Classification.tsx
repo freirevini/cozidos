@@ -344,8 +344,8 @@ export default function Classification() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="bg-background border-b border-border/30">
+      {/* Tabs - Sticky */}
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border/30">
         <div className="container mx-auto px-4 py-3">
           <div className="flex gap-2">
             <button onClick={() => {
@@ -361,8 +361,8 @@ export default function Classification() {
         </div>
       </div>
 
-      {/* Sub-filters */}
-      <div className="bg-background/50 border-b border-border/20">
+      {/* Sub-filters - Sticky */}
+      <div className="sticky top-[52px] z-20 bg-background/95 backdrop-blur border-b border-border/20">
         <div className="container mx-auto px-4 py-3 space-y-3">
           {selectedTab === "todos" ? <MonthChips availableMonths={availableMonths} selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} /> : <>
             <LevelSelector selectedLevel={selectedLevel} onLevelChange={setSelectedLevel} />

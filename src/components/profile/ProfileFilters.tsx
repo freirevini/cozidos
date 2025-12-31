@@ -31,7 +31,7 @@ export function ProfileFilters({
   onMonthChange,
 }: ProfileFiltersProps) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3 bg-muted/20 border-b border-border/50">
+    <div className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 bg-background/95 backdrop-blur border-b border-border/50">
       {/* Year filter */}
       <Select
         value={selectedYear?.toString() || "all"}

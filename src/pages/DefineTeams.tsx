@@ -338,7 +338,95 @@ export default function DefineTeams() {
       }
 
       console.log("[DefineTeams] All teams saved successfully!");
-      toast.success("Times definidos com sucesso!");
+
+      // Auto-create matches for the round
+      console.log("[DefineTeams] Creating matches automatically...");
+      const matchesToCreate: any[] = [];
+      let matchNumber = 1;
+      let currentTime = 21 * 60; // 21:00 in minutes
+
+      if (selectedTeams.length === 4) {
+        // Fixed match order for 4 teams
+        const matchPairs = [
+          ['azul', 'branco'],
+          ['vermelho', 'azul'],
+          ['laranja', 'vermelho'],
+          ['branco', 'laranja'],
+          ['azul', 'branco'],
+          ['vermelho', 'laranja'],
+          ['branco', 'vermelho'],
+          ['laranja', 'azul'],
+        ];
+
+        matchPairs.forEach(([home, away]) => {
+          const hours = Math.floor(currentTime / 60);
+          const minutes = currentTime % 60;
+          const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+
+          matchesToCreate.push({
+            round_id: roundData.id,
+            match_number: matchNumber++,
+            team_home: home,
+            team_away: away,
+            score_home: 0,
+            score_away: 0,
+            scheduled_time: timeString,
+            status: 'not_started',
+          });
+
+          currentTime += 12; // 12 minutes per match
+        });
+      } else if (selectedTeams.length === 3) {
+        // Generate match pairs for 3 teams
+        const matchPairs: string[][] = [];
+
+        // First round
+        for (let i = 0; i < selectedTeams.length; i++) {
+          for (let j = i + 1; j < selectedTeams.length; j++) {
+            matchPairs.push([selectedTeams[i], selectedTeams[j]]);
+          }
+        }
+
+        // Second round (reversed)
+        for (let i = 0; i < selectedTeams.length; i++) {
+          for (let j = i + 1; j < selectedTeams.length; j++) {
+            matchPairs.push([selectedTeams[j], selectedTeams[i]]);
+          }
+        }
+
+        matchPairs.forEach(([home, away]) => {
+          const hours = Math.floor(currentTime / 60);
+          const minutes = currentTime % 60;
+          const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+
+          matchesToCreate.push({
+            round_id: roundData.id,
+            match_number: matchNumber++,
+            team_home: home,
+            team_away: away,
+            score_home: 0,
+            score_away: 0,
+            scheduled_time: timeString,
+            status: 'not_started',
+          });
+
+          currentTime += 12;
+        });
+      }
+
+      if (matchesToCreate.length > 0) {
+        const { error: matchError } = await supabase
+          .from("matches")
+          .insert(matchesToCreate);
+
+        if (matchError) {
+          console.error("[DefineTeams] Match creation error:", matchError);
+          throw matchError;
+        }
+        console.log(`[DefineTeams] Created ${matchesToCreate.length} matches`);
+      }
+
+      toast.success("Times e partidas criados com sucesso!");
       navigate("/admin/teams");
     } catch (error: any) {
       console.error("[DefineTeams] FULL ERROR:", error);

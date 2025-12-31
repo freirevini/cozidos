@@ -258,8 +258,8 @@ export default function Statistics() {
           </div>
         </div>
 
-        {/* Stats Filter Chips */}
-        <div className="bg-background border-b border-border/30">
+        {/* Stats Filter Chips - Sticky */}
+        <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border/30">
           <div className="container mx-auto px-4 py-3">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth pb-1">
               {filterButtons.map(({ type, icon: Icon, label }) => (
@@ -278,15 +278,15 @@ export default function Statistics() {
           </div>
         </div>
 
-        {/* Level Filter */}
-        <div className="bg-background/50 border-b border-border/20">
+        {/* Level Filter - Sticky */}
+        <div className="sticky top-[52px] z-20 bg-background/95 backdrop-blur border-b border-border/20">
           <div className="container mx-auto px-4 py-3">
             <LevelSelector selectedLevel={selectedLevel} onLevelChange={setSelectedLevel} />
           </div>
         </div>
 
-        {/* Month Chips */}
-        <div className="bg-background/50 border-b border-border/20">
+        {/* Month Chips - Sticky */}
+        <div className="sticky top-[100px] z-10 bg-background/95 backdrop-blur border-b border-border/20">
           <div className="container mx-auto px-4 py-3">
             <MonthChips
               availableMonths={availableMonths}
