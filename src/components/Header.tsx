@@ -27,7 +27,7 @@ export default function Header() {
     if (path.startsWith('/admin/teams')) return '/admin/teams';
     if (path.startsWith('/admin/players')) return '/admin/players';
 
-    if (path.startsWith('/admin/monitoring')) return '/admin/monitoring';
+
 
     // Verificar correspondências parciais para outras rotas
     if (path.startsWith('/times')) return '/times';
@@ -68,8 +68,6 @@ export default function Header() {
     { href: "/admin/teams", label: "Times" },
     { href: "/admin/round", label: "Gerenciar Rodada" },
     { href: "/admin/players", label: "Gerenciar Jogadores" },
-
-    { href: "/admin/monitoring", label: "Monitoramento" },
   ];
 
   const userLinks = isPlayer
@@ -207,8 +205,8 @@ export default function Header() {
                 key={link.href}
                 to={link.href}
                 className={`block px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 menu-glow ${isActive(link.href)
-                    ? "bg-primary text-primary-foreground"
-                    : "text-foreground hover:bg-muted"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-foreground hover:bg-muted"
                   }`}
                 onClick={() => setMobileMenuOpen(false)}
                 style={{
