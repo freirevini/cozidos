@@ -293,9 +293,9 @@ export default function Statistics() {
       );
     };
 
-    // Use native scroll for better mobile compatibility
+    // Lista com scroll nativo
     return (
-      <div className="space-y-3">
+      <div className="space-y-2">
         {sortedStats.map((player, index) => renderPlayerRow(player, index))}
       </div>
     );
@@ -324,6 +324,7 @@ export default function Statistics() {
             </SelectContent>
           </Select>
         </div>
+
 
 
         <Card className="card-glow bg-card border-border">
