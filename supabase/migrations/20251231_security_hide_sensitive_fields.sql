@@ -30,6 +30,7 @@ GRANT SELECT ON public.profiles_public TO anon, authenticated;
 -- 3. Update RLS on the main table
 DROP POLICY IF EXISTS "profiles_select_all" ON public.profiles;
 DROP POLICY IF EXISTS "Everyone can view profiles" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_public_read" ON public.profiles;
 
 CREATE POLICY "profiles_public_read" ON public.profiles
   FOR SELECT
