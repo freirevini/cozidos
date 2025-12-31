@@ -327,8 +327,7 @@ export default function DefineTeams() {
             .insert({
               round_id: roundData.id,
               team_color: teamColor,
-              player_id: player.id,
-              is_goalkeeper: player.position === 'goleiro'
+              player_id: player.id
             });
 
           if (playerError) {
