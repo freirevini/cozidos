@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { TeamLogo } from "@/components/match/TeamLogo";
-import { Badge } from "@/components/ui/badge";
 
 type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
 
@@ -31,7 +30,7 @@ const teamColorMap: Record<string, string> = {
   laranja: "Laranja",
 };
 
-// Organizar por nível (A, B, C, D, E) e depois goleiros
+// Ordenar por nível (A, B, C, D, E) e depois goleiros
 const levelOrder: Record<string, number> = {
   A: 0,
   B: 1,
@@ -40,21 +39,13 @@ const levelOrder: Record<string, number> = {
   E: 4,
 };
 
-const levelColors: Record<string, string> = {
-  A: "bg-primary/20 text-primary border-primary/30",
-  B: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  C: "bg-green-500/20 text-green-400 border-green-500/30",
-  D: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-  E: "bg-orange-500/20 text-orange-400 border-orange-500/30",
-};
-
 export function TeamCardModern({ teamColor, players, onClick, className }: TeamCardModernProps) {
   const navigate = useNavigate();
-  
+
   // Separar goleiros dos jogadores de linha
   const goalkeepers = players.filter(p => p.profiles.position === "goleiro");
   const fieldPlayers = players.filter(p => p.profiles.position !== "goleiro");
-  
+
   // Ordenar jogadores de linha por nível
   const sortedFieldPlayers = [...fieldPlayers].sort((a, b) => {
     const levelA = levelOrder[a.profiles.level || "E"] ?? 5;
@@ -62,41 +53,13 @@ export function TeamCardModern({ teamColor, players, onClick, className }: TeamC
     return levelA - levelB;
   });
 
-  // Agrupar por nível
-  const playersByLevel = sortedFieldPlayers.reduce((acc, player) => {
-    const level = player.profiles.level || "E";
-    if (!acc[level]) acc[level] = [];
-    acc[level].push(player);
-    return acc;
-  }, {} as Record<string, TeamPlayer[]>);
+  // Todos os jogadores ordenados: linha primeiro, depois goleiros
+  const allPlayers = [...sortedFieldPlayers, ...goalkeepers];
 
   const handlePlayerClick = (e: React.MouseEvent, playerId: string) => {
     e.stopPropagation();
     navigate(`/profile/${playerId}`);
   };
-
-  const renderPlayer = (player: TeamPlayer) => (
-    <div
-      key={player.id}
-      onClick={(e) => handlePlayerClick(e, player.player_id)}
-      className="group flex items-center justify-between py-2 px-3 rounded-lg bg-muted/10 hover:bg-primary/15 hover:border-primary/30 border border-transparent transition-all duration-200 cursor-pointer"
-    >
-      <span className="text-sm font-medium text-foreground truncate group-hover:text-primary group-hover:underline group-hover:underline-offset-2 transition-all duration-200">
-        {player.profiles.nickname || player.profiles.name}
-      </span>
-      {player.profiles.level && (
-        <Badge 
-          variant="outline" 
-          className={cn(
-            "text-xs font-bold ml-2 shrink-0",
-            levelColors[player.profiles.level] || "bg-muted/20 text-muted-foreground"
-          )}
-        >
-          {player.profiles.level}
-        </Badge>
-      )}
-    </div>
-  );
 
   return (
     <div
@@ -107,60 +70,51 @@ export function TeamCardModern({ teamColor, players, onClick, className }: TeamC
         "transition-all duration-300",
         "hover:shadow-primary/10 hover:shadow-xl hover:border-primary/20",
         onClick && "cursor-pointer active:scale-[0.98]",
-        "p-5",
+        "p-4",
         className
       )}
     >
-      {/* Header com logo e nome */}
-      <div className="flex flex-col items-center mb-5">
-        <TeamLogo teamColor={teamColor} size="lg" />
-        <h3 className="text-xl font-bold uppercase tracking-wide text-primary mt-3">
-          {teamColorMap[teamColor] || teamColor}
-        </h3>
-        <span className="text-sm text-muted-foreground">
-          {players.length} jogadores
-        </span>
+      {/* Header compacto com logo e nome */}
+      <div className="flex items-center gap-3 mb-4">
+        <TeamLogo teamColor={teamColor} size="md" />
+        <div>
+          <h3 className="text-lg font-bold uppercase tracking-wide text-primary">
+            {teamColorMap[teamColor] || teamColor}
+          </h3>
+          <span className="text-xs text-muted-foreground">
+            {players.length} jogadores
+          </span>
+        </div>
       </div>
 
-      {/* Lista de jogadores por nível */}
-      <div className="space-y-4">
-        {/* Jogadores de linha por nível */}
-        {["A", "B", "C", "D", "E"].map((level) => {
-          const levelPlayers = playersByLevel[level];
-          if (!levelPlayers || levelPlayers.length === 0) return null;
-          
+      {/* Lista compacta de jogadores */}
+      <div className="space-y-1">
+        {allPlayers.map((player) => {
+          const isGoalkeeper = player.profiles.position === "goleiro";
+          const level = player.profiles.level?.toUpperCase();
+
           return (
-            <div key={level} className="space-y-1.5">
-              <div className="flex items-center gap-2 mb-2">
-                <Badge 
-                  variant="outline" 
-                  className={cn("text-xs font-bold", levelColors[level])}
-                >
-                  {level}
-                </Badge>
-                <div className="h-px flex-1 bg-border/30" />
-              </div>
-              <div className="space-y-1.5">
-                {levelPlayers.map(renderPlayer)}
-              </div>
+            <div
+              key={player.id}
+              onClick={(e) => handlePlayerClick(e, player.player_id)}
+              className="group flex items-center justify-between py-2 px-3 rounded-lg hover:bg-primary/10 transition-all duration-200 cursor-pointer"
+            >
+              <span className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                {player.profiles.nickname || player.profiles.name}
+              </span>
+
+              {/* Badge único de nível - sempre em rosa/primary */}
+              <span className={cn(
+                "text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ml-2",
+                isGoalkeeper
+                  ? "bg-muted/30 text-muted-foreground"
+                  : "bg-primary/20 text-primary"
+              )}>
+                {isGoalkeeper ? "GK" : level || "-"}
+              </span>
             </div>
           );
         })}
-
-        {/* Goleiros */}
-        {goalkeepers.length > 0 && (
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-2 py-0.5 rounded bg-muted/20">
-                GK
-              </span>
-              <div className="h-px flex-1 bg-border/30" />
-            </div>
-            <div className="space-y-1.5">
-              {goalkeepers.map(renderPlayer)}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
