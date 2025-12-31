@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { ArrowLeft } from "lucide-react";
@@ -48,7 +47,6 @@ const MatchDetails = () => {
   const [awayPlayers, setAwayPlayers] = useState<Player[]>([]);
   const [currentMinute, setCurrentMinute] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"partida" | "times">("partida");
 
   useEffect(() => {
     if (!matchId) return;
@@ -303,28 +301,29 @@ const MatchDetails = () => {
               className="mb-6"
             />
 
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="partida" className="min-h-[44px]">Partida</TabsTrigger>
-                <TabsTrigger value="times" className="min-h-[44px]">Times</TabsTrigger>
-              </TabsList>
+            {/* Seção: Partida */}
+            <div className="mb-8">
+              <h2 className="text-lg font-bold text-primary text-center mb-4 pb-2 border-b border-border/30">
+                PARTIDA
+              </h2>
+              {match.status !== "not_started" ? (
+                <MatchTimeline events={events} teamHome={match.team_home} teamAway={match.team_away} maxMinute={maxMinute} matchYear={matchYear} />
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">A partida ainda não foi iniciada</div>
+              )}
+            </div>
 
-              <TabsContent value="partida" className="space-y-6">
-                {match.status !== "not_started" ? (
-                  <MatchTimeline events={events} teamHome={match.team_home} teamAway={match.team_away} maxMinute={maxMinute} matchYear={matchYear} />
-                ) : (
-                  <div className="text-center py-12 text-muted-foreground">A partida ainda não foi iniciada</div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="times" className="space-y-6">
-                {homePlayers.length > 0 || awayPlayers.length > 0 ? (
-                  <MatchLineups teamHome={match.team_home} teamAway={match.team_away} homePlayers={homePlayers} awayPlayers={awayPlayers} matchId={matchId} matchYear={matchYear} />
-                ) : (
-                  <div className="text-center py-12 text-muted-foreground">Escalações não disponíveis</div>
-                )}
-              </TabsContent>
-            </Tabs>
+            {/* Seção: Times */}
+            <div>
+              <h2 className="text-lg font-bold text-primary text-center mb-4 pb-2 border-b border-border/30">
+                TIMES
+              </h2>
+              {homePlayers.length > 0 || awayPlayers.length > 0 ? (
+                <MatchLineups teamHome={match.team_home} teamAway={match.team_away} homePlayers={homePlayers} awayPlayers={awayPlayers} matchId={matchId} matchYear={matchYear} />
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">Escalações não disponíveis</div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </main>
