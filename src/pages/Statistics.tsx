@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
-import { SeasonSelector, MonthChips } from "@/components/classification";
+import { SeasonSelector, MonthChips, LevelSelector } from "@/components/classification";
 import { Trophy, Target, Award, Equal, TrendingDown } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -34,11 +34,12 @@ export default function Statistics() {
   const [rankings, setRankings] = useState<PlayerRanking[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Season/Month filters (como Classification)
+  // Filtros iguais à Classification
   const [seasons, setSeasons] = useState<number[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<number | null>(new Date().getFullYear());
   const [availableMonths, setAvailableMonths] = useState<number[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
 
   // Stats filter
   const [filterType, setFilterType] = useState<FilterType>("goals");
@@ -58,7 +59,7 @@ export default function Statistics() {
   useEffect(() => {
     loadAvailableMonths();
     loadStatistics();
-  }, [selectedSeason]);
+  }, [selectedSeason, selectedMonth]);
 
   const loadSeasons = async () => {
     try {
@@ -101,8 +102,8 @@ export default function Statistics() {
     try {
       setLoading(true);
 
-      if (selectedSeason === null) {
-        // Todos - buscar do player_rankings
+      // Se "Todos" anos e "Todos" meses, buscar do player_rankings (totais consolidados)
+      if (selectedSeason === null && selectedMonth === null) {
         const { data, error } = await supabase
           .from("player_rankings")
           .select(`*, profiles!inner(avatar_url, level)`)
@@ -118,8 +119,8 @@ export default function Statistics() {
         }));
         setRankings(mapped);
       } else {
-        // Ano específico - buscar de player_round_stats
-        const { data: roundStats, error } = await supabase
+        // Buscar de player_round_stats com filtros de ano/mês
+        let query = supabase
           .from("player_round_stats")
           .select(`
             player_id,
@@ -131,16 +132,29 @@ export default function Statistics() {
             total_points,
             round:rounds!inner(scheduled_date),
             profile:profiles!inner(nickname, name, avatar_url, level, is_player, status)
-          `)
-          .gte("round.scheduled_date", `${selectedSeason}-01-01`)
-          .lte("round.scheduled_date", `${selectedSeason}-12-31`);
+          `);
 
+        // Filtro de ano
+        if (selectedSeason !== null) {
+          query = query.gte("round.scheduled_date", `${selectedSeason}-01-01`)
+            .lte("round.scheduled_date", `${selectedSeason}-12-31`);
+        }
+
+        const { data: roundStats, error } = await query;
         if (error) throw error;
+
+        // Filtrar por mês se selecionado
+        const filteredByMonth = selectedMonth !== null
+          ? (roundStats || []).filter((rs: any) => {
+            const month = new Date(rs.round?.scheduled_date).getMonth() + 1;
+            return month === selectedMonth;
+          })
+          : roundStats || [];
 
         // Agrupar por jogador
         const playerMap = new Map<string, PlayerRanking>();
 
-        (roundStats || []).forEach((rs: any) => {
+        filteredByMonth.forEach((rs: any) => {
           if (!rs.profile?.is_player || rs.profile?.status !== 'aprovado') return;
 
           const playerId = rs.player_id;
@@ -181,18 +195,6 @@ export default function Statistics() {
     }
   };
 
-  const getSortedStats = (type: FilterType) => {
-    const sorted = [...rankings];
-    switch (type) {
-      case "goals": return sorted.sort((a, b) => b.gols - a.gols);
-      case "assists": return sorted.sort((a, b) => b.assistencias - a.assistencias);
-      case "wins": return sorted.sort((a, b) => b.vitorias - a.vitorias);
-      case "draws": return sorted.sort((a, b) => b.empates - a.empates);
-      case "defeats": return sorted.sort((a, b) => b.derrotas - a.derrotas);
-      default: return sorted;
-    }
-  };
-
   const getStatValue = (player: PlayerRanking, type: FilterType) => {
     switch (type) {
       case "goals": return player.gols;
@@ -204,9 +206,27 @@ export default function Statistics() {
     }
   };
 
+  // Ordenar e filtrar por tipo de estatística e nível
   const sortedStats = useMemo(() => {
-    return getSortedStats(filterType).filter(p => getStatValue(p, filterType) > 0);
-  }, [rankings, filterType]);
+    let filtered = [...rankings];
+
+    // Filtrar por nível se selecionado
+    if (selectedLevel !== null) {
+      filtered = filtered.filter(p => p.level === selectedLevel);
+    }
+
+    // Ordenar pelo tipo de estatística
+    switch (filterType) {
+      case "goals": filtered.sort((a, b) => b.gols - a.gols); break;
+      case "assists": filtered.sort((a, b) => b.assistencias - a.assistencias); break;
+      case "wins": filtered.sort((a, b) => b.vitorias - a.vitorias); break;
+      case "draws": filtered.sort((a, b) => b.empates - a.empates); break;
+      case "defeats": filtered.sort((a, b) => b.derrotas - a.derrotas); break;
+    }
+
+    // Remover jogadores com 0 na estatística selecionada
+    return filtered.filter(p => getStatValue(p, filterType) > 0);
+  }, [rankings, filterType, selectedLevel]);
 
   const filterButtons = [
     { type: "goals" as FilterType, icon: Trophy, label: "Artilheiros" },
@@ -223,7 +243,7 @@ export default function Statistics() {
       <Header />
 
       <main className="flex-1 flex flex-col">
-        {/* Top Bar - igual Classification */}
+        {/* Top Bar */}
         <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border/50">
           <div className="container mx-auto px-4 py-3">
             <div className="flex items-center justify-between gap-4">
@@ -233,12 +253,12 @@ export default function Statistics() {
                 Estatísticas
               </h1>
 
-              <div className="w-10" /> {/* Spacer para balancear */}
+              <div className="w-10" />
             </div>
           </div>
         </div>
 
-        {/* Filter Chips - Stats type */}
+        {/* Stats Filter Chips */}
         <div className="bg-background border-b border-border/30">
           <div className="container mx-auto px-4 py-3">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth pb-1">
@@ -255,6 +275,13 @@ export default function Statistics() {
                 </Button>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* Level Filter */}
+        <div className="bg-background/50 border-b border-border/20">
+          <div className="container mx-auto px-4 py-3">
+            <LevelSelector selectedLevel={selectedLevel} onLevelChange={setSelectedLevel} />
           </div>
         </div>
 
