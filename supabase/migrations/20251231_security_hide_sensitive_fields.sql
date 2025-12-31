@@ -6,34 +6,34 @@
 -- Step 1: Create a secure view that hides sensitive fields for non-owners
 CREATE OR REPLACE VIEW public.profiles_public AS
 SELECT 
-  id,
-  name,
-  nickname,
-  avatar_url,
-  is_admin,
-  is_player,
-  status,
-  position,
-  level,
-  created_at,
+  p.id,
+  p.name,
+  p.nickname,
+  p.avatar_url,
+  -- Removed is_admin column as it does not exist on profiles table
+  p.is_player,
+  p.status,
+  p.position,
+  p.level,
+  p.created_at,
   -- Only show email and claim_token to the profile owner or admins
   CASE 
-    WHEN id = auth.uid() OR EXISTS (
-      SELECT 1 FROM public.profiles p 
-      WHERE p.id = auth.uid() AND p.is_admin = true
+    WHEN p.id = auth.uid() OR EXISTS (
+      SELECT 1 FROM public.user_roles ur 
+      WHERE ur.user_id = auth.uid() AND ur.role = 'admin'
     )
-    THEN email
+    THEN p.email
     ELSE NULL
   END as email,
   CASE 
-    WHEN id = auth.uid() OR EXISTS (
-      SELECT 1 FROM public.profiles p 
-      WHERE p.id = auth.uid() AND p.is_admin = true
+    WHEN p.id = auth.uid() OR EXISTS (
+      SELECT 1 FROM public.user_roles ur 
+      WHERE ur.user_id = auth.uid() AND ur.role = 'admin'
     )
-    THEN claim_token
+    THEN p.claim_token
     ELSE NULL
   END as claim_token
-FROM public.profiles;
+FROM public.profiles p;
 
 -- Step 2: Grant access to the view
 GRANT SELECT ON public.profiles_public TO anon, authenticated;
@@ -45,15 +45,13 @@ DROP POLICY IF EXISTS "Everyone can view profiles" ON public.profiles;
 
 -- Create new restricted policy for SELECT
 -- Users can only see limited fields, sensitive data is handled by the view
+-- However, we still need to allow SELECT on the table itself so the view works
+-- (RLS is checked on the table)
 CREATE POLICY "profiles_public_read" ON public.profiles
   FOR SELECT
   TO authenticated, anon
   USING (true);
 
--- Note: The profiles table still allows SELECT for all,
--- but we recommend updating frontend queries to use profiles_public view
--- for public-facing pages where email/claim_token should not be visible.
-
 -- Step 4: Add comment for documentation
 COMMENT ON VIEW public.profiles_public IS 
-  'Public-safe view of profiles. Hides email and claim_token for non-owner users. Use this view for public-facing queries.';
+  'Public-safe view of profiles. Hides email and claim_token for non-owner users. Admin status is checked via user_roles table.';
