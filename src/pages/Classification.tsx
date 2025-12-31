@@ -14,7 +14,6 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { SeasonSelector, MonthChips, LevelSelector, PlayerRankItem } from "@/components/classification";
 import { cn } from "@/lib/utils";
-import { VirtualizedList } from "@/components/ui/virtualized-list";
 interface PlayerStats {
   player_id: string;
   nickname: string;
@@ -385,17 +384,15 @@ export default function Classification() {
             <Skeleton className="h-8 w-16" />
           </div>)}
         </div> : <>
-          {/* Mobile: Lista virtualizada MLS-style */}
-          <div className="lg:hidden">
+          {/* Mobile: Lista com scroll nativo */}
+          <div className="lg:hidden px-2 pb-4">
             {filteredStats.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 Nenhum jogador encontrado
               </div>
             ) : (
-              <VirtualizedList
-                items={filteredStats}
-                itemHeight={64}
-                renderItem={(stat, index) => (
+              <div className="space-y-1">
+                {paginatedStats.map((stat, index) => (
                   <PlayerRankItem
                     key={stat.player_id}
                     rank={index + 1}
@@ -406,8 +403,14 @@ export default function Classification() {
                     presence={stat.presencas}
                     onClick={() => navigate(`/profile/${stat.player_id}`)}
                   />
+                ))}
+                {/* Loader para infinite scroll */}
+                {hasMore && (
+                  <div ref={loaderRef} className="flex justify-center py-4">
+                    {loadingMore && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+                  </div>
                 )}
-              />
+              </div>
             )}
           </div>
 
