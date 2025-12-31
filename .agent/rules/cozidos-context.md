@@ -65,3 +65,8 @@ branco, vermelho, azul, laranja
 - NUNCA expor claim_token para nao-donos
 - NUNCA expor email para nao-donos/nao-admins
 - Usar view profiles_public para queries publicas
+
+## Capacidades do Agente
+- **Backend Supabase:** O agente TEM acesso direto ao projeto ismapxnmoztpigxcphve (CozidosApp).
+- **Acoes Permitidas:** Pode realizar inserts, updates, deletes e selects diretamente no banco para testes e correcoes.
+- **Validacao:** Pode criar dados de teste e verificar resultados diretamente no banco.
