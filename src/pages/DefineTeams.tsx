@@ -262,6 +262,8 @@ export default function DefineTeams() {
     if (!validateTeams()) return;
 
     setLoading(true);
+    let createdRoundId: string | null = null;
+
     try {
       // Create round
       const { data: latestRound } = await supabase
@@ -284,6 +286,7 @@ export default function DefineTeams() {
         .single();
 
       if (roundError) throw roundError;
+      createdRoundId = roundData.id;
 
       // Create teams
       for (const teamColor of selectedTeams) {
@@ -316,6 +319,13 @@ export default function DefineTeams() {
       navigate("/admin/teams");
     } catch (error: any) {
       console.error("Erro ao salvar times:", error);
+
+      // Rollback: delete the incomplete round if it was created
+      if (createdRoundId) {
+        console.log("[DefineTeams] Rollback: Deleting incomplete round", createdRoundId);
+        await supabase.from("rounds").delete().eq("id", createdRoundId);
+      }
+
       toast.error(getUserFriendlyError(error));
     } finally {
       setLoading(false);
