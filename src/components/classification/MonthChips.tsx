@@ -16,7 +16,7 @@ export default function MonthChips({ availableMonths, selectedMonth, onMonthChan
     <div className="relative">
       {/* Fade left indicator */}
       <div className="absolute left-0 top-0 bottom-2 w-6 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
-      
+
       <div className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth pb-2 px-6">
         <button
           onClick={() => onMonthChange(null)}
@@ -27,7 +27,7 @@ export default function MonthChips({ availableMonths, selectedMonth, onMonthChan
               : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
           )}
         >
-          Geral
+          Todos
         </button>
         {availableMonths.map((month) => (
           <button
@@ -44,7 +44,7 @@ export default function MonthChips({ availableMonths, selectedMonth, onMonthChan
           </button>
         ))}
       </div>
-      
+
       {/* Fade right indicator */}
       <div className="absolute right-0 top-0 bottom-2 w-6 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
     </div>

@@ -1,25 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
+import { SeasonSelector, MonthChips } from "@/components/classification";
 import { Trophy, Target, Award, Equal, TrendingDown } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface PlayerRanking {
   id: string;
   player_id: string;
   nickname: string;
   avatar_url: string | null;
+  level: string | null;
   gols: number;
   assistencias: number;
   vitorias: number;
@@ -28,20 +27,20 @@ interface PlayerRanking {
   pontos_totais: number;
 }
 
-interface Round {
-  id: string;
-  round_number: number;
-}
-
 type FilterType = "goals" | "assists" | "wins" | "draws" | "defeats";
 
 export default function Statistics() {
-  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [rankings, setRankings] = useState<PlayerRanking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [rounds, setRounds] = useState<Round[]>([]);
-  const [selectedRound, setSelectedRound] = useState<string>("all");
+
+  // Season/Month filters (como Classification)
+  const [seasons, setSeasons] = useState<number[]>([]);
+  const [selectedSeason, setSelectedSeason] = useState<number | null>(new Date().getFullYear());
+  const [availableMonths, setAvailableMonths] = useState<number[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+
+  // Stats filter
   const [filterType, setFilterType] = useState<FilterType>("goals");
 
   const { isRefreshing, pullDistance } = usePullToRefresh({
@@ -53,64 +52,48 @@ export default function Statistics() {
   });
 
   useEffect(() => {
-    loadRounds();
-
-    console.log('🔌 Iniciando subscription realtime para estatísticas...');
-
-    // Criar subscription para updates em tempo real
-    const channel = supabase
-      .channel('player_rankings_stats_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'player_rankings'
-        },
-        (payload) => {
-          console.log('📊 Estatísticas atualizadas em tempo real:', payload);
-          console.log('🔄 Tipo de evento:', payload.eventType);
-          console.log('📝 Dados novos:', payload.new);
-          console.log('📝 Dados antigos:', payload.old);
-          // Recarregar stats quando houver mudança
-          if (selectedRound === "all") {
-            loadStatistics();
-          }
-        }
-      )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Subscription realtime ativa para Estatísticas!');
-        }
-        if (status === 'CHANNEL_ERROR') {
-          console.error('❌ Erro na subscription realtime:', err);
-        }
-        if (status === 'TIMED_OUT') {
-          console.warn('⏱️ Timeout na subscription realtime');
-        }
-        console.log('📡 Status da subscription:', status);
-      });
-
-    return () => {
-      console.log('🔌 Removendo subscription realtime das Estatísticas...');
-      supabase.removeChannel(channel);
-    };
+    loadSeasons();
   }, []);
 
   useEffect(() => {
+    loadAvailableMonths();
     loadStatistics();
-  }, [selectedRound]);
+  }, [selectedSeason]);
 
-  const loadRounds = async () => {
+  const loadSeasons = async () => {
     try {
-      const { data: roundsData } = await supabase
+      const { data, error } = await supabase
         .from("rounds")
-        .select("id, round_number")
-        .order("round_number", { ascending: true });
+        .select("scheduled_date")
+        .not("scheduled_date", "is", null);
+      if (error) throw error;
 
-      setRounds(roundsData || []);
+      const years = [...new Set(data?.map(r => new Date(r.scheduled_date!).getFullYear()) || [])].sort((a, b) => b - a);
+      if (years.length > 0) {
+        setSeasons(years);
+        const currentYear = new Date().getFullYear();
+        setSelectedSeason(years.includes(currentYear) ? currentYear : years[0]);
+      } else {
+        setSeasons([new Date().getFullYear()]);
+      }
     } catch (error) {
-      console.error("Erro ao carregar rodadas:", error);
+      console.error("Erro ao carregar temporadas:", error);
+      setSeasons([new Date().getFullYear()]);
+    }
+  };
+
+  const loadAvailableMonths = async () => {
+    try {
+      const query = supabase.from("rounds").select("scheduled_date").not("scheduled_date", "is", null);
+      const { data, error } = selectedSeason
+        ? await query.gte("scheduled_date", `${selectedSeason}-01-01`).lte("scheduled_date", `${selectedSeason}-12-31`)
+        : await query;
+      if (error) throw error;
+      const months = [...new Set(data?.map(r => new Date(r.scheduled_date!).getMonth() + 1) || [])].sort((a, b) => a - b);
+      setAvailableMonths(months);
+    } catch (error) {
+      console.error("Erro ao carregar meses:", error);
+      setAvailableMonths([]);
     }
   };
 
@@ -118,80 +101,77 @@ export default function Statistics() {
     try {
       setLoading(true);
 
-      if (selectedRound === "all") {
-        // Buscar do player_rankings para ranking geral com avatar
+      if (selectedSeason === null) {
+        // Todos - buscar do player_rankings
         const { data, error } = await supabase
           .from("player_rankings")
-          .select(`
-            *,
-            profiles!inner(avatar_url)
-          `)
+          .select(`*, profiles!inner(avatar_url, level)`)
           .order("pontos_totais", { ascending: false })
-          .limit(1000); // Cache busting
+          .limit(1000);
 
         if (error) throw error;
 
-        // Mapear adicionando avatar_url
-        const mappedData = (data || []).map(rank => ({
+        const mapped = (data || []).map(rank => ({
           ...rank,
-          avatar_url: rank.profiles?.avatar_url || null
+          avatar_url: rank.profiles?.avatar_url || null,
+          level: rank.profiles?.level || null
         }));
-
-        setRankings(mappedData);
+        setRankings(mapped);
       } else {
-        // Buscar do player_round_stats para rodada específica
-        const { data, error } = await supabase
+        // Ano específico - buscar de player_round_stats
+        const { data: roundStats, error } = await supabase
           .from("player_round_stats")
           .select(`
-            *,
-            profiles!inner(id, nickname, name, avatar_url)
+            player_id,
+            goals,
+            assists,
+            victories,
+            draws,
+            defeats,
+            total_points,
+            round:rounds!inner(scheduled_date),
+            profile:profiles!inner(nickname, name, avatar_url, level, is_player, status)
           `)
-          .eq("round_id", selectedRound);
+          .gte("round.scheduled_date", `${selectedSeason}-01-01`)
+          .lte("round.scheduled_date", `${selectedSeason}-12-31`);
 
         if (error) throw error;
 
-        // Buscar gols e assistências da rodada
-        const { data: matches } = await supabase
-          .from("matches")
-          .select("id")
-          .eq("round_id", selectedRound);
+        // Agrupar por jogador
+        const playerMap = new Map<string, PlayerRanking>();
 
-        const matchIds = matches?.map(m => m.id) || [];
+        (roundStats || []).forEach((rs: any) => {
+          if (!rs.profile?.is_player || rs.profile?.status !== 'aprovado') return;
 
-        const statsPromises = (data || []).map(async (stat: any) => {
-          const playerId = stat.player_id;
+          const playerId = rs.player_id;
+          const existing = playerMap.get(playerId);
 
-          // Buscar gols
-          const { data: goals } = await supabase
-            .from("goals")
-            .select("id")
-            .eq("player_id", playerId)
-            .eq("is_own_goal", false)
-            .in("match_id", matchIds);
-
-          // Buscar assistências
-          const { data: assists } = await supabase
-            .from("assists")
-            .select("id, goals!inner(match_id)")
-            .eq("player_id", playerId)
-            .in("goals.match_id", matchIds);
-
-          return {
-            id: stat.id,
-            player_id: playerId,
-            nickname: stat.profiles.nickname || stat.profiles.name,
-            avatar_url: stat.profiles.avatar_url || null,
-            gols: goals?.length || 0,
-            assistencias: assists?.length || 0,
-            vitorias: stat.victories || 0,
-            empates: stat.draws || 0,
-            derrotas: stat.defeats || 0,
-            pontos_totais: stat.total_points || 0,
-          };
+          if (existing) {
+            existing.gols += rs.goals || 0;
+            existing.assistencias += rs.assists || 0;
+            existing.vitorias += rs.victories || 0;
+            existing.empates += rs.draws || 0;
+            existing.derrotas += rs.defeats || 0;
+            existing.pontos_totais += rs.total_points || 0;
+          } else {
+            playerMap.set(playerId, {
+              id: playerId,
+              player_id: playerId,
+              nickname: rs.profile?.nickname || rs.profile?.name || 'Sem nome',
+              avatar_url: rs.profile?.avatar_url || null,
+              level: rs.profile?.level || null,
+              gols: rs.goals || 0,
+              assistencias: rs.assists || 0,
+              vitorias: rs.victories || 0,
+              empates: rs.draws || 0,
+              derrotas: rs.defeats || 0,
+              pontos_totais: rs.total_points || 0
+            });
+          }
         });
 
-        const roundStats = await Promise.all(statsPromises);
-        setRankings(roundStats);
+        const sorted = Array.from(playerMap.values()).sort((a, b) => b.pontos_totais - a.pontos_totais);
+        setRankings(sorted);
       }
     } catch (error) {
       console.error("Erro ao carregar estatísticas:", error);
@@ -203,222 +183,142 @@ export default function Statistics() {
 
   const getSortedStats = (type: FilterType) => {
     const sorted = [...rankings];
-
     switch (type) {
-      case "goals":
-        return sorted.sort((a, b) => b.gols - a.gols);
-      case "assists":
-        return sorted.sort((a, b) => b.assistencias - a.assistencias);
-      case "wins":
-        return sorted.sort((a, b) => b.vitorias - a.vitorias);
-      case "draws":
-        return sorted.sort((a, b) => b.empates - a.empates);
-      case "defeats":
-        return sorted.sort((a, b) => b.derrotas - a.derrotas);
-      default:
-        return sorted;
+      case "goals": return sorted.sort((a, b) => b.gols - a.gols);
+      case "assists": return sorted.sort((a, b) => b.assistencias - a.assistencias);
+      case "wins": return sorted.sort((a, b) => b.vitorias - a.vitorias);
+      case "draws": return sorted.sort((a, b) => b.empates - a.empates);
+      case "defeats": return sorted.sort((a, b) => b.derrotas - a.derrotas);
+      default: return sorted;
     }
   };
 
   const getStatValue = (player: PlayerRanking, type: FilterType) => {
     switch (type) {
-      case "goals":
-        return player.gols;
-      case "assists":
-        return player.assistencias;
-      case "wins":
-        return player.vitorias;
-      case "draws":
-        return player.empates;
-      case "defeats":
-        return player.derrotas;
-      default:
-        return 0;
+      case "goals": return player.gols;
+      case "assists": return player.assistencias;
+      case "wins": return player.vitorias;
+      case "draws": return player.empates;
+      case "defeats": return player.derrotas;
+      default: return 0;
     }
   };
 
-  const renderStatsList = (type: FilterType) => {
-    const sortedStats = getSortedStats(type).filter(p => getStatValue(p, type) > 0);
+  const sortedStats = useMemo(() => {
+    return getSortedStats(filterType).filter(p => getStatValue(p, filterType) > 0);
+  }, [rankings, filterType]);
 
-    if (loading) {
-      return (
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-20 w-full" />
-          ))}
-        </div>
-      );
-    }
-
-    if (sortedStats.length === 0) {
-      return (
-        <div className="text-center py-12 text-muted-foreground">
-          Nenhum resultado encontrado
-        </div>
-      );
-    }
-
-    const renderPlayerRow = (player: PlayerRanking, index: number) => {
-      const statValue = getStatValue(player, type);
-      return (
-        <div
-          onClick={() => navigate(`/profile/${player.player_id}`)}
-          className="group flex items-center justify-between p-4 rounded-lg bg-muted/20 border border-border hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 cursor-pointer"
-        >
-          <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
-            <span className="text-xl md:text-2xl font-bold text-primary w-6 md:w-8 flex-shrink-0">
-              {index + 1}
-            </span>
-            <Avatar className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0 bg-muted ring-2 ring-transparent group-hover:ring-primary/50 transition-all duration-200">
-              {player.avatar_url ? (
-                <AvatarImage
-                  src={player.avatar_url}
-                  alt={player.nickname}
-                  className="object-cover"
-                />
-              ) : (
-                <AvatarFallback className="text-xs md:text-sm">
-                  {player.nickname.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              )}
-            </Avatar>
-            <div className="font-bold text-sm md:text-base text-foreground truncate group-hover:text-primary transition-colors duration-200">
-              {player.nickname}
-            </div>
-          </div>
-          <div className="text-2xl md:text-3xl font-bold text-primary flex-shrink-0 ml-2">
-            {statValue}
-          </div>
-        </div>
-      );
-    };
-
-    // Lista com scroll nativo
-    return (
-      <div className="space-y-2">
-        {sortedStats.map((player, index) => renderPlayerRow(player, index))}
-      </div>
-    );
-  };
+  const filterButtons = [
+    { type: "goals" as FilterType, icon: Trophy, label: "Artilheiros" },
+    { type: "assists" as FilterType, icon: Target, label: "Assistências" },
+    { type: "wins" as FilterType, icon: Award, label: "Vitórias" },
+    { type: "draws" as FilterType, icon: Equal, label: "Empates" },
+    { type: "defeats" as FilterType, icon: TrendingDown, label: "Derrotas" },
+  ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
 
       <Header />
 
-      <main className="container mx-auto px-4 py-6 md:py-8">
-        {/* Filtro de Rodada */}
-        <div className="mb-6">
-          <Select value={selectedRound} onValueChange={setSelectedRound}>
-            <SelectTrigger className="w-full md:w-64">
-              <SelectValue placeholder="Todas as rodadas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as rodadas</SelectItem>
-              {rounds.map((round) => (
-                <SelectItem key={round.id} value={round.id}>
-                  Rodada {round.round_number}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <main className="flex-1 flex flex-col">
+        {/* Top Bar - igual Classification */}
+        <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border/50">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <SeasonSelector seasons={seasons} selectedSeason={selectedSeason} onSeasonChange={setSelectedSeason} />
+
+              <h1 className="text-xl font-bold text-primary flex-1 text-center">
+                Estatísticas
+              </h1>
+
+              <div className="w-10" /> {/* Spacer para balancear */}
+            </div>
+          </div>
         </div>
 
-
-
-        <Card className="card-glow bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-2xl md:text-3xl font-bold text-primary glow-text">
-              ESTATÍSTICAS
-            </CardTitle>
-          </CardHeader>
-
-          <CardContent>
-            {/* Mobile: Botões de filtro horizontais */}
-            <div className="lg:hidden mb-6">
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth pb-2">
+        {/* Filter Chips - Stats type */}
+        <div className="bg-background border-b border-border/30">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth pb-1">
+              {filterButtons.map(({ type, icon: Icon, label }) => (
                 <Button
-                  variant={filterType === "goals" ? "default" : "outline"}
-                  onClick={() => setFilterType("goals")}
-                  className="flex-shrink-0"
+                  key={type}
+                  variant={filterType === type ? "default" : "outline"}
+                  onClick={() => setFilterType(type)}
+                  className="flex-shrink-0 rounded-full"
+                  size="sm"
                 >
-                  <Trophy className="h-4 w-4 mr-2" />
-                  Artilheiros
+                  <Icon className="h-4 w-4 mr-2" />
+                  {label}
                 </Button>
-                <Button
-                  variant={filterType === "assists" ? "default" : "outline"}
-                  onClick={() => setFilterType("assists")}
-                  className="flex-shrink-0"
-                >
-                  <Target className="h-4 w-4 mr-2" />
-                  Assistências
-                </Button>
-                <Button
-                  variant={filterType === "wins" ? "default" : "outline"}
-                  onClick={() => setFilterType("wins")}
-                  className="flex-shrink-0"
-                >
-                  <Award className="h-4 w-4 mr-2" />
-                  Vitórias
-                </Button>
-                <Button
-                  variant={filterType === "draws" ? "default" : "outline"}
-                  onClick={() => setFilterType("draws")}
-                  className="flex-shrink-0"
-                >
-                  <Equal className="h-4 w-4 mr-2" />
-                  Empates
-                </Button>
-                <Button
-                  variant={filterType === "defeats" ? "default" : "outline"}
-                  onClick={() => setFilterType("defeats")}
-                  className="flex-shrink-0"
-                >
-                  <TrendingDown className="h-4 w-4 mr-2" />
-                  Derrotas
-                </Button>
-              </div>
-
-              {/* Exibição mobile */}
-              {renderStatsList(filterType)}
+              ))}
             </div>
+          </div>
+        </div>
 
-            {/* Desktop: Tabs */}
-            <div className="hidden lg:block">
-              <Tabs defaultValue="goals" className="w-full">
-                <TabsList className="grid w-full grid-cols-5 mb-6">
-                  <TabsTrigger value="goals" className="flex items-center gap-2">
-                    <Trophy className="h-4 w-4" />
-                    Artilheiros
-                  </TabsTrigger>
-                  <TabsTrigger value="assists" className="flex items-center gap-2">
-                    <Target className="h-4 w-4" />
-                    Assistências
-                  </TabsTrigger>
-                  <TabsTrigger value="wins" className="flex items-center gap-2">
-                    <Award className="h-4 w-4" />
-                    Vitórias
-                  </TabsTrigger>
-                  <TabsTrigger value="draws" className="flex items-center gap-2">
-                    <Equal className="h-4 w-4" />
-                    Empates
-                  </TabsTrigger>
-                  <TabsTrigger value="defeats" className="flex items-center gap-2">
-                    <TrendingDown className="h-4 w-4" />
-                    Derrotas
-                  </TabsTrigger>
-                </TabsList>
+        {/* Month Chips */}
+        <div className="bg-background/50 border-b border-border/20">
+          <div className="container mx-auto px-4 py-3">
+            <MonthChips
+              availableMonths={availableMonths}
+              selectedMonth={selectedMonth}
+              onMonthChange={setSelectedMonth}
+            />
+          </div>
+        </div>
 
-                <TabsContent value="goals">{renderStatsList("goals")}</TabsContent>
-                <TabsContent value="assists">{renderStatsList("assists")}</TabsContent>
-                <TabsContent value="wins">{renderStatsList("wins")}</TabsContent>
-                <TabsContent value="draws">{renderStatsList("draws")}</TabsContent>
-                <TabsContent value="defeats">{renderStatsList("defeats")}</TabsContent>
-              </Tabs>
+        {/* Content */}
+        <div className="flex-1 container mx-auto px-2 py-4">
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-lg" />
+              ))}
             </div>
-          </CardContent>
-        </Card>
+          ) : sortedStats.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              Nenhum resultado encontrado
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {sortedStats.map((player, index) => (
+                <div
+                  key={player.player_id}
+                  onClick={() => navigate(`/profile/${player.player_id}`)}
+                  className="group flex items-center justify-between p-4 rounded-xl bg-card/50 border border-border/30 hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 cursor-pointer"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <span className="text-xl font-bold text-primary w-8 flex-shrink-0 text-center">
+                      {index + 1}
+                    </span>
+                    <Avatar className="h-10 w-10 flex-shrink-0 bg-muted ring-2 ring-transparent group-hover:ring-primary/50 transition-all">
+                      {player.avatar_url ? (
+                        <AvatarImage src={player.avatar_url} alt={player.nickname} className="object-cover" />
+                      ) : (
+                        <AvatarFallback className="text-sm">
+                          {player.nickname.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm text-foreground truncate group-hover:text-primary transition-colors">
+                        {player.nickname}
+                      </div>
+                      {player.level && (
+                        <span className="text-xs text-muted-foreground">Nível {player.level}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold text-primary flex-shrink-0 ml-2">
+                    {getStatValue(player, filterType)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </main>
 
       <Footer />
