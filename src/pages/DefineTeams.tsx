@@ -265,6 +265,11 @@ export default function DefineTeams() {
     let createdRoundId: string | null = null;
 
     try {
+      console.log("[DefineTeams] Starting save process...");
+      console.log("[DefineTeams] scheduledDate:", scheduledDate);
+      console.log("[DefineTeams] selectedTeams:", selectedTeams);
+      console.log("[DefineTeams] teams:", teams);
+
       // Create round
       const { data: latestRound } = await supabase
         .from("rounds")
@@ -274,6 +279,7 @@ export default function DefineTeams() {
         .maybeSingle();
 
       const newRoundNumber = (latestRound?.round_number || 0) + 1;
+      console.log("[DefineTeams] New round number:", newRoundNumber);
 
       const { data: roundData, error: roundError } = await supabase
         .from("rounds")
@@ -285,11 +291,18 @@ export default function DefineTeams() {
         .select()
         .single();
 
-      if (roundError) throw roundError;
+      if (roundError) {
+        console.error("[DefineTeams] Round creation error:", roundError);
+        throw roundError;
+      }
+
+      console.log("[DefineTeams] Round created:", roundData);
       createdRoundId = roundData.id;
 
       // Create teams
       for (const teamColor of selectedTeams) {
+        console.log("[DefineTeams] Creating team:", teamColor);
+
         const { error: teamError } = await supabase
           .from("round_teams")
           .insert({
@@ -297,11 +310,18 @@ export default function DefineTeams() {
             team_color: teamColor
           });
 
-        if (teamError) throw teamError;
+        if (teamError) {
+          console.error("[DefineTeams] Team creation error:", teamColor, teamError);
+          throw teamError;
+        }
 
         // Add players to team
         const teamPlayers = (teams[teamColor] || []).filter(p => p && p.id);
+        console.log(`[DefineTeams] Adding ${teamPlayers.length} players to team ${teamColor}`);
+
         for (const player of teamPlayers) {
+          console.log("[DefineTeams] Adding player:", player.id, player.nickname || player.name);
+
           const { error: playerError } = await supabase
             .from("round_team_players")
             .insert({
@@ -311,14 +331,21 @@ export default function DefineTeams() {
               is_goalkeeper: player.position === 'goleiro'
             });
 
-          if (playerError) throw playerError;
+          if (playerError) {
+            console.error("[DefineTeams] Player insertion error:", player.id, playerError);
+            throw playerError;
+          }
         }
       }
 
+      console.log("[DefineTeams] All teams saved successfully!");
       toast.success("Times definidos com sucesso!");
       navigate("/admin/teams");
     } catch (error: any) {
-      console.error("Erro ao salvar times:", error);
+      console.error("[DefineTeams] FULL ERROR:", error);
+      console.error("[DefineTeams] Error message:", error?.message);
+      console.error("[DefineTeams] Error code:", error?.code);
+      console.error("[DefineTeams] Error details:", error?.details);
 
       // Rollback: delete the incomplete round if it was created
       if (createdRoundId) {
