@@ -194,54 +194,53 @@ export default function DefineTeams() {
       return shuffled;
     };
 
-    const newTeams: Record<string, TeamPlayer[]> = {};
+    // Initialize teams with 6 slots (A, B, C, D, E, GR)
+    const newTeams: Record<string, (TeamPlayer | null)[]> = {};
     teamKeys.forEach(team => {
-      newTeams[team] = [];
+      newTeams[team] = [null, null, null, null, null, null];
     });
 
-    // Assign players by level
-    levels.forEach((level) => {
+    // Assign players by level at correct indices (A=0, B=1, C=2, D=3, E=4)
+    levels.forEach((level, levelIndex) => {
       const playersAtLevel = shuffle(linePlayers.filter(p => p.level?.toUpperCase() === level));
 
-      teamKeys.forEach((team, idx) => {
-        if (playersAtLevel[idx]) {
-          newTeams[team].push({ ...playersAtLevel[idx], team_color: team });
+      teamKeys.forEach((team, teamIdx) => {
+        if (playersAtLevel[teamIdx]) {
+          newTeams[team][levelIndex] = { ...playersAtLevel[teamIdx], team_color: team };
         }
       });
     });
 
-    // Assign goalkeepers
+    // Assign goalkeepers at index 5
     const shuffledGKs = shuffle(goalkeepers);
     teamKeys.forEach((team, idx) => {
       if (shuffledGKs[idx]) {
-        newTeams[team].push({ ...shuffledGKs[idx], team_color: team });
+        newTeams[team][5] = { ...shuffledGKs[idx], team_color: team };
       }
     });
 
-    setTeams(newTeams);
+    setTeams(newTeams as Record<string, TeamPlayer[]>);
     toast.success("Times gerados automaticamente!");
   };
 
   const updateTeamPlayer = (teamColor: string, slotIndex: number, playerId: string) => {
-    const player = playerId === 'none' ? null : availablePlayers.find(p => p.id === playerId);
+    const player = playerId === 'none' || playerId === '' ? null : availablePlayers.find(p => p.id === playerId);
 
     setTeams(prev => {
       const newTeams = { ...prev };
-      const teamArray = [...(newTeams[teamColor] || [])];
-
-      // Ensure array has enough slots
-      while (teamArray.length <= slotIndex) {
-        teamArray.push(null as any);
-      }
+      // Ensure we have an array with 6 slots
+      const teamArray: (TeamPlayer | null)[] = Array(6).fill(null).map((_, i) => {
+        const existing = (newTeams[teamColor] || [])[i];
+        return existing || null;
+      });
 
       if (player) {
         teamArray[slotIndex] = { ...player, team_color: teamColor };
       } else {
-        teamArray[slotIndex] = null as any;
+        teamArray[slotIndex] = null;
       }
 
-      // Filter out nulls but preserve indices for mapping
-      newTeams[teamColor] = teamArray;
+      newTeams[teamColor] = teamArray as TeamPlayer[];
       return newTeams;
     });
   };
@@ -356,8 +355,8 @@ export default function DefineTeams() {
                     <button
                       onClick={() => setNumTeams(3)}
                       className={`py-4 rounded-xl font-bold text-lg transition-all ${numTeams === 3
-                          ? 'bg-primary text-primary-foreground shadow-lg scale-[1.02]'
-                          : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                        ? 'bg-primary text-primary-foreground shadow-lg scale-[1.02]'
+                        : 'bg-muted/50 text-muted-foreground hover:bg-muted'
                         }`}
                     >
                       3 times
@@ -365,8 +364,8 @@ export default function DefineTeams() {
                     <button
                       onClick={() => setNumTeams(4)}
                       className={`py-4 rounded-xl font-bold text-lg transition-all ${numTeams === 4
-                          ? 'bg-primary text-primary-foreground shadow-lg scale-[1.02]'
-                          : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                        ? 'bg-primary text-primary-foreground shadow-lg scale-[1.02]'
+                        : 'bg-muted/50 text-muted-foreground hover:bg-muted'
                         }`}
                     >
                       4 times
@@ -390,8 +389,8 @@ export default function DefineTeams() {
                           onClick={() => toggleTeamSelection(team)}
                           disabled={isDisabled}
                           className={`p-4 rounded-xl font-bold capitalize transition-all min-h-[60px] border-2 ${isSelected
-                              ? teamColors[team] + ' shadow-md'
-                              : 'bg-muted/30 text-muted-foreground border-transparent'
+                            ? teamColors[team] + ' shadow-md'
+                            : 'bg-muted/30 text-muted-foreground border-transparent'
                             } ${isDisabled ? 'cursor-default' : 'cursor-pointer hover:scale-[1.02]'}`}
                         >
                           {team}
