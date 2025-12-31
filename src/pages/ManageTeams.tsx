@@ -72,6 +72,8 @@ export default function ManageTeams() {
       const { data: roundsData, error: roundsError } = await supabase
         .from("rounds")
         .select("*")
+        .or("is_historical.is.null,is_historical.eq.false")
+        .neq("round_number", 0)
         .order("scheduled_date", { ascending: false })
         .order("round_number", { ascending: false });
 
@@ -158,7 +160,7 @@ export default function ManageTeams() {
         .eq("id", roundId);
 
       if (error) throw error;
-      
+
       toast.success("Rodada e dados associados excluídos com sucesso!");
       loadRoundsWithTeams();
     } catch (error: any) {
@@ -217,7 +219,7 @@ export default function ManageTeams() {
 
   const generateImage = async (round: RoundWithTeams) => {
     if (!shareRef.current) return;
-    
+
     setGenerating(true);
     try {
       const dataUrl = await toPng(shareRef.current, {
@@ -225,12 +227,12 @@ export default function ManageTeams() {
         pixelRatio: 2,
         backgroundColor: "#0a0a0a",
       });
-      
+
       const link = document.createElement("a");
       link.download = `cozidos-rodada-${round.round_number}.png`;
       link.href = dataUrl;
       link.click();
-      
+
       toast.success("Imagem gerada com sucesso!");
     } catch (error) {
       console.error("Erro ao gerar imagem:", error);
@@ -254,9 +256,9 @@ export default function ManageTeams() {
     <div className="min-h-screen bg-background">
       {/* Pull to Refresh */}
       {(pullDistance > 0 || isRefreshing) && (
-        <div 
+        <div
           className="fixed top-0 left-0 right-0 flex justify-center items-center z-50 transition-all"
-          style={{ 
+          style={{
             transform: `translateY(${Math.min(pullDistance, 60)}px)`,
             opacity: Math.min(pullDistance / 60, 1)
           }}
@@ -311,8 +313,8 @@ export default function ManageTeams() {
         ) : (
           <div className="space-y-4">
             {rounds.map((round) => (
-              <Card 
-                key={round.id} 
+              <Card
+                key={round.id}
                 className="bg-gradient-to-br from-card/90 to-card/50 border-border/30 overflow-hidden"
               >
                 <CardContent className="p-4">
@@ -348,7 +350,7 @@ export default function ManageTeams() {
                       <Eye className="h-4 w-4" />
                       Ver
                     </Button>
-                    
+
                     <Button
                       onClick={() => loadShareData(round.id)}
                       variant="outline"
@@ -402,7 +404,7 @@ export default function ManageTeams() {
                   <ArrowLeft className="h-4 w-4" />
                   Voltar
                 </Button>
-                
+
                 <div className="flex gap-2">
                   <Button
                     onClick={() => handleGenerateImage(selectedRound)}

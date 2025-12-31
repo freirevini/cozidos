@@ -80,6 +80,7 @@ export default function Matches() {
         .from("rounds")
         .select("*")
         .or("is_historical.is.null,is_historical.eq.false")
+        .neq("round_number", 0)
         .order("round_number", { ascending: false });
 
       if (!roundsData) {
@@ -193,7 +194,7 @@ export default function Matches() {
   return (
     <div className="min-h-screen bg-background">
       <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
-      
+
       <Header />
 
       <main className="container mx-auto px-4 py-6 max-w-6xl">

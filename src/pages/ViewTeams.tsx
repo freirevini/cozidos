@@ -91,6 +91,7 @@ export default function ViewTeams() {
         .from("rounds")
         .select("*")
         .or("is_historical.is.null,is_historical.eq.false")
+        .neq("round_number", 0)
         .order("round_number", { ascending: false });
 
       if (error) throw error;
