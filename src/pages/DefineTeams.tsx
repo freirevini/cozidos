@@ -337,13 +337,11 @@ export default function DefineTeams() {
         }
       }
 
-      console.log("[DefineTeams] All teams saved successfully!");
-
-      // Auto-create matches for the round
-      console.log("[DefineTeams] Creating matches automatically...");
+      // Create matches automatically
+      console.log("[DefineTeams] Creating matches for teams:", selectedTeams);
       const matchesToCreate: any[] = [];
       let matchNumber = 1;
-      let currentTime = 21 * 60; // 21:00 in minutes
+      let currentTime = 21 * 60; // 21:00
 
       if (selectedTeams.length === 4) {
         // Fixed match order for 4 teams
@@ -374,23 +372,22 @@ export default function DefineTeams() {
             status: 'not_started',
           });
 
-          currentTime += 12; // 12 minutes per match
+          currentTime += 12;
         });
       } else if (selectedTeams.length === 3) {
-        // Generate match pairs for 3 teams
+        // Generate all pairs for 3 teams (home and away)
+        const teamColors = [...selectedTeams];
         const matchPairs: string[][] = [];
 
-        // First round
-        for (let i = 0; i < selectedTeams.length; i++) {
-          for (let j = i + 1; j < selectedTeams.length; j++) {
-            matchPairs.push([selectedTeams[i], selectedTeams[j]]);
+        for (let i = 0; i < teamColors.length; i++) {
+          for (let j = i + 1; j < teamColors.length; j++) {
+            matchPairs.push([teamColors[i], teamColors[j]]);
           }
         }
 
-        // Second round (reversed)
-        for (let i = 0; i < selectedTeams.length; i++) {
-          for (let j = i + 1; j < selectedTeams.length; j++) {
-            matchPairs.push([selectedTeams[j], selectedTeams[i]]);
+        for (let i = 0; i < teamColors.length; i++) {
+          for (let j = i + 1; j < teamColors.length; j++) {
+            matchPairs.push([teamColors[j], teamColors[i]]);
           }
         }
 
@@ -426,7 +423,8 @@ export default function DefineTeams() {
         console.log(`[DefineTeams] Created ${matchesToCreate.length} matches`);
       }
 
-      toast.success("Times e partidas criados com sucesso!");
+      console.log("[DefineTeams] All teams and matches saved successfully!");
+      toast.success("Times e partidas definidos com sucesso!");
       navigate("/admin/teams");
     } catch (error: any) {
       console.error("[DefineTeams] FULL ERROR:", error);
