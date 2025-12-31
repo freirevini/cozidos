@@ -123,7 +123,7 @@ export default function Header() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center">
-            <img src={logo} alt="Cozidos FC" className="h-10 w-10" />
+            <img src={logo} alt="Cozidos FC" className="h-12 w-auto object-contain" />
           </Link>
 
           {/* Desktop Navigation */}

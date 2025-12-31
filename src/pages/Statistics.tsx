@@ -338,7 +338,7 @@ export default function Statistics() {
                       )}
                     </div>
                   </div>
-                  <div className="text-2xl font-bold text-primary flex-shrink-0 ml-2">
+                  <div className="text-2xl font-bold text-white flex-shrink-0 ml-2">
                     {getStatValue(player, filterType)}
                   </div>
                 </div>

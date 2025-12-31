@@ -12,17 +12,17 @@ export function ProfileStatsGrid({ stats }: ProfileStatsGridProps) {
       <div className="bg-card rounded-2xl border border-border/50 p-6">
         <div className="grid grid-cols-3 gap-4 text-center">
           <div className="flex flex-col items-center">
-            <span className="text-4xl font-bold text-foreground">{stats.partidas}</span>
+            <span className="text-4xl font-bold text-white">{stats.partidas}</span>
             <span className="text-sm text-muted-foreground mt-1">Partidas</span>
             <Target className="w-5 h-5 text-primary/60 mt-2" />
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-4xl font-bold text-foreground">{stats.gols}</span>
+            <span className="text-4xl font-bold text-white">{stats.gols}</span>
             <span className="text-sm text-muted-foreground mt-1">Gols</span>
             <Goal className="w-5 h-5 text-primary/60 mt-2" />
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-4xl font-bold text-foreground">{stats.assistencias}</span>
+            <span className="text-4xl font-bold text-white">{stats.assistencias}</span>
             <span className="text-sm text-muted-foreground mt-1">Assistências</span>
             <Footprints className="w-5 h-5 text-primary/60 mt-2" />
           </div>
@@ -33,15 +33,15 @@ export function ProfileStatsGrid({ stats }: ProfileStatsGridProps) {
       <div className="bg-card rounded-2xl border border-border/50 p-6">
         <div className="grid grid-cols-3 gap-4 text-center">
           <div className="flex flex-col items-center">
-            <span className="text-4xl font-bold text-green-500">{stats.vitorias}</span>
+            <span className="text-4xl font-bold text-white">{stats.vitorias}</span>
             <span className="text-sm text-muted-foreground mt-1">Vitórias</span>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-4xl font-bold text-yellow-500">{stats.empates}</span>
+            <span className="text-4xl font-bold text-white">{stats.empates}</span>
             <span className="text-sm text-muted-foreground mt-1">Empates</span>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-4xl font-bold text-red-500">{stats.derrotas}</span>
+            <span className="text-4xl font-bold text-white">{stats.derrotas}</span>
             <span className="text-sm text-muted-foreground mt-1">Derrotas</span>
           </div>
         </div>
