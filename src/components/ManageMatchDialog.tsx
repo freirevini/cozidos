@@ -134,7 +134,7 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
     setIsLoading(true);
     try {
       await recalculateMatchScore();
-      
+
       const { data: matchData, error } = await supabase
         .from("matches")
         .select("*")
@@ -238,7 +238,7 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
   const calculateExpectedScore = useCallback((goalsData: Goal[], teamHome: string, teamAway: string) => {
     let scoreHome = 0;
     let scoreAway = 0;
-    
+
     goalsData.forEach(goal => {
       if (goal.is_own_goal) {
         if (goal.team_color === teamHome) scoreAway++;
@@ -248,7 +248,7 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
         else scoreAway++;
       }
     });
-    
+
     return { scoreHome, scoreAway };
   }, []);
 
@@ -258,24 +258,24 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
         supabase.from("matches").select("team_home, team_away, score_home, score_away").eq("id", matchId).single(),
         supabase.from("goals").select("team_color, is_own_goal").eq("match_id", matchId)
       ]);
-      
+
       if (!matchData) return;
-      
+
       const expected = calculateExpectedScore(
         (allGoals || []).map(g => ({ ...g, id: '', match_id: matchId, player_id: '', minute: 0 })),
         matchData.team_home,
         matchData.team_away
       );
-      
+
       const needsUpdate = matchData.score_home !== expected.scoreHome || matchData.score_away !== expected.scoreAway;
-      
+
       if (needsUpdate) {
         await supabase
           .from("matches")
           .update({ score_home: expected.scoreHome, score_away: expected.scoreAway })
           .eq("id", matchId);
       }
-      
+
       if (match) {
         setMatch(prev => prev ? { ...prev, score_home: expected.scoreHome, score_away: expected.scoreAway } : null);
       }
@@ -285,10 +285,10 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
   };
 
   const handleAddGoal = async () => {
-    if (!match || !goalData.team || (!goalData.player_id && !goalData.is_own_goal)) {
+    if (!match || !goalData.team || !goalData.player_id) {
       toast({
         title: "Campos obrigatórios",
-        description: "Selecione o time e o jogador",
+        description: goalData.is_own_goal ? "Selecione o time e quem fez o gol contra" : "Selecione o time e o jogador",
         variant: "destructive",
       });
       return;
@@ -297,7 +297,7 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
     setIsSaving(true);
     try {
       let currentMinute = 12;
-      
+
       if (match.status === 'in_progress' && match.match_timer_started_at) {
         const startTime = new Date(match.match_timer_started_at).getTime();
         const now = Date.now();
@@ -305,27 +305,27 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
         const totalPausedSeconds = match.match_timer_total_paused_seconds || 0;
         const effectiveSeconds = elapsedSeconds - totalPausedSeconds;
         const calculatedMinute = Math.ceil(effectiveSeconds / 60);
-        
+
         if (calculatedMinute >= 1) {
           currentMinute = calculatedMinute;
         }
       }
-      
+
       const { data: result, error: rpcError } = await supabase.rpc('record_goal_with_assist', {
         p_match_id: matchId,
         p_team_color: goalData.team,
-        p_scorer_profile_id: goalData.is_own_goal ? null : goalData.player_id,
+        p_scorer_profile_id: goalData.player_id,
         p_minute: currentMinute,
         p_is_own_goal: goalData.is_own_goal,
-        p_assist_profile_id: goalData.has_assist && goalData.assist_player_id && !goalData.is_own_goal 
-          ? goalData.assist_player_id 
+        p_assist_profile_id: goalData.has_assist && goalData.assist_player_id && !goalData.is_own_goal
+          ? goalData.assist_player_id
           : null,
       });
 
       if (rpcError) throw rpcError;
 
       const rpcResult = result as { success: boolean; error?: string };
-      
+
       if (!rpcResult.success) {
         throw new Error(rpcResult.error || 'Erro ao registrar gol');
       }
@@ -335,7 +335,7 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
         title: "✅ Gol registrado!",
         description: "Lembre-se de salvar as alterações",
       });
-      
+
       setGoalData({ team: "", player_id: "", has_assist: false, assist_player_id: "", is_own_goal: false });
       setAddingGoal(false);
       await loadMatchData();
@@ -356,16 +356,16 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
     try {
       await supabase.from("assists").delete().eq("goal_id", goalId);
       const { error } = await supabase.from("goals").delete().eq("id", goalId);
-      
+
       if (error) throw error;
-      
+
       await recalculateMatchScore();
       setHasUnsavedChanges(true);
-      
+
       toast({
         title: "✅ Gol excluído!",
       });
-      
+
       await loadMatchData();
     } catch (error: any) {
       console.error("Erro ao excluir gol:", error);
@@ -391,7 +391,7 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
     setIsSaving(true);
     try {
       let currentMinute = 12;
-      
+
       if (match?.status === 'in_progress' && match.match_timer_started_at) {
         const startTime = new Date(match.match_timer_started_at).getTime();
         const now = Date.now();
@@ -399,7 +399,7 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
         const totalPausedSeconds = match.match_timer_total_paused_seconds || 0;
         const effectiveSeconds = elapsedSeconds - totalPausedSeconds;
         const calculatedMinute = Math.ceil(effectiveSeconds / 60);
-        
+
         if (calculatedMinute >= 1) {
           currentMinute = calculatedMinute;
         }
@@ -418,7 +418,7 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
       toast({
         title: "✅ Cartão registrado!",
       });
-      
+
       setCardData({ team: "", player_id: "", card_type: "" });
       setAddingCard(false);
       await loadCards();
@@ -574,19 +574,19 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
                 <TeamLogo teamColor={match.team_home as TeamColor} size="md" />
                 <span className="text-xs text-muted-foreground">{teamNames[match.team_home]}</span>
               </div>
-              
+
               <div className="flex items-center gap-3">
                 <span className="text-4xl font-bold">{match.score_home}</span>
                 <span className="text-xl text-muted-foreground">:</span>
                 <span className="text-4xl font-bold">{match.score_away}</span>
               </div>
-              
+
               <div className="flex flex-col items-center gap-1">
                 <TeamLogo teamColor={match.team_away as TeamColor} size="md" />
                 <span className="text-xs text-muted-foreground">{teamNames[match.team_away]}</span>
               </div>
             </div>
-            
+
             <div className="text-center mt-2">
               <Badge variant="outline" className="text-xs">
                 {goals.length} gol(s) • {cards.length} cartão(ões)
@@ -630,8 +630,8 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <TeamLogo teamColor={event.team_color as TeamColor} size="sm" />
                         <span className="text-lg">
-                          {event.type === 'goal' ? EVENT_ICONS.goal : 
-                           event.type === 'amarelo' ? EVENT_ICONS.amarelo : EVENT_ICONS.azul}
+                          {event.type === 'goal' ? EVENT_ICONS.goal :
+                            event.type === 'amarelo' ? EVENT_ICONS.amarelo : EVENT_ICONS.azul}
                         </span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -639,19 +639,24 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
                               {formatMinute(event.minute)}
                             </span>
                             <span className="truncate text-sm">
-                              {event.type === 'goal' && event.is_own_goal 
-                                ? 'Gol Contra' 
+                              {event.type === 'goal' && event.is_own_goal
+                                ? 'Gol Contra'
                                 : event.player?.nickname || event.player?.name || '—'}
                             </span>
                           </div>
-                          {event.type === 'goal' && event.assist && (
+                          {event.type === 'goal' && event.is_own_goal && event.player && (
+                            <div className="text-xs text-muted-foreground truncate">
+                              {event.player.nickname || event.player.name}
+                            </div>
+                          )}
+                          {event.type === 'goal' && event.assist && !event.is_own_goal && (
                             <div className="text-xs text-muted-foreground truncate">
                               Assist: {event.assist.nickname || event.assist.name}
                             </div>
                           )}
                         </div>
                       </div>
-                      
+
                       <Button
                         variant="ghost"
                         size="icon"
@@ -711,24 +716,27 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
                               type="checkbox"
                               id="is_own_goal"
                               checked={goalData.is_own_goal}
-                              onChange={(e) => setGoalData({ ...goalData, is_own_goal: e.target.checked, player_id: "" })}
+                              onChange={(e) => setGoalData({ ...goalData, is_own_goal: e.target.checked, player_id: "", has_assist: false, assist_player_id: "" })}
                               className="h-4 w-4"
                             />
                             <label htmlFor="is_own_goal" className="text-sm">Gol Contra</label>
                           </div>
 
-                          {!goalData.is_own_goal && (
-                            <Select value={goalData.player_id} onValueChange={(v) => setGoalData({ ...goalData, player_id: v })}>
-                              <SelectTrigger className="h-10">
-                                <SelectValue placeholder="Quem marcou?" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {(players[goalData.team] || []).map((p) => (
-                                  <SelectItem key={p.id} value={p.id}>{p.nickname || p.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
+                          {/* Player selector - opposing team for own goal, same team for regular goal */}
+                          <Select value={goalData.player_id} onValueChange={(v) => setGoalData({ ...goalData, player_id: v })}>
+                            <SelectTrigger className="h-10">
+                              <SelectValue placeholder={goalData.is_own_goal ? "Quem fez gol contra?" : "Quem marcou?"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {/* For own goal: show players from opposing team */}
+                              {(goalData.is_own_goal
+                                ? (players[goalData.team === match.team_home ? match.team_away : match.team_home] || [])
+                                : (players[goalData.team] || [])
+                              ).map((p) => (
+                                <SelectItem key={p.id} value={p.id}>{p.nickname || p.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
 
                           {goalData.player_id && !goalData.is_own_goal && (
                             <>
@@ -758,9 +766,9 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
                             </>
                           )}
 
-                          <Button 
-                            onClick={handleAddGoal} 
-                            disabled={isSaving || (!goalData.player_id && !goalData.is_own_goal)}
+                          <Button
+                            onClick={handleAddGoal}
+                            disabled={isSaving || !goalData.player_id}
                             className="w-full bg-emerald-600 hover:bg-emerald-700"
                           >
                             {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
@@ -839,8 +847,8 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
                             </Button>
                           </div>
 
-                          <Button 
-                            onClick={handleAddCard} 
+                          <Button
+                            onClick={handleAddCard}
                             disabled={isSaving || !cardData.player_id || !cardData.card_type}
                             className="w-full bg-amber-600 hover:bg-amber-700 text-black"
                           >
@@ -858,8 +866,8 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
 
           {/* Sticky Save Button */}
           <div className="p-4 border-t border-border bg-background">
-            <Button 
-              onClick={handleSaveMatch} 
+            <Button
+              onClick={handleSaveMatch}
               disabled={isSaving}
               className="w-full min-h-[48px] gap-2"
             >
