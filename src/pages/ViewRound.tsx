@@ -55,7 +55,7 @@ export default function ViewRound() {
         .select("role")
         .eq("user_id", user.id)
         .single();
-      
+
       if (data?.role !== "admin") {
         toast.error("Acesso não autorizado");
         navigate("/");
@@ -146,7 +146,7 @@ export default function ViewRound() {
               TIMES - RODADA {round?.round_number}
             </CardTitle>
             <p className="text-center text-muted-foreground">
-              {round && new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
+              {round && new Date(round.scheduled_date + "T00:00:00").toLocaleDateString('pt-BR')}
             </p>
           </CardHeader>
           <CardContent>

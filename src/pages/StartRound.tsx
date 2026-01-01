@@ -81,7 +81,7 @@ export default function StartRound() {
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('pt-BR');
+    return new Date(date + "T00:00:00").toLocaleDateString('pt-BR');
   };
 
   const getStatusLabel = (status: string) => {
@@ -182,8 +182,8 @@ Esta ação não pode ser desfeita.`)) {
                           <TableCell>
                             <Badge
                               className={`${round.status === 'a_iniciar' ? 'bg-gray-600 hover:bg-gray-600' :
-                                  round.status === 'em_andamento' ? 'bg-yellow-600 hover:bg-yellow-600' :
-                                    'bg-green-600 hover:bg-green-600'
+                                round.status === 'em_andamento' ? 'bg-yellow-600 hover:bg-yellow-600' :
+                                  'bg-green-600 hover:bg-green-600'
                                 } text-white`}
                             >
                               {getStatusLabel(round.status)}
@@ -291,8 +291,8 @@ Esta ação não pode ser desfeita.`)) {
                             </div>
                             <Badge
                               className={`${round.status === 'a_iniciar' ? 'bg-gray-600 hover:bg-gray-600' :
-                                  round.status === 'em_andamento' ? 'bg-yellow-600 hover:bg-yellow-600' :
-                                    'bg-green-600 hover:bg-green-600'
+                                round.status === 'em_andamento' ? 'bg-yellow-600 hover:bg-yellow-600' :
+                                  'bg-green-600 hover:bg-green-600'
                                 } text-white`}
                             >
                               {getStatusLabel(round.status)}

@@ -146,7 +146,7 @@ export default function Matches() {
 
   const formatDate = (dateString: string) => {
     try {
-      const date = new Date(dateString);
+      const date = new Date(dateString + "T00:00:00");
       if (isNaN(date.getTime())) return "";
       return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
     } catch {

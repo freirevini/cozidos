@@ -62,7 +62,7 @@ export default function EditRound() {
         .select("role")
         .eq("user_id", user.id)
         .single();
-      
+
       if (data?.role !== "admin") {
         toast.error("Acesso não autorizado");
         navigate("/");
@@ -175,7 +175,7 @@ export default function EditRound() {
     for (const teamColor of selectedTeams) {
       const teamPlayers = teams[teamColor] || [];
       const fieldPlayers = teamPlayers.filter(p => p.position !== 'goleiro');
-      
+
       if (fieldPlayers.length < 5) {
         toast.error(`Time ${teamColor} precisa ter pelo menos 5 jogadores de linha`);
         return;
@@ -259,7 +259,7 @@ export default function EditRound() {
               EDITAR TIMES - RODADA {round?.round_number}
             </CardTitle>
             <p className="text-center text-muted-foreground">
-              {round && new Date(round.scheduled_date).toLocaleDateString('pt-BR')}
+              {round && new Date(round.scheduled_date + "T00:00:00").toLocaleDateString('pt-BR')}
             </p>
           </CardHeader>
           <CardContent>
@@ -291,7 +291,7 @@ export default function EditRound() {
                         {selectedTeams.map((team) => {
                           const player = teams[team]?.[index];
                           const usedPlayerIds = Object.values(teams).flat().map(p => p.id);
-                          
+
                           return (
                             <td key={team} className="p-3 border border-border">
                               <Select
@@ -343,16 +343,16 @@ export default function EditRound() {
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3">
-                <Button 
-                  onClick={() => navigate("/admin/teams/manage")} 
-                  variant="outline" 
+                <Button
+                  onClick={() => navigate("/admin/teams/manage")}
+                  variant="outline"
                   className="w-full sm:flex-1"
                 >
                   Cancelar
                 </Button>
-                <Button 
-                  onClick={handleSaveChanges} 
-                  disabled={saving} 
+                <Button
+                  onClick={handleSaveChanges}
+                  disabled={saving}
                   className="w-full sm:flex-1"
                 >
                   {saving ? "Salvando..." : "Salvar Alterações"}
