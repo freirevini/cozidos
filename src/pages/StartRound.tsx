@@ -402,84 +402,86 @@ function RoundCard({
         isLoading && "opacity-60 pointer-events-none"
       )}
     >
-      <div className="flex items-stretch">
-        {/* Date Column */}
-        <div className={cn(
-          "flex flex-col items-center justify-center px-4 py-4 min-w-[70px]",
-          highlight ? "bg-amber-500/10" : "bg-muted/30"
-        )}>
-          <span className="text-2xl font-bold text-foreground">{dateInfo.day}</span>
-          <span className="text-xs font-medium text-muted-foreground uppercase">{dateInfo.month}</span>
-        </div>
+      {/* Mobile Layout */}
+      <div className="p-4">
+        {/* Header Row: Date + Info + Status */}
+        <div className="flex items-center gap-3 mb-3">
+          {/* Date */}
+          <div className={cn(
+            "flex flex-col items-center justify-center px-3 py-2 rounded-lg min-w-[56px]",
+            highlight ? "bg-amber-500/20" : "bg-muted/50"
+          )}>
+            <span className="text-xl font-bold text-foreground leading-none">{dateInfo.day}</span>
+            <span className="text-[10px] font-medium text-muted-foreground uppercase">{dateInfo.month}</span>
+          </div>
 
-        {/* Content */}
-        <div className="flex-1 p-4 flex items-center justify-between gap-3">
+          {/* Info */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-bold text-lg">Rodada {round.round_number}</h3>
-              <Badge
-                variant="secondary"
-                className={cn(
-                  "text-[10px] px-2 py-0.5 font-medium",
-                  status.color, "text-white"
-                )}
-              >
-                <StatusIcon className="h-3 w-3 mr-1" />
-                {status.label}
-              </Badge>
-            </div>
+            <h3 className="font-bold text-lg leading-tight">Rodada {round.round_number}</h3>
             <p className="text-xs text-muted-foreground capitalize">{dateInfo.weekday}</p>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            {round.status === 'a_iniciar' && (
-              <Button
-                size="sm"
-                onClick={() => onStart(round.id)}
-                className="h-10 px-4 bg-primary hover:bg-primary/90"
-                disabled={isLoading}
-              >
-                <PlayCircle className="h-4 w-4 mr-1.5" />
-                Iniciar
-              </Button>
+          {/* Status Badge */}
+          <Badge
+            variant="secondary"
+            className={cn(
+              "text-[10px] px-2 py-1 font-medium shrink-0",
+              status.color, "text-white"
             )}
+          >
+            <StatusIcon className="h-3 w-3 mr-1" />
+            {status.label}
+          </Badge>
+        </div>
 
-            {round.status === 'em_andamento' && (
-              <Button
-                size="sm"
-                onClick={() => onManage(round.id)}
-                className="h-10 px-4"
-                disabled={isLoading}
-              >
-                <Settings2 className="h-4 w-4 mr-1.5" />
-                Gerenciar
-              </Button>
-            )}
-
-            {round.status === 'finalizada' && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onManage(round.id)}
-                className="h-10 px-4"
-                disabled={isLoading}
-              >
-                <Edit3 className="h-4 w-4 mr-1.5" />
-                Ver
-              </Button>
-            )}
-
+        {/* Actions Row - Full Width */}
+        <div className="flex gap-2">
+          {round.status === 'a_iniciar' && (
             <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => onDelete(round.id, round.round_number)}
-              className="h-10 w-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              size="sm"
+              onClick={() => onStart(round.id)}
+              className="flex-1 h-11 bg-primary hover:bg-primary/90"
               disabled={isLoading}
             >
-              <Trash2 className="h-4 w-4" />
+              <PlayCircle className="h-4 w-4 mr-2" />
+              Iniciar Rodada
             </Button>
-          </div>
+          )}
+
+          {round.status === 'em_andamento' && (
+            <Button
+              size="sm"
+              onClick={() => onManage(round.id)}
+              className="flex-1 h-11"
+              disabled={isLoading}
+            >
+              <Settings2 className="h-4 w-4 mr-2" />
+              Gerenciar
+            </Button>
+          )}
+
+          {round.status === 'finalizada' && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onManage(round.id)}
+              className="flex-1 h-11"
+              disabled={isLoading}
+            >
+              <Edit3 className="h-4 w-4 mr-2" />
+              Ver Detalhes
+            </Button>
+          )}
+
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={() => onDelete(round.id, round.round_number)}
+            className="h-11 w-11 shrink-0 text-muted-foreground hover:text-destructive hover:border-destructive/50 hover:bg-destructive/10"
+            disabled={isLoading}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </motion.div>
