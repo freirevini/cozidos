@@ -455,54 +455,25 @@ export default function ManageMatch() {
         .eq("round_id", roundId)
         .not("team_color", "in", `(${match.team_home},${match.team_away})`);
 
-      // Calcular jogadores que estão FORA de campo (saíram e não retornaram)
-      const getPlayersOffField = (teamColor: string): Player[] => {
-        const starters = players[teamColor] || [];
-        const playerState = new Map<string, { isOnField: boolean; player: Player }>();
-
-        starters.forEach(p => {
-          playerState.set(p.id, { isOnField: true, player: p });
+      // Build map of last action for each player (from OTHER team players entering this match)
+      const lastAction = new Map<string, 'in' | 'out'>();
+      substitutions
+        .sort((a, b) => a.minute - b.minute)
+        .forEach(sub => {
+          lastAction.set(sub.player_out_id, 'out');
+          lastAction.set(sub.player_in_id, 'in');
         });
 
-        substitutions
-          .filter(s => s.team_color === teamColor)
-          .sort((a, b) => a.minute - b.minute)
-          .forEach(sub => {
-            if (sub.player_out_id) {
-              const existing = playerState.get(sub.player_out_id);
-              if (existing) {
-                playerState.set(sub.player_out_id, { ...existing, isOnField: false });
-              }
-            }
-            if (sub.player_in && sub.player_in_id) {
-              playerState.set(sub.player_in_id, { isOnField: true, player: sub.player_in });
-            }
-          });
-
-        return Array.from(playerState.values())
-          .filter(p => !p.isOnField)
-          .map(p => p.player);
-      };
-
-      // Jogadores de outros times que não estão atualmente em campo em NENHUM time desta partida
-      const playersOnFieldHome = getPlayersOnField(match.team_home);
-      const playersOnFieldAway = getPlayersOnField(match.team_away);
-      const playersCurrentlyOnField = new Set([
-        ...playersOnFieldHome.map(p => p.id),
-        ...playersOnFieldAway.map(p => p.id)
-      ]);
-
-      const fromOtherTeams = (otherTeamPlayers || [])
+      // A player from another team is available if:
+      // - Never entered this match, OR
+      // - Last action was 'out' (they left and can return)
+      const availablePlayers = (otherTeamPlayers || [])
         .map((p: any) => p.profiles)
         .filter(Boolean)
-        .filter((p: Player) => !playersCurrentlyOnField.has(p.id));
-
-      // Jogadores que saíram dos times desta partida (podem retornar)
-      const leftFromHome = getPlayersOffField(match.team_home);
-      const leftFromAway = getPlayersOffField(match.team_away);
-
-      // Combinar: jogadores de fora + jogadores que saíram
-      const availablePlayers = [...fromOtherTeams, ...leftFromHome, ...leftFromAway];
+        .filter((p: Player) => {
+          const action = lastAction.get(p.id);
+          return action === undefined || action === 'out';
+        });
 
       setAvailablePlayersIn(availablePlayers);
     } catch (error) {
@@ -513,39 +484,48 @@ export default function ManageMatch() {
   const getPlayersOnField = (teamColor: string): Player[] => {
     const starters = players[teamColor] || [];
 
-    // Track player state through all substitutions
-    // Map: playerId -> { isOnField: boolean, player: Player }
-    const playerState = new Map<string, { isOnField: boolean; player: Player }>();
+    // Build a map of last action for each player (considering substitution order)
+    const lastAction = new Map<string, 'in' | 'out'>();
+    const enteredPlayers = new Map<string, Player>();
 
-    // Initialize starters as on field
-    starters.forEach(p => {
-      playerState.set(p.id, { isOnField: true, player: p });
-    });
-
-    // Process substitutions in order (by minute, then by id for stability)
+    // Sort substitutions by minute to process in order
     const teamSubs = substitutions
       .filter(s => s.team_color === teamColor)
       .sort((a, b) => a.minute - b.minute);
 
     teamSubs.forEach(sub => {
-      // Player out - mark as off field
-      if (sub.player_out_id) {
-        const existing = playerState.get(sub.player_out_id);
-        if (existing) {
-          playerState.set(sub.player_out_id, { ...existing, isOnField: false });
-        }
-      }
-
-      // Player in - mark as on field
-      if (sub.player_in && sub.player_in_id) {
-        playerState.set(sub.player_in_id, { isOnField: true, player: sub.player_in });
+      // Player going out
+      lastAction.set(sub.player_out_id, 'out');
+      // Player coming in
+      lastAction.set(sub.player_in_id, 'in');
+      if (sub.player_in) {
+        enteredPlayers.set(sub.player_in_id, sub.player_in);
       }
     });
 
-    // Return all players currently on field
-    return Array.from(playerState.values())
-      .filter(p => p.isOnField)
-      .map(p => p.player);
+    // Starters who haven't left OR came back
+    const onFieldFromStarters = starters.filter(p =>
+      lastAction.get(p.id) !== 'out'
+    );
+
+    // Players who entered and are still on field (last action was 'in')
+    const onFieldFromSubs: Player[] = [];
+    enteredPlayers.forEach((player, playerId) => {
+      if (lastAction.get(playerId) === 'in') {
+        // Don't add if already in starters
+        if (!starters.some(s => s.id === playerId)) {
+          onFieldFromSubs.push(player);
+        }
+      }
+    });
+
+    // Combine and remove duplicates
+    const uniqueIds = new Set<string>();
+    return [...onFieldFromStarters, ...onFieldFromSubs].filter(p => {
+      if (uniqueIds.has(p.id)) return false;
+      uniqueIds.add(p.id);
+      return true;
+    });
   };
 
   const addSubstitution = async () => {
