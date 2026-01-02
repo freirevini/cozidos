@@ -34,6 +34,8 @@ export interface TimelineEvent {
     nickname: string | null;
     avatar_url?: string | null;
   };
+  // For own goal events
+  is_own_goal?: boolean;
 }
 
 interface MatchTimelineProps {
@@ -119,6 +121,10 @@ function EventContent({
 
   // Goal event
   if (event.type === "goal") {
+    const isOwnGoal = event.is_own_goal === true;
+    const displayName = isOwnGoal ? "Gol Contra" : playerName;
+    const ownGoalPlayerName = isOwnGoal ? playerName : null;
+
     return (
       <div className={cn(
         "flex items-center gap-4",
@@ -131,14 +137,26 @@ function EventContent({
         )}>
           <span
             className={cn(
-              "font-bold text-white text-base sm:text-lg leading-tight",
-              event.player?.id && "cursor-pointer hover:text-primary transition-colors"
+              "font-bold text-base sm:text-lg leading-tight",
+              isOwnGoal ? "text-destructive" : "text-white",
+              !isOwnGoal && event.player?.id && "cursor-pointer hover:text-primary transition-colors"
             )}
-            onClick={() => handlePlayerClick(event.player?.id)}
+            onClick={() => !isOwnGoal && handlePlayerClick(event.player?.id)}
           >
-            {playerName}
+            {displayName}
           </span>
-          {assistName && (
+          {ownGoalPlayerName && (
+            <span
+              className={cn(
+                "text-xs text-muted-foreground mt-0.5",
+                event.player?.id && "cursor-pointer hover:text-primary/80 transition-colors"
+              )}
+              onClick={() => handlePlayerClick(event.player?.id)}
+            >
+              {ownGoalPlayerName}
+            </span>
+          )}
+          {!isOwnGoal && assistName && (
             <span
               className={cn(
                 "text-xs text-muted-foreground mt-0.5",

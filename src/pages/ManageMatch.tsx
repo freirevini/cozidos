@@ -204,6 +204,7 @@ export default function ManageMatch() {
         type: "goal",
         minute: goal.minute,
         team_color: goal.team_color,
+        is_own_goal: goal.is_own_goal,
         player: goal.player ? {
           name: goal.player.name,
           nickname: goal.player.nickname,
