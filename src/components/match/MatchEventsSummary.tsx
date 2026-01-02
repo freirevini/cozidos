@@ -9,6 +9,7 @@ interface Goal {
     minute: number;
     team_color: string;
     player_id: string | null;
+    is_own_goal?: boolean;
     player?: {
         name: string;
         nickname: string | null;
@@ -31,8 +32,9 @@ interface MatchEventsSummaryProps {
 
 // Single Goal Item - Mirrored Layout
 function GoalItem({ goal, isHome, onPlayerClick }: { goal: Goal; isHome: boolean; onPlayerClick: (id: string) => void }) {
+    const isOwnGoal = goal.is_own_goal === true;
     const playerName = goal.player?.nickname || goal.player?.name || "Jogador";
-    
+
     // Handle assists - can be array or single object depending on Supabase response
     const getAssistData = () => {
         if (!goal.assists) return null;
@@ -42,9 +44,9 @@ function GoalItem({ goal, isHome, onPlayerClick }: { goal: Goal; isHome: boolean
         // Single object case (when there's only one assist)
         return goal.assists as { player_id: string | null; player?: { name: string; nickname: string | null } };
     };
-    
+
     const assistData = getAssistData();
-    const assistName = assistData?.player?.nickname || assistData?.player?.name;
+    const assistName = !isOwnGoal ? (assistData?.player?.nickname || assistData?.player?.name) : null;
 
     return (
         <div className={cn(
@@ -81,20 +83,37 @@ function GoalItem({ goal, isHome, onPlayerClick }: { goal: Goal; isHome: boolean
                 )}
             </div>
 
-            {/* Line 2: Goal Scorer (Bold) - Clickable */}
-            <span 
-                onClick={() => goal.player_id && onPlayerClick(goal.player_id)}
-                className={cn(
-                    "text-sm sm:text-base font-bold text-white leading-tight break-words max-w-[140px] sm:max-w-[180px]",
-                    goal.player_id && "cursor-pointer hover:text-primary hover:underline hover:underline-offset-2 transition-all duration-200"
-                )}
-            >
-                {playerName}
-            </span>
+            {/* Line 2: Goal Scorer or Gol Contra label */}
+            {isOwnGoal ? (
+                <>
+                    <span className="text-sm sm:text-base font-bold text-destructive leading-tight">
+                        Gol Contra
+                    </span>
+                    <span
+                        onClick={() => goal.player_id && onPlayerClick(goal.player_id)}
+                        className={cn(
+                            "text-xs sm:text-sm font-normal text-muted-foreground leading-tight break-words max-w-[130px] sm:max-w-[170px]",
+                            goal.player_id && "cursor-pointer hover:text-primary hover:underline hover:underline-offset-2 transition-all duration-200"
+                        )}
+                    >
+                        {playerName}
+                    </span>
+                </>
+            ) : (
+                <span
+                    onClick={() => goal.player_id && onPlayerClick(goal.player_id)}
+                    className={cn(
+                        "text-sm sm:text-base font-bold text-white leading-tight break-words max-w-[140px] sm:max-w-[180px]",
+                        goal.player_id && "cursor-pointer hover:text-primary hover:underline hover:underline-offset-2 transition-all duration-200"
+                    )}
+                >
+                    {playerName}
+                </span>
+            )}
 
-            {/* Line 3: Assist (Lighter, smaller) - Clickable */}
+            {/* Line 3: Assist (only for regular goals) */}
             {assistName && (
-                <span 
+                <span
                     onClick={() => assistData?.player_id && onPlayerClick(assistData.player_id)}
                     className={cn(
                         "text-xs sm:text-sm font-normal text-muted-foreground leading-tight break-words max-w-[130px] sm:max-w-[170px]",
@@ -143,21 +162,22 @@ export function MatchEventsSummary({
 
     const loadGoals = async () => {
         try {
-        const { data, error } = await supabase
-            .from("goals")
-            .select(`
+            const { data, error } = await supabase
+                .from("goals")
+                .select(`
               id,
               minute,
               team_color,
               player_id,
+              is_own_goal,
               player:profiles!goals_player_id_fkey(name, nickname),
               assists(
                 player_id,
                 player:profiles!assists_player_id_fkey(name, nickname)
               )
             `)
-            .eq("match_id", matchId)
-            .order("minute", { ascending: true });
+                .eq("match_id", matchId)
+                .order("minute", { ascending: true });
 
             if (error) throw error;
             setGoals((data as any) || []);

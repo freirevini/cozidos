@@ -124,6 +124,7 @@ const MatchDetails = () => {
             type: "goal",
             minute: goal.minute,
             team_color: goal.team_color,
+            is_own_goal: goal.is_own_goal,
             player: goal.player ? { id: goal.player.id, name: goal.player.name, nickname: goal.player.nickname, avatar_url: goal.player.avatar_url } : undefined,
             assist: assistData?.player ? { id: assistData.player.id, name: assistData.player.name, nickname: assistData.player.nickname, avatar_url: assistData.player.avatar_url } : undefined,
           });
