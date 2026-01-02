@@ -123,6 +123,7 @@ export default function ManageMatch() {
     player_id: "",
     has_assist: false,
     assist_player_id: "",
+    is_own_goal: false,
   });
   const [cardData, setCardData] = useState({
     team: "",
@@ -163,7 +164,7 @@ export default function ManageMatch() {
       const startTime = new Date(match.match_timer_started_at).getTime();
       const now = Date.now();
       let pausedSeconds = match.match_timer_total_paused_seconds || 0;
-      
+
       if (match.match_timer_paused_at) {
         const pausedAt = new Date(match.match_timer_paused_at).getTime();
         pausedSeconds += Math.floor((now - pausedAt) / 1000);
@@ -171,7 +172,7 @@ export default function ManageMatch() {
       } else {
         setTimerRunning(true);
       }
-      
+
       const elapsedSeconds = Math.floor((now - startTime) / 1000) - pausedSeconds;
       const remainingSeconds = Math.max(0, 720 - elapsedSeconds);
       setTimer(remainingSeconds);
@@ -189,13 +190,13 @@ export default function ManageMatch() {
 
   useEffect(() => {
     if (!match) return;
-    
+
     const events: TimelineEvent[] = [];
-    
+
     if (match.started_at) {
       events.push({ id: `start-${match.id}`, type: "match_start", minute: 0 });
     }
-    
+
     goals.forEach((goal) => {
       const assistData = getAssistData(goal.assists);
       events.push({
@@ -203,29 +204,29 @@ export default function ManageMatch() {
         type: "goal",
         minute: goal.minute,
         team_color: goal.team_color,
-        player: goal.player ? { 
-          name: goal.player.name, 
+        player: goal.player ? {
+          name: goal.player.name,
           nickname: goal.player.nickname,
-          avatar_url: goal.player.avatar_url 
+          avatar_url: goal.player.avatar_url
         } : undefined,
-        assist: assistData?.player ? { 
-          name: assistData.player.name, 
+        assist: assistData?.player ? {
+          name: assistData.player.name,
           nickname: assistData.player.nickname,
-          avatar_url: assistData.player.avatar_url 
+          avatar_url: assistData.player.avatar_url
         } : undefined,
       });
     });
-    
+
     cards.forEach((card) => {
       events.push({
         id: card.id,
         type: card.card_type === "amarelo" ? "amarelo" : "azul",
         minute: card.minute,
         team_color: card.team_color,
-        player: card.player ? { 
-          name: card.player.name, 
+        player: card.player ? {
+          name: card.player.name,
           nickname: card.player.nickname,
-          avatar_url: card.player.avatar_url 
+          avatar_url: card.player.avatar_url
         } : undefined,
       });
     });
@@ -248,12 +249,12 @@ export default function ManageMatch() {
         } : undefined,
       });
     });
-    
+
     if (match.status === "finished" && match.finished_at) {
       const endMinute = getCurrentMatchMinute(match);
       events.push({ id: `end-${match.id}`, type: "match_end", minute: Math.max(endMinute, 12) });
     }
-    
+
     events.sort((a, b) => a.minute - b.minute);
     setTimelineEvents(events);
   }, [match, goals, cards, substitutions]);
@@ -270,8 +271,8 @@ export default function ManageMatch() {
       .on("postgres_changes", { event: "*", schema: "public", table: "substitutions", filter: `match_id=eq.${matchId}` }, () => loadMatchData())
       .subscribe();
 
-    return () => { 
-      supabase.removeChannel(channel); 
+    return () => {
+      supabase.removeChannel(channel);
     };
   }, [matchId]);
 
@@ -470,20 +471,20 @@ export default function ManageMatch() {
 
   const getPlayersOnField = (teamColor: string): Player[] => {
     const starters = players[teamColor] || [];
-    
+
     // Jogadores que entraram via substituição para este time
     const playersIn = substitutions
       .filter(s => s.team_color === teamColor)
       .map(s => s.player_in)
       .filter(Boolean) as Player[];
-    
+
     // IDs de jogadores que saíram via substituição deste time
     const playersOutIds = new Set(
       substitutions
         .filter(s => s.team_color === teamColor)
         .map(s => s.player_out_id)
     );
-    
+
     // Todos em campo = titulares + entraram - saíram
     const allPlayers = [...starters, ...playersIn];
     const onField = allPlayers.filter(p => !playersOutIds.has(p.id));
@@ -537,8 +538,8 @@ export default function ManageMatch() {
     try {
       const { error } = await supabase
         .from("matches")
-        .update({ 
-          status: 'in_progress', 
+        .update({
+          status: 'in_progress',
           started_at: new Date().toISOString(),
           match_timer_started_at: new Date().toISOString(),
           match_timer_paused_at: null,
@@ -547,7 +548,7 @@ export default function ManageMatch() {
         .eq("id", match.id);
 
       if (error) throw error;
-      
+
       setTimer(720);
       setTimerRunning(true);
       toast.success("Partida iniciada!");
@@ -581,7 +582,7 @@ export default function ManageMatch() {
 
           const { error } = await supabase
             .from("matches")
-            .update({ 
+            .update({
               match_timer_paused_at: null,
               match_timer_total_paused_seconds: newTotalPaused
             })
@@ -589,7 +590,7 @@ export default function ManageMatch() {
 
           if (error) throw error;
         }
-        
+
         setTimerRunning(true);
         toast.info("Cronômetro retomado");
       }
@@ -601,7 +602,7 @@ export default function ManageMatch() {
 
   const closeForm = () => {
     setActiveForm(null);
-    setGoalData({ team: "", player_id: "", has_assist: false, assist_player_id: "" });
+    setGoalData({ team: "", player_id: "", has_assist: false, assist_player_id: "", is_own_goal: false });
     setCardData({ team: "", player_id: "", card_type: "" });
     setSubData({ team: "", player_out_id: "", player_in_id: "" });
   };
@@ -616,31 +617,34 @@ export default function ManageMatch() {
 
     setLoading(true);
     try {
-      const isOwnGoal = goalData.player_id === "own_goal";
-      
+      const isOwnGoal = goalData.is_own_goal;
+
+      // Para gol contra, buscar jogador do time adversário
+      const opposingTeam = goalData.team === match.team_home ? match.team_away : match.team_home;
+
       // Buscar dados do jogador marcador para atualização otimista
-      const scorer = !isOwnGoal 
-        ? getPlayersOnField(goalData.team).find(p => p.id === goalData.player_id)
-        : null;
-      
+      const scorer = isOwnGoal
+        ? getPlayersOnField(opposingTeam as string).find(p => p.id === goalData.player_id)
+        : getPlayersOnField(goalData.team).find(p => p.id === goalData.player_id);
+
       // Buscar dados do assistente para atualização otimista
       const assister = goalData.has_assist && goalData.assist_player_id
         ? getPlayersOnField(goalData.team).find(p => p.id === goalData.assist_player_id)
         : null;
-      
+
       const { data: result, error: rpcError } = await supabase.rpc('record_goal_with_assist', {
         p_match_id: match.id,
         p_team_color: goalData.team,
-        p_scorer_profile_id: isOwnGoal ? null : goalData.player_id,
+        p_scorer_profile_id: goalData.player_id,
         p_minute: currentMin,
         p_is_own_goal: isOwnGoal,
-        p_assist_profile_id: goalData.has_assist && goalData.assist_player_id ? goalData.assist_player_id : null,
+        p_assist_profile_id: goalData.has_assist && goalData.assist_player_id && !isOwnGoal ? goalData.assist_player_id : null,
       });
 
       if (rpcError) throw rpcError;
 
       const rpcResult = result as { success: boolean; error?: string; goal_id?: string; assist_id?: string };
-      
+
       if (!rpcResult.success) {
         throw new Error(rpcResult.error || 'Erro ao registrar gol');
       }
@@ -659,14 +663,14 @@ export default function ManageMatch() {
             player: assister
           }] : []
         };
-        
-        
+
+
         setGoals(prev => [...prev, newGoal].sort((a, b) => a.minute - b.minute));
       }
 
       toast.success(`Gol registrado!`);
       closeForm();
-      
+
       // Recarregar dados do servidor para garantir consistência
       // (o realtime também irá disparar, mas isso garante dados completos)
       setTimeout(() => {
@@ -724,7 +728,7 @@ export default function ManageMatch() {
 
     const lastEvent = allEvents[0];
     const eventTypeText = lastEvent.type === 'goal' ? 'gol' : lastEvent.type === 'card' ? 'cartão' : 'substituição';
-    
+
     const confirmed = window.confirm(`Tem certeza que deseja desfazer o último evento (${eventTypeText})?`);
     if (!confirmed) return;
 
@@ -740,7 +744,7 @@ export default function ManageMatch() {
 
         const teamToUpdate = lastEvent.team_color === match?.team_home ? 'score_home' : 'score_away';
         const currentScore = lastEvent.team_color === match?.team_home ? match?.score_home : match?.score_away;
-        
+
         await supabase
           .from("matches")
           .update({ [teamToUpdate]: Math.max(0, (currentScore || 0) - 1) })
@@ -794,7 +798,7 @@ export default function ManageMatch() {
       if (!result.success) {
         throw new Error(result.error || 'Erro ao encerrar partida');
       }
-      
+
       setTimerRunning(false);
       toast.success("Partida encerrada!");
       loadMatchData();
@@ -840,7 +844,7 @@ export default function ManageMatch() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="container mx-auto px-4 py-4 max-w-md">
         {/* Back button */}
         <Button
@@ -859,20 +863,20 @@ export default function ManageMatch() {
           <p className="text-center text-xs text-muted-foreground mb-3">
             Rodada {match.round_number || '?'} • Jogo {match.match_number}
           </p>
-          
+
           {/* Score display */}
           <div className="flex items-center justify-center gap-6 mb-3">
             <div className="flex flex-col items-center gap-1">
               <TeamLogo teamColor={match.team_home as TeamColor} size="md" />
               <span className="text-xs text-muted-foreground">{teamNames[match.team_home]}</span>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <span className="text-4xl font-bold text-foreground">{match.score_home}</span>
               <span className="text-2xl text-muted-foreground">:</span>
               <span className="text-4xl font-bold text-foreground">{match.score_away}</span>
             </div>
-            
+
             <div className="flex flex-col items-center gap-1">
               <TeamLogo teamColor={match.team_away as TeamColor} size="md" />
               <span className="text-xs text-muted-foreground">{teamNames[match.team_away]}</span>
@@ -884,7 +888,7 @@ export default function ManageMatch() {
             <span className={`px-3 py-1 text-sm font-medium rounded-full border ${getStatusStyle()}`}>
               {getStatusText()}
             </span>
-            
+
             {isMatchActive && (
               <Button
                 variant="ghost"
@@ -968,7 +972,7 @@ export default function ManageMatch() {
               </div>
 
               {/* Player Selection */}
-              {goalData.team && (
+              {goalData.team && !goalData.is_own_goal && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-2">Quem marcou?</p>
                   <div className="grid grid-cols-3 gap-2">
@@ -983,9 +987,9 @@ export default function ManageMatch() {
                       </Button>
                     ))}
                     <Button
-                      variant={goalData.player_id === "own_goal" ? "default" : "outline"}
-                      className={`h-11 text-xs px-2 rounded-lg ${goalData.player_id === "own_goal" ? "bg-destructive" : ""}`}
-                      onClick={() => setGoalData({ ...goalData, player_id: "own_goal", has_assist: false, assist_player_id: "" })}
+                      variant="outline"
+                      className="h-11 text-xs px-2 rounded-lg border-destructive text-destructive hover:bg-destructive/10"
+                      onClick={() => setGoalData({ ...goalData, is_own_goal: true, player_id: "", has_assist: false, assist_player_id: "" })}
                     >
                       Gol Contra
                     </Button>
@@ -993,8 +997,37 @@ export default function ManageMatch() {
                 </div>
               )}
 
+              {/* Own Goal - Opposing Team Player Selection */}
+              {goalData.team && goalData.is_own_goal && match && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs text-destructive font-medium">GOL CONTRA - Quem fez?</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs text-muted-foreground"
+                      onClick={() => setGoalData({ ...goalData, is_own_goal: false, player_id: "" })}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {getPlayersOnField(goalData.team === match.team_home ? match.team_away : match.team_home).map((player) => (
+                      <Button
+                        key={player.id}
+                        variant={goalData.player_id === player.id ? "default" : "outline"}
+                        className={`h-11 text-xs px-2 rounded-lg ${goalData.player_id === player.id ? "bg-destructive" : "border-destructive/50"}`}
+                        onClick={() => setGoalData({ ...goalData, player_id: player.id })}
+                      >
+                        {player.nickname || player.name.split(' ')[0]}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Assist Toggle */}
-              {goalData.player_id && goalData.player_id !== "own_goal" && (
+              {goalData.player_id && !goalData.is_own_goal && (
                 <div className="flex items-center justify-between p-3 bg-background/50 rounded-lg">
                   <span className="text-sm">Houve assistência?</span>
                   <Switch
@@ -1026,9 +1059,9 @@ export default function ManageMatch() {
               )}
 
               {/* Confirm Button */}
-              <Button 
-                onClick={addGoal} 
-                className="w-full h-12 rounded-lg bg-emerald-600 hover:bg-emerald-700" 
+              <Button
+                onClick={addGoal}
+                className="w-full h-12 rounded-lg bg-emerald-600 hover:bg-emerald-700"
                 disabled={loading || !goalData.team || !goalData.player_id || (goalData.has_assist && !goalData.assist_player_id)}
               >
                 <Check size={16} className="mr-2" />
@@ -1110,9 +1143,9 @@ export default function ManageMatch() {
               )}
 
               {/* Confirm Button */}
-              <Button 
-                onClick={addCard} 
-                className="w-full h-12 rounded-lg bg-amber-500 hover:bg-amber-600 text-black" 
+              <Button
+                onClick={addCard}
+                className="w-full h-12 rounded-lg bg-amber-500 hover:bg-amber-600 text-black"
                 disabled={loading || !cardData.team || !cardData.player_id || !cardData.card_type}
               >
                 <Check size={16} className="mr-2" />
@@ -1200,9 +1233,9 @@ export default function ManageMatch() {
               )}
 
               {/* Confirm Button */}
-              <Button 
-                onClick={addSubstitution} 
-                className="w-full h-12 rounded-lg" 
+              <Button
+                onClick={addSubstitution}
+                className="w-full h-12 rounded-lg"
                 disabled={loading || !subData.team || !subData.player_out_id || !subData.player_in_id}
               >
                 <Check size={16} className="mr-2" />
@@ -1229,8 +1262,8 @@ export default function ManageMatch() {
 
         {/* Start Match Button */}
         {match.status === 'not_started' && (
-          <Button 
-            onClick={startMatch} 
+          <Button
+            onClick={startMatch}
             className="w-full h-14 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-lg"
             disabled={loading}
           >
@@ -1241,8 +1274,8 @@ export default function ManageMatch() {
 
         {/* Finish Match Button */}
         {isMatchActive && !activeForm && (
-          <Button 
-            onClick={finishMatch} 
+          <Button
+            onClick={finishMatch}
             variant="outline"
             className="w-full h-12 rounded-xl border-destructive/50 text-destructive hover:bg-destructive/10 mt-2"
             disabled={loading}
@@ -1260,8 +1293,8 @@ export default function ManageMatch() {
                 ✓ Partida Encerrada
               </span>
             </div>
-            <Button 
-              onClick={() => navigate(`/admin/round/manage?round=${roundId}`)} 
+            <Button
+              onClick={() => navigate(`/admin/round/manage?round=${roundId}`)}
               variant="outline"
               className="w-full h-12 rounded-xl"
             >
