@@ -311,80 +311,99 @@ export default function ManageTeams() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
-            {rounds.map((round) => (
-              <Card
-                key={round.id}
-                className="bg-gradient-to-br from-card/90 to-card/50 border-border/30 overflow-hidden"
-              >
-                <CardContent className="p-4">
-                  {/* Header do card */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-lg font-bold text-foreground">
-                          Rodada {round.round_number}
-                        </span>
-                        {getStatusBadge(round.status)}
+          <div className="space-y-3">
+            {rounds.map((round) => {
+              const d = new Date(round.scheduled_date + "T00:00:00");
+              const dateInfo = {
+                day: d.getDate(),
+                month: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase()
+              };
+              const statusConfig = {
+                'a_iniciar': { label: 'Iniciar', color: 'bg-slate-500' },
+                'em_andamento': { label: 'Ao Vivo', color: 'bg-amber-500' },
+                'finalizada': { label: 'Fim', color: 'bg-emerald-500' }
+              }[round.status] || { label: round.status, color: 'bg-gray-500' };
+
+              return (
+                <Card
+                  key={round.id}
+                  className="bg-card/80 backdrop-blur-sm border-border/50 overflow-hidden rounded-xl"
+                >
+                  <div className="flex items-stretch">
+                    {/* Date Column - Compact */}
+                    <div className="flex flex-col items-center justify-center px-3 py-3 min-w-[56px] bg-muted/30">
+                      <span className="text-xl font-bold text-foreground leading-none">{dateInfo.day}</span>
+                      <span className="text-[10px] font-medium text-muted-foreground mt-0.5">{dateInfo.month}</span>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 p-3">
+                      {/* Header */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-base">R{round.round_number}</h3>
+                          <Badge className={`text-[9px] px-1.5 py-0 ${statusConfig.color} text-white`}>
+                            {statusConfig.label}
+                          </Badge>
+                        </div>
+                        {/* Team logos */}
+                        <div className="flex gap-1">
+                          {round.teamColors.slice(0, 4).map((color) => (
+                            <TeamLogo key={color} teamColor={color} size="sm" />
+                          ))}
+                        </div>
                       </div>
-                      <span className="text-sm text-muted-foreground">
-                        {formatDate(round.scheduled_date)}
-                      </span>
+
+                      {/* Actions - Compact row */}
+                      <div className="flex gap-1.5 flex-wrap">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => navigate(`/admin/round/${round.id}/view`)}
+                          className="h-8 px-2.5 text-xs gap-1"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Ver
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => loadShareData(round.id)}
+                          className="h-8 px-2.5 text-xs gap-1"
+                        >
+                          <Share2 className="h-3.5 w-3.5" />
+                          Enviar
+                        </Button>
+
+                        {canEdit(round.status) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => navigate(`/admin/round/${round.id}/edit`)}
+                            className="h-8 px-2.5 text-xs gap-1"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                            Editar
+                          </Button>
+                        )}
+
+                        {canDelete(round.status) && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => deleteRound(round.id, round.round_number)}
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
-
-                  {/* Logos dos times */}
-                  <div className="flex gap-3 mb-4">
-                    {round.teamColors.map((color) => (
-                      <TeamLogo key={color} teamColor={color} size="md" />
-                    ))}
-                  </div>
-
-                  {/* Botões de ação */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={() => navigate(`/admin/round/${round.id}/view`)}
-                      variant="outline"
-                      className="h-11 gap-2"
-                    >
-                      <Eye className="h-4 w-4" />
-                      Ver
-                    </Button>
-
-                    <Button
-                      onClick={() => loadShareData(round.id)}
-                      variant="outline"
-                      className="h-11 gap-2"
-                    >
-                      <Share2 className="h-4 w-4" />
-                      Compartilhar
-                    </Button>
-
-                    {canEdit(round.status) && (
-                      <Button
-                        onClick={() => navigate(`/admin/round/${round.id}/edit`)}
-                        variant="outline"
-                        className="h-11 gap-2"
-                      >
-                        <Edit className="h-4 w-4" />
-                        Editar
-                      </Button>
-                    )}
-
-                    {canDelete(round.status) && (
-                      <Button
-                        onClick={() => deleteRound(round.id, round.round_number)}
-                        variant="destructive"
-                        className="h-11 gap-2"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Excluir
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
 

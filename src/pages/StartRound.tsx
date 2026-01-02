@@ -343,7 +343,7 @@ export default function StartRound() {
   );
 }
 
-// Round Card Component
+// Round Card Component - Mobile Optimized
 function RoundCard({
   round,
   onManage,
@@ -363,8 +363,7 @@ function RoundCard({
     const d = new Date(date + "T00:00:00");
     return {
       day: d.getDate(),
-      month: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''),
-      weekday: d.toLocaleDateString('pt-BR', { weekday: 'short' })
+      month: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase()
     };
   };
 
@@ -374,11 +373,11 @@ function RoundCard({
   const getStatusConfig = (status: string) => {
     switch (status) {
       case 'a_iniciar':
-        return { label: 'A Iniciar', color: 'bg-slate-500', icon: Clock };
+        return { label: 'Iniciar', color: 'bg-slate-500', icon: Clock };
       case 'em_andamento':
-        return { label: 'Em Andamento', color: 'bg-amber-500', icon: PlayCircle };
+        return { label: 'Ao Vivo', color: 'bg-amber-500', icon: PlayCircle };
       case 'finalizada':
-        return { label: 'Finalizada', color: 'bg-emerald-500', icon: CheckCircle };
+        return { label: 'Fim', color: 'bg-emerald-500', icon: CheckCircle };
       default:
         return { label: status, color: 'bg-gray-500', icon: Clock };
     }
@@ -402,86 +401,82 @@ function RoundCard({
         isLoading && "opacity-60 pointer-events-none"
       )}
     >
-      {/* Mobile Layout */}
-      <div className="p-4">
-        {/* Header Row: Date + Info + Status */}
-        <div className="flex items-center gap-3 mb-3">
-          {/* Date */}
-          <div className={cn(
-            "flex flex-col items-center justify-center px-3 py-2 rounded-lg min-w-[56px]",
-            highlight ? "bg-amber-500/20" : "bg-muted/50"
-          )}>
-            <span className="text-xl font-bold text-foreground leading-none">{dateInfo.day}</span>
-            <span className="text-[10px] font-medium text-muted-foreground uppercase">{dateInfo.month}</span>
-          </div>
-
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-lg leading-tight">Rodada {round.round_number}</h3>
-            <p className="text-xs text-muted-foreground capitalize">{dateInfo.weekday}</p>
-          </div>
-
-          {/* Status Badge */}
-          <Badge
-            variant="secondary"
-            className={cn(
-              "text-[10px] px-2 py-1 font-medium shrink-0",
-              status.color, "text-white"
-            )}
-          >
-            <StatusIcon className="h-3 w-3 mr-1" />
-            {status.label}
-          </Badge>
+      <div className="flex items-stretch">
+        {/* Date Column - Compact */}
+        <div className={cn(
+          "flex flex-col items-center justify-center px-3 py-3 min-w-[56px]",
+          highlight ? "bg-amber-500/10" : "bg-muted/30"
+        )}>
+          <span className="text-xl font-bold text-foreground leading-none">{dateInfo.day}</span>
+          <span className="text-[10px] font-medium text-muted-foreground mt-0.5">{dateInfo.month}</span>
         </div>
 
-        {/* Actions Row - Full Width */}
-        <div className="flex gap-2">
-          {round.status === 'a_iniciar' && (
+        {/* Content - Compact */}
+        <div className="flex-1 p-3 flex items-center gap-2">
+          {/* Round Info */}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-base leading-tight">R{round.round_number}</h3>
+            <Badge
+              variant="secondary"
+              className={cn(
+                "text-[9px] px-1.5 py-0 font-medium mt-1",
+                status.color, "text-white"
+              )}
+            >
+              <StatusIcon className="h-2.5 w-2.5 mr-0.5" />
+              {status.label}
+            </Badge>
+          </div>
+
+          {/* Actions - Compact */}
+          <div className="flex items-center gap-1.5">
+            {round.status === 'a_iniciar' && (
+              <Button
+                size="sm"
+                onClick={() => onStart(round.id)}
+                className="h-9 px-3 text-xs bg-primary hover:bg-primary/90"
+                disabled={isLoading}
+              >
+                <PlayCircle className="h-3.5 w-3.5 mr-1" />
+                Iniciar
+              </Button>
+            )}
+
+            {round.status === 'em_andamento' && (
+              <Button
+                size="sm"
+                onClick={() => onManage(round.id)}
+                className="h-9 px-3 text-xs"
+                disabled={isLoading}
+              >
+                <Settings2 className="h-3.5 w-3.5 mr-1" />
+                Gerenciar
+              </Button>
+            )}
+
+            {round.status === 'finalizada' && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onManage(round.id)}
+                className="h-9 px-3 text-xs"
+                disabled={isLoading}
+              >
+                <Edit3 className="h-3.5 w-3.5 mr-1" />
+                Editar
+              </Button>
+            )}
+
             <Button
-              size="sm"
-              onClick={() => onStart(round.id)}
-              className="flex-1 h-11 bg-primary hover:bg-primary/90"
+              size="icon"
+              variant="ghost"
+              onClick={() => onDelete(round.id, round.round_number)}
+              className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
               disabled={isLoading}
             >
-              <PlayCircle className="h-4 w-4 mr-2" />
-              Iniciar Rodada
+              <Trash2 className="h-4 w-4" />
             </Button>
-          )}
-
-          {round.status === 'em_andamento' && (
-            <Button
-              size="sm"
-              onClick={() => onManage(round.id)}
-              className="flex-1 h-11"
-              disabled={isLoading}
-            >
-              <Settings2 className="h-4 w-4 mr-2" />
-              Gerenciar
-            </Button>
-          )}
-
-          {round.status === 'finalizada' && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onManage(round.id)}
-              className="flex-1 h-11"
-              disabled={isLoading}
-            >
-              <Edit3 className="h-4 w-4 mr-2" />
-              Ver Detalhes
-            </Button>
-          )}
-
-          <Button
-            size="icon"
-            variant="outline"
-            onClick={() => onDelete(round.id, round.round_number)}
-            className="h-11 w-11 shrink-0 text-muted-foreground hover:text-destructive hover:border-destructive/50 hover:bg-destructive/10"
-            disabled={isLoading}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          </div>
         </div>
       </div>
     </motion.div>
