@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
-import { SeasonSelector, MonthChips, LevelSelector } from "@/components/classification";
+import { SeasonSelector, MonthChips, LevelSelector, RoundSelector } from "@/components/classification";
 import { Trophy, Target, Award, Equal, TrendingDown } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,8 @@ export default function Statistics() {
   const [availableMonths, setAvailableMonths] = useState<number[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
+  const [rounds, setRounds] = useState<Array<{ id: string; round_number: number; scheduled_date: string }>>([]);
+  const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
 
   // Stats filter
   const [filterType, setFilterType] = useState<FilterType>("goals");
@@ -58,8 +60,13 @@ export default function Statistics() {
 
   useEffect(() => {
     loadAvailableMonths();
+    loadRounds();
     loadStatistics();
   }, [selectedSeason, selectedMonth]);
+
+  useEffect(() => {
+    loadStatistics();
+  }, [selectedRoundId]);
 
   const loadSeasons = async () => {
     try {
@@ -95,6 +102,37 @@ export default function Statistics() {
     } catch (error) {
       console.error("Erro ao carregar meses:", error);
       setAvailableMonths([]);
+    }
+  };
+
+  const loadRounds = async () => {
+    try {
+      let query = supabase
+        .from("rounds")
+        .select("id, round_number, scheduled_date")
+        .not("scheduled_date", "is", null)
+        .order("scheduled_date", { ascending: false });
+
+      if (selectedSeason !== null) {
+        query = query.gte("scheduled_date", `${selectedSeason}-01-01`)
+          .lte("scheduled_date", `${selectedSeason}-12-31`);
+      }
+
+      if (selectedMonth !== null) {
+        const monthStr = selectedMonth.toString().padStart(2, '0');
+        query = query.gte("scheduled_date", `${selectedSeason}-${monthStr}-01`)
+          .lte("scheduled_date", `${selectedSeason}-${monthStr}-31`);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      setRounds(data || []);
+      // Reset round selection when season/month changes
+      setSelectedRoundId(null);
+    } catch (error) {
+      console.error("Erro ao carregar rodadas:", error);
+      setRounds([]);
     }
   };
 
@@ -144,12 +182,17 @@ export default function Statistics() {
         if (error) throw error;
 
         // Filtrar por mês se selecionado
-        const filteredByMonth = selectedMonth !== null
+        let filteredByMonth = selectedMonth !== null
           ? (roundStats || []).filter((rs: any) => {
             const month = new Date(rs.round?.scheduled_date).getMonth() + 1;
             return month === selectedMonth;
           })
           : roundStats || [];
+
+        // Filtrar por rodada se selecionada
+        if (selectedRoundId !== null) {
+          filteredByMonth = filteredByMonth.filter((rs: any) => rs.round_id === selectedRoundId);
+        }
 
         // Agrupar por jogador
         const playerMap = new Map<string, PlayerRanking>();
@@ -278,15 +321,34 @@ export default function Statistics() {
           </div>
         </div>
 
+        {/* Round Filter - Above Level Filter */}
+        {rounds.length > 0 && (
+          <div className="sticky top-[52px] z-20 bg-background/95 backdrop-blur border-b border-border/20">
+            <div className="container mx-auto px-4 py-3">
+              <RoundSelector
+                rounds={rounds}
+                selectedRoundId={selectedRoundId}
+                onRoundChange={setSelectedRoundId}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Level Filter - Sticky */}
-        <div className="sticky top-[52px] z-20 bg-background/95 backdrop-blur border-b border-border/20">
+        <div className={cn(
+          "sticky z-20 bg-background/95 backdrop-blur border-b border-border/20",
+          rounds.length > 0 ? "top-[104px]" : "top-[52px]"
+        )}>
           <div className="container mx-auto px-4 py-3">
             <LevelSelector selectedLevel={selectedLevel} onLevelChange={setSelectedLevel} />
           </div>
         </div>
 
         {/* Month Chips - Sticky */}
-        <div className="sticky top-[100px] z-10 bg-background/95 backdrop-blur border-b border-border/20">
+        <div className={cn(
+          "sticky z-10 bg-background/95 backdrop-blur border-b border-border/20",
+          rounds.length > 0 ? "top-[156px]" : "top-[104px]"
+        )}>
           <div className="container mx-auto px-4 py-3">
             <MonthChips
               availableMonths={availableMonths}
