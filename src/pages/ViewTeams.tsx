@@ -1,20 +1,24 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { TeamCardModern, ShareableTeamsGrid } from "@/components/teams";
-import { ArrowLeft, Download, Share2, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Download, Share2, Eye, EyeOff, ChevronDown, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toPng } from "html-to-image";
-import logoCozidosNovo from "@/assets/logo-cozidos-novo.png";
 import teamBranco from "@/assets/team-branco.png";
 import teamVermelho from "@/assets/team-vermelho.png";
 import teamAzul from "@/assets/team-azul.png";
 import teamLaranja from "@/assets/team-laranja.png";
+import { cn } from "@/lib/utils";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
 
@@ -57,18 +61,47 @@ export default function ViewTeams() {
   const navigate = useNavigate();
   const [rounds, setRounds] = useState<Round[]>([]);
   const [selectedRound, setSelectedRound] = useState<string>("");
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedTeam, setSelectedTeam] = useState<TeamColor | null>(null);
   const [teamPlayers, setTeamPlayers] = useState<TeamPlayer[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [showShareView, setShowShareView] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [roundPickerOpen, setRoundPickerOpen] = useState(false);
   const shareRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Get available years from rounds
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    rounds.forEach(r => {
+      if (r.scheduled_date) {
+        years.add(new Date(r.scheduled_date + "T00:00:00").getFullYear());
+      }
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [rounds]);
+
+  // Filter rounds by selected year
+  const filteredRounds = useMemo(() => {
+    return rounds.filter(r => {
+      if (!r.scheduled_date) return false;
+      const year = new Date(r.scheduled_date + "T00:00:00").getFullYear();
+      return year === selectedYear;
+    });
+  }, [rounds, selectedYear]);
 
   useEffect(() => {
     loadRounds();
   }, []);
+
+  // Auto-select first round when year changes
+  useEffect(() => {
+    if (filteredRounds.length > 0) {
+      setSelectedRound(filteredRounds[0].id);
+    }
+  }, [filteredRounds]);
 
   useEffect(() => {
     if (selectedRound) {
@@ -77,7 +110,7 @@ export default function ViewTeams() {
     }
   }, [selectedRound]);
 
-  // Selecionar primeiro time quando times são carregados
+  // Select first team when teams are loaded
   useEffect(() => {
     if (Object.keys(teamsByColor).length > 0 && !selectedTeam) {
       const firstTeam = orderedTeamColors[0];
@@ -98,6 +131,11 @@ export default function ViewTeams() {
 
       setRounds(data || []);
       if (data && data.length > 0) {
+        // Set year based on most recent round
+        if (data[0].scheduled_date) {
+          const year = new Date(data[0].scheduled_date + "T00:00:00").getFullYear();
+          setSelectedYear(year);
+        }
         setSelectedRound(data[0].id);
       }
     } catch (error: any) {
@@ -130,7 +168,7 @@ export default function ViewTeams() {
 
       if (error) throw error;
       setTeamPlayers(data || []);
-      setSelectedTeam(null); // Reset para re-selecionar o primeiro time
+      setSelectedTeam(null);
     } catch (error: any) {
       toast({
         title: "Erro ao carregar times",
@@ -171,7 +209,6 @@ export default function ViewTeams() {
     return acc;
   }, {} as Record<string, TeamPlayer[]>);
 
-  // Ordenar times: branco, azul, laranja, vermelho
   const orderedTeamColors = ["branco", "azul", "laranja", "vermelho"].filter(
     color => teamsByColor[color]?.length > 0
   ) as TeamColor[];
@@ -240,45 +277,78 @@ export default function ViewTeams() {
     }
   };
 
+  const handleRoundSelect = (roundId: string) => {
+    setSelectedRound(roundId);
+    setRoundPickerOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-6 max-w-4xl">
-        {/* Header com informações da rodada */}
-        <div className="flex flex-col items-center mb-6">
-          <img
-            src={logoCozidosNovo}
-            alt="Cozidos FC"
-            className="h-20 w-auto object-contain mb-4"
-          />
 
-          {/* Seletor de rodada */}
-          <div className="w-full max-w-xs mb-4">
-            <Select value={selectedRound} onValueChange={setSelectedRound}>
-              <SelectTrigger className="h-12 text-base bg-card/50 border-border/30">
-                <SelectValue placeholder="Selecione uma rodada" />
-              </SelectTrigger>
-              <SelectContent>
-                {rounds.map((round) => (
-                  <SelectItem key={round.id} value={round.id}>
-                    Rodada {round.round_number} - {formatDate(round.scheduled_date)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {/* Year Filter - Modern Tabs */}
+        <div className="flex justify-center mb-6">
+          <div className="inline-flex bg-muted/30 rounded-full p-1 gap-1">
+            {availableYears.map((year) => (
+              <button
+                key={year}
+                onClick={() => setSelectedYear(year)}
+                className={cn(
+                  "px-5 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                  selectedYear === year
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+              >
+                {year}
+              </button>
+            ))}
           </div>
-
-          {selectedRoundData && (
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-primary">
-                Rodada {selectedRoundData.round_number}
-              </h1>
-              <p className="text-muted-foreground">
-                {formatDate(selectedRoundData.scheduled_date)}
-              </p>
-            </div>
-          )}
         </div>
+
+        {/* Interactive Round Title with Popover */}
+        {selectedRoundData && (
+          <Popover open={roundPickerOpen} onOpenChange={setRoundPickerOpen}>
+            <PopoverTrigger asChild>
+              <button className="w-full flex flex-col items-center gap-1 mb-6 group cursor-pointer">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-primary group-hover:text-primary/80 transition-colors">
+                    Rodada {selectedRoundData.round_number}
+                  </h1>
+                  <ChevronDown className={cn(
+                    "h-5 w-5 text-primary transition-transform duration-200",
+                    roundPickerOpen && "rotate-180"
+                  )} />
+                </div>
+                <p className="text-sm text-muted-foreground group-hover:text-muted-foreground/80">
+                  {formatDate(selectedRoundData.scheduled_date)}
+                </p>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-2" align="center">
+              <div className="space-y-1 max-h-64 overflow-y-auto">
+                {filteredRounds.map((round) => (
+                  <button
+                    key={round.id}
+                    onClick={() => handleRoundSelect(round.id)}
+                    className={cn(
+                      "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors",
+                      selectedRound === round.id
+                        ? "bg-primary/10 text-primary"
+                        : "hover:bg-muted/50"
+                    )}
+                  >
+                    <span className="font-medium">Rodada {round.round_number}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(round.scheduled_date)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
 
         {loading ? (
           <div className="text-center py-12">
@@ -290,6 +360,7 @@ export default function ViewTeams() {
         ) : rounds.length === 0 ? (
           <Card className="bg-card/50 border-border/30">
             <CardContent className="py-12 text-center">
+              <Calendar className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
               <p className="text-muted-foreground">
                 Nenhuma rodada disponível
               </p>
@@ -305,33 +376,42 @@ export default function ViewTeams() {
           </Card>
         ) : (
           <div className="space-y-6">
-            {/* Navegação por cards de times */}
-            <div className="flex justify-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
-              {orderedTeamColors.map((color) => (
-                <button
-                  key={color}
-                  onClick={() => setSelectedTeam(color)}
-                  className={`
-                    flex-shrink-0 p-2 rounded-xl transition-all duration-200
-                    ${selectedTeam === color
-                      ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-105"
-                      : "opacity-60 hover:opacity-100"
-                    }
-                  `}
-                  style={{
-                    backgroundColor: selectedTeam === color ? "hsl(var(--card))" : "transparent"
-                  }}
-                >
-                  <img
-                    src={teamLogos[color]}
-                    alt={color}
-                    className="h-14 w-14 object-contain"
-                  />
-                </button>
-              ))}
+            {/* Team Logo Carousel - Fixed z-index */}
+            <div className="relative overflow-visible py-2">
+              <div className="flex justify-center gap-4">
+                {orderedTeamColors.map((color, index) => {
+                  const isSelected = selectedTeam === color;
+                  return (
+                    <button
+                      key={color}
+                      onClick={() => setSelectedTeam(color)}
+                      className={cn(
+                        "relative flex-shrink-0 p-2 rounded-xl transition-all duration-300 ease-out",
+                        isSelected
+                          ? "scale-110 z-20"
+                          : "scale-95 opacity-60 hover:opacity-100 hover:scale-100 z-10"
+                      )}
+                      style={{
+                        backgroundColor: isSelected ? "hsl(var(--card))" : "transparent",
+                        boxShadow: isSelected ? "0 8px 32px rgba(0,0,0,0.3)" : "none"
+                      }}
+                    >
+                      {/* Selection ring */}
+                      {isSelected && (
+                        <div className="absolute inset-0 rounded-xl ring-2 ring-primary ring-offset-2 ring-offset-background" />
+                      )}
+                      <img
+                        src={teamLogos[color]}
+                        alt={color}
+                        className="h-14 w-14 object-contain relative z-10"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Card do time selecionado */}
+            {/* Selected Team Card */}
             {selectedTeam && teamsByColor[selectedTeam] && (
               <TeamCardModern
                 teamColor={selectedTeam}
@@ -339,7 +419,7 @@ export default function ViewTeams() {
               />
             )}
 
-            {/* Botões de ação */}
+            {/* Action Buttons */}
             <div className="flex flex-col gap-3 pt-4">
               <Button
                 onClick={() => setShowShareView(!showShareView)}
@@ -383,7 +463,7 @@ export default function ViewTeams() {
               )}
             </div>
 
-            {/* View compartilhável (formato planilha) */}
+            {/* Shareable View */}
             {showShareView && selectedRoundData && (
               <div className="mt-6">
                 <p className="text-sm text-muted-foreground text-center mb-4">
@@ -401,7 +481,7 @@ export default function ViewTeams() {
               </div>
             )}
 
-            {/* Botão voltar */}
+            {/* Back Button */}
             <div className="pt-4">
               <Button
                 variant="ghost"

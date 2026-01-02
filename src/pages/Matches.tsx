@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
@@ -7,12 +7,10 @@ import { TeamLogo } from "@/components/match/TeamLogo";
 import { MatchEventsSummary } from "@/components/match/MatchEventsSummary";
 import { Card, CardContent } from "@/components/ui/card";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { formatMatchTimer, formatEventMinute, getMatchCurrentMinute } from "@/lib/matchTimer";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { toast } from "sonner";
-import { Calendar, ChevronDown } from "lucide-react";
 
 interface Match {
   id: string;
@@ -51,7 +49,6 @@ export default function Matches() {
   const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [, setTick] = useState(0); // For timer updates
-  const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
 
   const { isRefreshing, pullDistance } = usePullToRefresh({
     onRefresh: async () => {
@@ -147,43 +144,6 @@ export default function Matches() {
   // Filter only visible rounds (not "a_iniciar")
   const visibleRounds = rounds.filter((r) => r.status !== "a_iniciar");
 
-  // Extract available years from rounds
-  const availableYears = useMemo(() => {
-    const years = new Set<string>();
-    visibleRounds.forEach((r) => {
-      if (r.scheduled_date) {
-        const year = new Date(r.scheduled_date + "T00:00:00").getFullYear().toString();
-        years.add(year);
-      }
-    });
-    return Array.from(years).sort((a, b) => parseInt(b) - parseInt(a));
-  }, [visibleRounds]);
-
-  // Set default season to current year or most recent
-  useEffect(() => {
-    if (!selectedSeason && availableYears.length > 0) {
-      const currentYear = new Date().getFullYear().toString();
-      setSelectedSeason(availableYears.includes(currentYear) ? currentYear : availableYears[0]);
-    }
-  }, [availableYears, selectedSeason]);
-
-  // Filter rounds by selected season
-  const filteredRounds = useMemo(() => {
-    if (!selectedSeason) return visibleRounds;
-    return visibleRounds.filter((r) => {
-      const year = new Date(r.scheduled_date + "T00:00:00").getFullYear().toString();
-      return year === selectedSeason;
-    });
-  }, [visibleRounds, selectedSeason]);
-
-  // Reset current round index when season changes
-  useEffect(() => {
-    if (filteredRounds.length > 0) {
-      const actualIndex = rounds.findIndex((r) => r.id === filteredRounds[0].id);
-      if (actualIndex >= 0) setCurrentRoundIndex(actualIndex);
-    }
-  }, [selectedSeason]);
-
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString + "T00:00:00");
@@ -238,53 +198,33 @@ export default function Matches() {
       <Header />
 
       <main className="container mx-auto px-4 py-6 max-w-6xl">
-        {/* Season Filter - Centered */}
-        {availableYears.length > 1 && (
-          <div className="flex justify-center mb-4">
-            <Select
-              value={selectedSeason || undefined}
-              onValueChange={(value) => setSelectedSeason(value)}
-            >
-              <SelectTrigger className="w-auto gap-2 bg-muted/30 border-border/50">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <SelectValue placeholder="Temporada" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableYears.map((year) => (
-                  <SelectItem key={year} value={year}>
-                    Temporada {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        {/* Title */}
+        <h1 className="text-2xl sm:text-3xl font-bold text-primary mb-6">Rodadas</h1>
 
-        {/* Round Selector - Centered Modern Dropdown */}
-        <div className="flex justify-center mb-6">
-          <Select
-            value={currentRound?.id || undefined}
-            onValueChange={(value) => {
-              const actualIndex = rounds.findIndex((r) => r.id === value);
-              if (actualIndex >= 0) setCurrentRoundIndex(actualIndex);
-            }}
-          >
-            <SelectTrigger className="w-auto min-w-[200px] gap-2 bg-primary/10 border-primary/30 hover:bg-primary/20 transition-colors">
-              <SelectValue>
-                <span className="font-semibold text-primary">
-                  {currentRound ? `Rodada ${currentRound.round_number} - ${formatDate(currentRound.scheduled_date)}` : 'Selecione'}
-                </span>
-              </SelectValue>
-              <ChevronDown className="h-4 w-4 text-primary" />
-            </SelectTrigger>
-            <SelectContent className="max-h-[300px]">
-              {filteredRounds.map((round) => (
-                <SelectItem key={round.id} value={round.id}>
-                  Rodada {round.round_number} - {formatDate(round.scheduled_date)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Round Navigation */}
+        <div className="mb-6 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-3 min-w-max pb-2">
+            {visibleRounds.map((round) => {
+              const actualIndex = rounds.findIndex((r) => r.id === round.id);
+              const isActive = currentRoundIndex === actualIndex;
+
+              return (
+                <button
+                  key={round.id}
+                  onClick={() => setCurrentRoundIndex(actualIndex)}
+                  className={cn(
+                    "flex flex-col items-center justify-center px-4 py-3 rounded-lg min-w-[80px] transition-all",
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-lg"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  <span className="text-xl font-bold">{round.round_number}</span>
+                  <span className="text-xs mt-1">{formatDate(round.scheduled_date)}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Match List */}

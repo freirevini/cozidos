@@ -121,8 +121,10 @@ export default function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-border bg-black/95 backdrop-blur supports-[backdrop-filter]:bg-black/80">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
-          {/* Spacer (logo removed) */}
-          <div className="w-8 lg:hidden" />
+          {/* Logo */}
+          <Link to="/" className="flex items-center">
+            <img src={logo} alt="Cozidos FC" className="h-12 w-auto object-contain" />
+          </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center justify-center flex-1">
