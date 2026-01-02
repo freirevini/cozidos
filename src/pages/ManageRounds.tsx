@@ -591,7 +591,7 @@ export default function ManageRounds() {
             rounds={allRounds}
             selectedRoundId={roundId}
             onSelectRound={(newRoundId) => {
-              navigate(`/admin/rounds?round=${newRoundId}`);
+              navigate(`/admin/round/manage?round=${newRoundId}`);
             }}
           />
         )}
