@@ -107,8 +107,9 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
     try {
       setLoading(true);
 
-      const currentYear = new Date().getFullYear();
-      const isHybridEligible = !year || year === currentYear;
+      // IMPORTANT FIX: Only use hybrid (player_rankings) when NO year filter is selected
+      // When a specific year is selected, ALWAYS calculate from player_round_stats
+      const isHybridEligible = year === null && month === null;
 
       // --- 1. Fetch Base Matrix (Player Rankings) ---
       let baseStats: ProfileStats | null = null;
@@ -271,26 +272,24 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
 
       } else {
         // STANDARD LOGIC (From Matches only)
-        // Used for Month filters or Past Years (where we assume no current ranking snapshot)
+        // Used for any year/month filter - calculate from player_round_stats
 
         aggregated = filteredRoundStats.reduce((acc: ProfileStats, rs: any) => ({
-          presencas: acc.presencas + ((rs.presence_points || 0) > 0 ? 1 : 0),
-          gols: acc.gols + (rs.goals || 0), // Include goals from player_round_stats (historical)
-          assistencias: acc.assistencias + (rs.assists || 0), // Include assists from player_round_stats (historical)
+          presencas: acc.presencas + 1, // Each round in player_round_stats = 1 presence
+          gols: acc.gols + (rs.goals || 0),
+          assistencias: acc.assistencias + (rs.assists || 0),
           vitorias: acc.vitorias + (rs.victories || 0),
           empates: acc.empates + (rs.draws || 0),
           derrotas: acc.derrotas + (rs.defeats || 0),
           cartoes_amarelos: acc.cartoes_amarelos + (rs.yellow_cards || 0),
           cartoes_azuis: acc.cartoes_azuis + (rs.blue_cards || 0),
-          punicoes: acc.punicoes, // Will update from punishments query
+          punicoes: acc.punicoes + (rs.punishments || 0),
           pontos_totais: acc.pontos_totais + (rs.total_points || 0),
           partidas: acc.partidas + (rs.victories || 0) + (rs.draws || 0) + (rs.defeats || 0),
         }), { ...emptyStats });
 
-        // Add goals/assists from separate tables (real matches)
-        aggregated.gols += filteredGoals.length;
-        aggregated.assistencias += filteredAssists.length;
-        aggregated.punicoes = filteredPunishments.reduce((sum, p) => sum + Math.abs(p.points || 0), 0);
+        // NOTE: Goals/assists already come from player_round_stats (populated by recalc_round_aggregates)
+        // Do NOT add filteredGoals.length again - that would cause double counting
       }
 
       setStats(aggregated);
@@ -305,9 +304,9 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
         round_id: rs.round?.id || rs.round_id,
         round_number: rs.round?.round_number || 0,
         round_date: rs.round?.scheduled_date || null,
-        presencas: (rs.presence_points || 0) > 0 ? 1 : 0,
-        gols: rs.goals || 0, // Use goals from player_round_stats (historical)
-        assistencias: rs.assists || 0, // Use assists from player_round_stats (historical)
+        presencas: 1, // Each entry = 1 presence
+        gols: rs.goals || 0,
+        assistencias: rs.assists || 0,
         vitorias: rs.victories || 0,
         empates: rs.draws || 0,
         derrotas: rs.defeats || 0,
@@ -318,17 +317,7 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
         partidas: (rs.victories || 0) + (rs.draws || 0) + (rs.defeats || 0),
       })).sort((a, b) => a.round_number - b.round_number);
 
-      // Map goals/assists to rounds
-      for (const goal of filteredGoals) {
-        const roundDate = goal.match?.round?.scheduled_date;
-        const roundStat = roundStatsArray.find(rs => rs.round_date === roundDate);
-        if (roundStat) roundStat.gols += 1;
-      }
-      for (const assist of filteredAssists) {
-        const roundDate = assist.goal?.match?.round?.scheduled_date;
-        const roundStat = roundStatsArray.find(rs => rs.round_date === roundDate);
-        if (roundStat) roundStat.assistencias += 1;
-      }
+      // NOTE: Goals/assists already in player_round_stats, no need to add again from goals/assists tables
 
       setRoundStats(roundStatsArray);
 
