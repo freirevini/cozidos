@@ -304,11 +304,8 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
         const elapsedSeconds = Math.floor((now - startTime) / 1000);
         const totalPausedSeconds = match.match_timer_total_paused_seconds || 0;
         const effectiveSeconds = elapsedSeconds - totalPausedSeconds;
-        const calculatedMinute = Math.ceil(effectiveSeconds / 60);
-
-        if (calculatedMinute >= 1) {
-          currentMinute = calculatedMinute;
-        }
+        const calculatedMinute = Math.max(1, Math.floor(effectiveSeconds / 60));
+        currentMinute = calculatedMinute;
       }
 
       const { data: result, error: rpcError } = await supabase.rpc('record_goal_with_assist', {
@@ -398,11 +395,8 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
         const elapsedSeconds = Math.floor((now - startTime) / 1000);
         const totalPausedSeconds = match.match_timer_total_paused_seconds || 0;
         const effectiveSeconds = elapsedSeconds - totalPausedSeconds;
-        const calculatedMinute = Math.ceil(effectiveSeconds / 60);
-
-        if (calculatedMinute >= 1) {
-          currentMinute = calculatedMinute;
-        }
+        const calculatedMinute = Math.max(1, Math.floor(effectiveSeconds / 60));
+        currentMinute = calculatedMinute;
       }
 
       const { error } = await supabase.from("cards").insert([{

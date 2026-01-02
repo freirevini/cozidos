@@ -500,7 +500,7 @@ export default function ManageMatch() {
       return;
     }
 
-    const currentMin = Math.ceil((720 - timer) / 60);
+    const currentMin = Math.max(1, Math.floor((720 - timer) / 60));
 
     setLoading(true);
     try {
@@ -614,7 +614,7 @@ export default function ManageMatch() {
       return;
     }
 
-    const currentMin = Math.ceil((720 - timer) / 60);
+    const currentMin = Math.max(1, Math.floor((720 - timer) / 60));
 
     setLoading(true);
     try {
@@ -690,7 +690,7 @@ export default function ManageMatch() {
       return;
     }
 
-    const currentMin = Math.ceil((720 - timer) / 60);
+    const currentMin = Math.max(1, Math.floor((720 - timer) / 60));
 
     setLoading(true);
     try {
@@ -826,7 +826,7 @@ export default function ManageMatch() {
   const isMatchActive = match.status === 'in_progress';
   const isMatchFinished = match.status === 'finished';
   const maxMinute = currentMinute || 12;
-  const displayMinute = Math.ceil((720 - timer) / 60);
+  const displayMinute = Math.max(1, Math.floor((720 - timer) / 60));
 
   // Status badge styling
   const getStatusStyle = () => {
