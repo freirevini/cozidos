@@ -2,21 +2,51 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { RefreshCw } from "lucide-react";
+import {
+  PlayCircle,
+  Edit3,
+  Trash2,
+  CheckCircle,
+  Clock,
+  Calendar,
+  ChevronRight,
+  Plus,
+  Settings2
+} from "lucide-react";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
+
+interface Round {
+  id: string;
+  round_number: number;
+  scheduled_date: string;
+  status: string;
+}
 
 export default function StartRound() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [rounds, setRounds] = useState<any[]>([]);
+  const [rounds, setRounds] = useState<Round[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; number: number } | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -56,6 +86,7 @@ export default function StartRound() {
   });
 
   const startRound = async (roundId: string) => {
+    setActionLoading(roundId);
     try {
       const { error } = await supabase
         .from("rounds")
@@ -65,10 +96,12 @@ export default function StartRound() {
       if (error) throw error;
 
       toast.success("Rodada iniciada com sucesso!");
-      loadAvailableRounds();
+      navigate(`/admin/round/manage?round=${roundId}`);
     } catch (error: any) {
       console.error("Erro ao iniciar rodada:", error);
       toast.error("Erro ao iniciar rodada: " + error.message);
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -76,300 +109,379 @@ export default function StartRound() {
     navigate(`/admin/round/manage?round=${roundId}`);
   };
 
-  const editRound = (roundId: string) => {
-    navigate(`/admin/round/manage?round=${roundId}`);
-  };
-
   const formatDate = (date: string) => {
-    return new Date(date + "T00:00:00").toLocaleDateString('pt-BR');
+    const d = new Date(date + "T00:00:00");
+    return {
+      day: d.getDate(),
+      month: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''),
+      full: d.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })
+    };
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'a_iniciar': return 'A Iniciar';
-      case 'em_andamento': return 'Em Andamento';
-      case 'finalizada': return 'Finalizada';
-      default: return status;
-    }
-  };
+  const deleteRound = async () => {
+    if (!deleteConfirm) return;
 
-  const deleteRound = async (roundId: string, roundNumber: number) => {
-    if (!confirm(`Tem certeza que deseja excluir a Rodada ${roundNumber}?
-
-Esta ação irá:
-• Excluir todas as partidas desta rodada
-• Remover gols, assistências e cartões registrados
-• Recalcular automaticamente a classificação geral
-
-Esta ação não pode ser desfeita.`)) {
-      return;
-    }
-
+    setActionLoading(deleteConfirm.id);
     try {
       const { error } = await supabase
         .from("rounds")
         .delete()
-        .eq("id", roundId);
+        .eq("id", deleteConfirm.id);
 
       if (error) throw error;
 
-      toast.success("Rodada excluída e classificação recalculada com sucesso!");
+      toast.success("Rodada excluída com sucesso!");
       loadAvailableRounds();
     } catch (error: any) {
       console.error("Erro ao excluir rodada:", error);
       toast.error("Erro ao excluir rodada: " + error.message);
+    } finally {
+      setActionLoading(null);
+      setDeleteConfirm(null);
     }
   };
 
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'a_iniciar':
+        return {
+          label: 'A Iniciar',
+          icon: Clock,
+          bgClass: 'bg-slate-600/80',
+          textClass: 'text-slate-200',
+          borderClass: 'border-slate-500/50',
+          glowClass: ''
+        };
+      case 'em_andamento':
+        return {
+          label: 'Em Andamento',
+          icon: PlayCircle,
+          bgClass: 'bg-amber-500/20',
+          textClass: 'text-amber-400',
+          borderClass: 'border-amber-500/50',
+          glowClass: 'shadow-[0_0_20px_rgba(245,158,11,0.3)]'
+        };
+      case 'finalizada':
+        return {
+          label: 'Finalizada',
+          icon: CheckCircle,
+          bgClass: 'bg-emerald-500/20',
+          textClass: 'text-emerald-400',
+          borderClass: 'border-emerald-500/50',
+          glowClass: ''
+        };
+      default:
+        return {
+          label: status,
+          icon: Clock,
+          bgClass: 'bg-gray-500/20',
+          textClass: 'text-gray-400',
+          borderClass: 'border-gray-500/50',
+          glowClass: ''
+        };
+    }
+  };
+
+  // Separate rounds by status
+  const inProgressRounds = rounds.filter(r => r.status === 'em_andamento');
+  const toStartRounds = rounds.filter(r => r.status === 'a_iniciar');
+  const finishedRounds = rounds.filter(r => r.status === 'finalizada');
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Pull to Refresh Indicator */}
-      {(pullDistance > 0 || isRefreshing) && (
-        <div
-          className="fixed top-0 left-0 right-0 flex justify-center items-center z-50 transition-all"
-          style={{
-            transform: `translateY(${Math.min(pullDistance, 60)}px)`,
-            opacity: Math.min(pullDistance / 60, 1)
-          }}
-        >
-          <div className="bg-primary/90 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="text-sm font-medium">
-              {isRefreshing ? 'Atualizando...' : 'Solte para atualizar'}
-            </span>
-          </div>
-        </div>
-      )}
+    <div className="min-h-screen bg-background flex flex-col">
+      <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
 
       <Header />
-      <main className="container mx-auto px-4 py-8">
-        <Card className="card-glow bg-card border-border max-w-4xl mx-auto">
-          <CardHeader>
-            <CardTitle className="text-3xl font-bold text-primary glow-text text-center">
-              GERENCIAR RODADAS
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="text-center py-8">Carregando...</div>
-            ) : rounds.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">
-                  Nenhuma rodada disponível
-                </p>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Defina os times primeiro em "Times &gt; Definir Times"
-                </p>
-              </div>
-            ) : (
-              <>
-                {/* Desktop: Tabela */}
-                <div className="hidden md:block overflow-x-auto scroll-smooth">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Data</TableHead>
-                        <TableHead>Rodada</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-center">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {rounds.map((round) => (
-                        <TableRow key={round.id}>
-                          <TableCell>{formatDate(round.scheduled_date)}</TableCell>
-                          <TableCell>{round.round_number}</TableCell>
-                          <TableCell>
-                            <Badge
-                              className={`${round.status === 'a_iniciar' ? 'bg-gray-600 hover:bg-gray-600' :
-                                round.status === 'em_andamento' ? 'bg-yellow-600 hover:bg-yellow-600' :
-                                  'bg-green-600 hover:bg-green-600'
-                                } text-white`}
-                            >
-                              {getStatusLabel(round.status)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2 justify-center">
-                              {round.status === 'a_iniciar' && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => startRound(round.id)}
-                                    variant="default"
-                                    className="min-w-[80px]"
-                                  >
-                                    Iniciar
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => deleteRound(round.id, round.round_number)}
-                                    variant="destructive"
-                                    className="min-w-[80px]"
-                                  >
-                                    Excluir
-                                  </Button>
-                                </>
-                              )}
-                              {round.status === 'em_andamento' && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => manageRound(round.id)}
-                                    variant="default"
-                                    className="min-w-[80px]"
-                                  >
-                                    Gerenciar
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => deleteRound(round.id, round.round_number)}
-                                    variant="destructive"
-                                    className="min-w-[80px]"
-                                  >
-                                    Excluir
-                                  </Button>
-                                </>
-                              )}
-                              {round.status === 'finalizada' && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => editRound(round.id)}
-                                    variant="default"
-                                    className="min-w-[80px]"
-                                  >
-                                    Editar
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => deleteRound(round.id, round.round_number)}
-                                    variant="destructive"
-                                    className="min-w-[80px]"
-                                  >
-                                    Excluir
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
 
-                {/* Mobile: Cards */}
-                <div className="md:hidden space-y-3">
-                  {loading ? (
-                    // Skeleton Loading
-                    Array.from({ length: 3 }).map((_, i) => (
-                      <Card key={i} className="border-border">
-                        <CardContent className="p-4">
-                          <div className="flex justify-between items-center mb-2">
-                            <div className="space-y-2">
-                              <Skeleton className="h-4 w-24" />
-                              <Skeleton className="h-5 w-32" />
-                            </div>
-                            <Skeleton className="h-6 w-24" />
-                          </div>
-                          <div className="flex gap-2 mt-3">
-                            <Skeleton className="h-11 flex-1" />
-                            <Skeleton className="h-11 flex-1" />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  ) : (
-                    rounds.map((round) => (
-                      <Card key={round.id} className="border-border">
-                        <CardContent className="p-4">
-                          <div className="flex justify-between items-center mb-2">
-                            <div>
-                              <p className="text-sm text-muted-foreground">Rodada {round.round_number}</p>
-                              <p className="font-medium">{formatDate(round.scheduled_date)}</p>
-                            </div>
-                            <Badge
-                              className={`${round.status === 'a_iniciar' ? 'bg-gray-600 hover:bg-gray-600' :
-                                round.status === 'em_andamento' ? 'bg-yellow-600 hover:bg-yellow-600' :
-                                  'bg-green-600 hover:bg-green-600'
-                                } text-white`}
-                            >
-                              {getStatusLabel(round.status)}
-                            </Badge>
-                          </div>
-                          <div className="flex gap-2 mt-3">
-                            {round.status === 'a_iniciar' && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  onClick={() => startRound(round.id)}
-                                  variant="default"
-                                  className="flex-1 min-h-[44px]"
-                                >
-                                  Iniciar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => deleteRound(round.id, round.round_number)}
-                                  variant="destructive"
-                                  className="flex-1 min-h-[44px]"
-                                >
-                                  Excluir
-                                </Button>
-                              </>
-                            )}
-                            {round.status === 'em_andamento' && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  onClick={() => manageRound(round.id)}
-                                  variant="default"
-                                  className="flex-1 min-h-[44px]"
-                                >
-                                  Gerenciar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => deleteRound(round.id, round.round_number)}
-                                  variant="destructive"
-                                  className="flex-1 min-h-[44px]"
-                                >
-                                  Excluir
-                                </Button>
-                              </>
-                            )}
-                            {round.status === 'finalizada' && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  onClick={() => editRound(round.id)}
-                                  variant="default"
-                                  className="flex-1 min-h-[44px]"
-                                >
-                                  Editar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => deleteRound(round.id, round.round_number)}
-                                  variant="destructive"
-                                  className="flex-1 min-h-[44px]"
-                                >
-                                  Excluir
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
+      <main className="flex-1 container mx-auto px-4 py-6 pb-24">
+        {/* Page Title */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-primary">Gerenciar Rodadas</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {rounds.length} rodada{rounds.length !== 1 ? 's' : ''} disponíve{rounds.length !== 1 ? 'is' : 'l'}
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-24 w-full rounded-xl" />
+            ))}
+          </div>
+        ) : rounds.length === 0 ? (
+          <div className="text-center py-16">
+            <Calendar className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+            <p className="text-lg font-medium text-muted-foreground mb-2">
+              Nenhuma rodada disponível
+            </p>
+            <p className="text-sm text-muted-foreground mb-6">
+              Defina os times primeiro em "Times → Definir Times"
+            </p>
+            <Button
+              onClick={() => navigate('/admin/teams/define')}
+              variant="outline"
+            >
+              Definir Times
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Em Andamento - Highlight */}
+            {inProgressRounds.length > 0 && (
+              <section>
+                <h2 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <PlayCircle className="h-4 w-4" />
+                  Em Andamento
+                </h2>
+                <div className="space-y-3">
+                  <AnimatePresence>
+                    {inProgressRounds.map((round) => (
+                      <RoundCard
+                        key={round.id}
+                        round={round}
+                        onManage={manageRound}
+                        onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
+                        onStart={startRound}
+                        actionLoading={actionLoading}
+                        highlight
+                      />
+                    ))}
+                  </AnimatePresence>
                 </div>
-              </>
+              </section>
             )}
-          </CardContent>
-        </Card>
+
+            {/* A Iniciar */}
+            {toStartRounds.length > 0 && (
+              <section>
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  A Iniciar
+                </h2>
+                <div className="space-y-3">
+                  <AnimatePresence>
+                    {toStartRounds.map((round) => (
+                      <RoundCard
+                        key={round.id}
+                        round={round}
+                        onManage={manageRound}
+                        onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
+                        onStart={startRound}
+                        actionLoading={actionLoading}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </section>
+            )}
+
+            {/* Finalizadas */}
+            {finishedRounds.length > 0 && (
+              <section>
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Finalizadas
+                </h2>
+                <div className="space-y-3">
+                  <AnimatePresence>
+                    {finishedRounds.map((round) => (
+                      <RoundCard
+                        key={round.id}
+                        round={round}
+                        onManage={manageRound}
+                        onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
+                        onStart={startRound}
+                        actionLoading={actionLoading}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </section>
+            )}
+          </div>
+        )}
       </main>
+
+      {/* Floating Action Button */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <Button
+          onClick={() => navigate('/admin/teams/define')}
+          size="lg"
+          className="h-14 w-14 rounded-full shadow-lg shadow-primary/30 hover:shadow-primary/50 transition-all"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Rodada {deleteConfirm?.number}?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>Esta ação irá:</p>
+              <ul className="list-disc list-inside text-sm space-y-1">
+                <li>Excluir todas as partidas desta rodada</li>
+                <li>Remover gols, assistências e cartões</li>
+                <li>Recalcular a classificação geral</li>
+              </ul>
+              <p className="font-medium text-destructive mt-2">Esta ação não pode ser desfeita.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteRound}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+  );
+}
+
+// Round Card Component
+function RoundCard({
+  round,
+  onManage,
+  onDelete,
+  onStart,
+  actionLoading,
+  highlight = false
+}: {
+  round: Round;
+  onManage: (id: string) => void;
+  onDelete: (id: string, num: number) => void;
+  onStart: (id: string) => void;
+  actionLoading: string | null;
+  highlight?: boolean;
+}) {
+  const formatDate = (date: string) => {
+    const d = new Date(date + "T00:00:00");
+    return {
+      day: d.getDate(),
+      month: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''),
+      weekday: d.toLocaleDateString('pt-BR', { weekday: 'short' })
+    };
+  };
+
+  const dateInfo = formatDate(round.scheduled_date);
+  const isLoading = actionLoading === round.id;
+
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'a_iniciar':
+        return { label: 'A Iniciar', color: 'bg-slate-500', icon: Clock };
+      case 'em_andamento':
+        return { label: 'Em Andamento', color: 'bg-amber-500', icon: PlayCircle };
+      case 'finalizada':
+        return { label: 'Finalizada', color: 'bg-emerald-500', icon: CheckCircle };
+      default:
+        return { label: status, color: 'bg-gray-500', icon: Clock };
+    }
+  };
+
+  const status = getStatusConfig(round.status);
+  const StatusIcon = status.icon;
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className={cn(
+        "relative overflow-hidden rounded-xl border transition-all duration-200",
+        "bg-card/80 backdrop-blur-sm",
+        highlight
+          ? "border-amber-500/50 shadow-lg shadow-amber-500/10"
+          : "border-border/50 hover:border-primary/30",
+        isLoading && "opacity-60 pointer-events-none"
+      )}
+    >
+      <div className="flex items-stretch">
+        {/* Date Column */}
+        <div className={cn(
+          "flex flex-col items-center justify-center px-4 py-4 min-w-[70px]",
+          highlight ? "bg-amber-500/10" : "bg-muted/30"
+        )}>
+          <span className="text-2xl font-bold text-foreground">{dateInfo.day}</span>
+          <span className="text-xs font-medium text-muted-foreground uppercase">{dateInfo.month}</span>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 p-4 flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-bold text-lg">Rodada {round.round_number}</h3>
+              <Badge
+                variant="secondary"
+                className={cn(
+                  "text-[10px] px-2 py-0.5 font-medium",
+                  status.color, "text-white"
+                )}
+              >
+                <StatusIcon className="h-3 w-3 mr-1" />
+                {status.label}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground capitalize">{dateInfo.weekday}</p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            {round.status === 'a_iniciar' && (
+              <Button
+                size="sm"
+                onClick={() => onStart(round.id)}
+                className="h-10 px-4 bg-primary hover:bg-primary/90"
+                disabled={isLoading}
+              >
+                <PlayCircle className="h-4 w-4 mr-1.5" />
+                Iniciar
+              </Button>
+            )}
+
+            {round.status === 'em_andamento' && (
+              <Button
+                size="sm"
+                onClick={() => onManage(round.id)}
+                className="h-10 px-4"
+                disabled={isLoading}
+              >
+                <Settings2 className="h-4 w-4 mr-1.5" />
+                Gerenciar
+              </Button>
+            )}
+
+            {round.status === 'finalizada' && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onManage(round.id)}
+                className="h-10 px-4"
+                disabled={isLoading}
+              >
+                <Edit3 className="h-4 w-4 mr-1.5" />
+                Ver
+              </Button>
+            )}
+
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => onDelete(round.id, round.round_number)}
+              className="h-10 w-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              disabled={isLoading}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 }
