@@ -51,7 +51,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 // ApprovedOnlyRoute: Blocks access to profile pages for pending users
 function ApprovedOnlyRoute({ children }: { children: React.ReactNode }) {
-  const { user, profileData, loading } = useAuth();
+  const { user, isApproved, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -67,7 +67,7 @@ function ApprovedOnlyRoute({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   // Block pending users from accessing profile
-  if (profileData?.status !== 'aprovado') {
+  if (!isApproved) {
     return <Navigate to="/" replace />;
   }
 

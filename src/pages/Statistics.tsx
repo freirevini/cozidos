@@ -162,6 +162,7 @@ export default function Statistics() {
           .from("player_round_stats")
           .select(`
             player_id,
+            round_id,
             goals,
             assists,
             victories,

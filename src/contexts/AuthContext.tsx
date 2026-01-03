@@ -15,6 +15,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isPlayer: boolean;
   isPending: boolean;
+  isApproved: boolean;
   profileData: ProfileData | null;
   loading: boolean;
   refreshAuth: () => Promise<void>;
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   isPlayer: false,
   isPending: false,
+  isApproved: false,
   profileData: null,
   loading: true,
   refreshAuth: async () => { },
@@ -47,6 +49,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isPlayer, setIsPlayer] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  const [isApproved, setIsApproved] = useState(false);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -82,6 +85,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setProfileData(profile);
         setIsPlayer(profile?.is_player || false);
 
+        // Jogador aprovado: status='aprovado'
+        setIsApproved(profile?.status === 'aprovado');
+
         // Jogador pendente: is_player=true E status='pendente'
         setIsPending(
           profile?.is_player === true &&
@@ -104,6 +110,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setIsAdmin(false);
       setIsPlayer(false);
       setIsPending(false);
+      setIsApproved(false);
       setProfileData(null);
     } finally {
       if (forceLoading) setLoading(false);
@@ -127,6 +134,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setIsAdmin(false);
         setIsPlayer(false);
         setIsPending(false);
+        setIsApproved(false);
         setProfileData(null);
         setLoading(false);
       }
@@ -143,6 +151,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       isAdmin,
       isPlayer,
       isPending,
+      isApproved,
       profileData,
       loading,
       refreshAuth: async () => loadUserData(true)

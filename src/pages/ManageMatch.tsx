@@ -10,6 +10,17 @@ import { ArrowLeft, Play, Pause, Goal, Square, Undo2, Flag, ArrowLeftRight, X, C
 import { MatchTimeline, TimelineEvent } from "@/components/match/MatchTimeline";
 import { TeamLogo } from "@/components/match/TeamLogo";
 import { formatMatchTimer, formatEventMinute, getMatchCurrentMinute, getMatchElapsedSeconds } from "@/lib/matchTimer";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
 
@@ -362,12 +373,26 @@ export default function ManageMatch() {
 
       const cardsWithTeam: CardEvent[] = [];
       for (const card of cardsData || []) {
-        const { data: teamData } = await supabase
-          .from("round_team_players")
+        // First check if this player entered via substitution (use sub team_color)
+        const { data: subData } = await supabase
+          .from("substitutions")
           .select("team_color")
-          .eq("player_id", card.player_id)
-          .eq("round_id", matchData.round_id)
+          .eq("player_in_id", card.player_id)
+          .eq("match_id", matchId)
           .maybeSingle();
+
+        let teamColor = subData?.team_color;
+
+        // If not a substitute, get from original roster
+        if (!teamColor) {
+          const { data: teamData } = await supabase
+            .from("round_team_players")
+            .select("team_color")
+            .eq("player_id", card.player_id)
+            .eq("round_id", matchData.round_id)
+            .maybeSingle();
+          teamColor = teamData?.team_color;
+        }
 
         cardsWithTeam.push({
           id: card.id,
@@ -375,7 +400,7 @@ export default function ManageMatch() {
           card_type: card.card_type,
           minute: card.minute,
           player: card.player,
-          team_color: teamData?.team_color,
+          team_color: teamColor,
         });
       }
 
@@ -816,9 +841,8 @@ export default function ManageMatch() {
   const finishMatch = async () => {
     if (!match) return;
 
-    if (!confirm("Tem certeza que deseja encerrar esta partida?")) {
-      return;
-    }
+    // Confirmation moved to AlertDialog UI
+
 
     setLoading(true);
     try {
@@ -1309,15 +1333,32 @@ export default function ManageMatch() {
 
         {/* Finish Match Button */}
         {isMatchActive && !activeForm && (
-          <Button
-            onClick={finishMatch}
-            variant="outline"
-            className="w-full h-12 rounded-xl border-destructive/50 text-destructive hover:bg-destructive/10 mt-2"
-            disabled={loading}
-          >
-            <Flag size={16} className="mr-2" />
-            Encerrar Partida
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full h-12 rounded-xl border-destructive/50 text-destructive hover:bg-destructive/10 mt-2"
+                disabled={loading}
+              >
+                <Flag size={16} className="mr-2" />
+                Encerrar Partida
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Tem certeza que deseja encerrar?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta ação finalizará a partida e contabilizará os pontos. Esta ação não pode ser desfeita.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={finishMatch} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Encerrar Partida
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
 
         {/* Finished State */}

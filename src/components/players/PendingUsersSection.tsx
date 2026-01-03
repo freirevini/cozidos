@@ -21,7 +21,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { UserPlus, Link2, X, Loader2, Clock, RefreshCw } from "lucide-react";
+import { UserPlus, Link2, X, Loader2, Clock, RefreshCw, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { getUserFriendlyError } from "@/lib/errorHandler";
 
@@ -101,6 +101,28 @@ export function PendingUsersSection({ onUserProcessed }: { onUserProcessed?: () 
             if (error) throw error;
 
             toast.success(`${user.nickname || user.name || "Usuário"} aprovado como novo jogador!`);
+            await loadData();
+            onUserProcessed?.();
+        } catch (error: any) {
+            toast.error(getUserFriendlyError(error));
+        } finally {
+            setProcessingId(null);
+        }
+    };
+
+    const handleApproveObserver = async (user: PendingUser) => {
+        setProcessingId(user.id);
+        try {
+            const { data, error } = await supabase.rpc("admin_approve_observer", {
+                p_profile_id: user.id,
+            });
+
+            if (error) throw error;
+
+            const result = data as { success: boolean; message?: string; error?: string };
+            if (!result.success) throw new Error(result.error || "Erro ao aprovar");
+
+            toast.success(`${user.nickname || user.name || "Usuário"} aprovado como observador!`);
             await loadData();
             onUserProcessed?.();
         } catch (error: any) {
@@ -246,6 +268,23 @@ export function PendingUsersSection({ onUserProcessed }: { onUserProcessed?: () 
                                         <>
                                             <UserPlus className="h-4 w-4 mr-1" />
                                             Novo
+                                        </>
+                                    )}
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleApproveObserver(user)}
+                                    disabled={processingId === user.id}
+                                    className="h-8"
+                                    title="Aprovar como observador (não-jogador)"
+                                >
+                                    {processingId === user.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <>
+                                            <Eye className="h-4 w-4 mr-1" />
+                                            Obs
                                         </>
                                     )}
                                 </Button>

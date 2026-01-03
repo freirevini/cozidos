@@ -97,61 +97,13 @@ Deno.serve(async (req) => {
       console.log('[link-player] player_id gerado:', player_id)
     }
 
-    // 3. Analisar resultados do matching
-    const bestMatch = matchingProfiles && matchingProfiles.length > 0 ? matchingProfiles[0] : null
 
-    if (bestMatch && bestMatch.match_score >= 90) {
-      // AUTO-LINK: Match >= 90% (player_id exato ou email exato)
-      console.log('[link-player] ✅ MATCH ENCONTRADO! Score:', bestMatch.match_score, 'Razão:', bestMatch.match_reason)
+    // 3. Sem token válido = verificar se há match parcial para informar admin
+    // REMOVIDO: Auto-link por email/player_id (score >= 90)
+    // Agora APENAS token permite auto-aprovação
+    const bestMatch = matchingProfiles && matchingProfiles.length > 0 ? matchingProfiles[0] : null;
 
-      // Vincular usando RPC link_player_to_user
-      const { data: linkResult, error: linkError } = await supabaseAdmin
-        .rpc('link_player_to_user', {
-          p_profile_id: bestMatch.profile_id,
-          p_user_id: auth_user_id,
-          p_actor_id: auth_user_id
-        })
-
-      if (linkError) {
-        console.error('[link-player] Erro ao vincular via RPC:', linkError)
-        throw linkError
-      }
-
-      console.log('[link-player] Resultado do link:', linkResult)
-
-      // Registrar no audit_log
-      await supabaseAdmin.from('audit_log').insert({
-        action: 'player_self_linked',
-        actor_id: auth_user_id,
-        target_profile_id: bestMatch.profile_id,
-        metadata: {
-          match_score: bestMatch.match_score,
-          match_reason: bestMatch.match_reason,
-          email: normalizedEmail,
-          birth_date,
-          player_id
-        }
-      })
-
-      // CLEANUP: Deletar perfil temporário se diferente do vinculado
-      if (tempProfile && tempProfile.id !== bestMatch.profile_id) {
-        console.log('[link-player] 🗑️ Deletando perfil temporário:', tempProfile.id)
-        await supabaseAdmin.from('profiles').delete().eq('id', tempProfile.id)
-      }
-
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          player_id: bestMatch.player_id || player_id,
-          linked: true,
-          created: false,
-          match_score: bestMatch.match_score,
-          message: `Seu cadastro foi vinculado ao perfil existente: ${bestMatch.name}. Você já pode acessar seu histórico!`
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-
-    } else if (bestMatch && bestMatch.match_score >= 60) {
+    if (bestMatch && bestMatch.match_score >= 60) {
       // MATCH PARCIAL: 60-89% - Criar perfil pendente mas informar que existe candidato
       console.log('[link-player] ⚠️ MATCH PARCIAL. Score:', bestMatch.match_score, 'Razão:', bestMatch.match_reason)
 

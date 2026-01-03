@@ -133,18 +133,32 @@ const MatchDetails = () => {
 
       if (cardsData) {
         for (const card of cardsData) {
-          const { data: teamData } = await supabase
-            .from("round_team_players")
+          // First check if this player entered via substitution (use sub team_color)
+          const { data: subData } = await supabase
+            .from("substitutions")
             .select("team_color")
-            .eq("player_id", card.player_id)
-            .eq("round_id", match.round_id)
+            .eq("player_in_id", card.player_id)
+            .eq("match_id", matchId)
             .maybeSingle();
+
+          let teamColor = subData?.team_color;
+
+          // If not a substitute, get from original roster
+          if (!teamColor) {
+            const { data: teamData } = await supabase
+              .from("round_team_players")
+              .select("team_color")
+              .eq("player_id", card.player_id)
+              .eq("round_id", match.round_id)
+              .maybeSingle();
+            teamColor = teamData?.team_color;
+          }
 
           allEvents.push({
             id: card.id,
             type: card.card_type === "amarelo" ? "amarelo" : "azul",
             minute: card.minute,
-            team_color: teamData?.team_color,
+            team_color: teamColor,
             player: card.player ? { id: card.player.id, name: card.player.name, nickname: card.player.nickname, avatar_url: card.player.avatar_url } : undefined,
           });
         }
