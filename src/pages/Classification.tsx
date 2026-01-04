@@ -3,14 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import FilterDrawer, { FilterState, FilterBadge } from "@/components/FilterDrawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
-import { Info, Loader2 } from "lucide-react";
+import { Info, Loader2, Filter } from "lucide-react";
 import { toast } from "sonner";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { useScrollDirection } from "@/hooks/useScrollDirection";
+import { motion } from "framer-motion";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { SeasonSelector, MonthChips, LevelSelector, PlayerRankItem } from "@/components/classification";
 import { cn } from "@/lib/utils";
@@ -52,6 +55,26 @@ export default function Classification() {
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [selectedTab, setSelectedTab] = useState<TabType>("todos");
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
+
+  // Filter drawer state
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+
+  const handleApplyFilters = (filters: FilterState) => {
+    setSelectedSeason(filters.season);
+    setSelectedMonth(filters.month);
+    setSelectedLevel(filters.level);
+    // If level is selected, switch to nivel tab
+    if (filters.level) {
+      setSelectedTab("nivel");
+    }
+  };
+
+  const currentFilters: FilterState = {
+    season: selectedSeason,
+    month: selectedMonth,
+    level: selectedLevel,
+    roundId: null,
+  };
   useEffect(() => {
     loadSeasons();
     loadStats();
@@ -231,6 +254,9 @@ export default function Classification() {
     },
     enabled: true
   });
+
+  // Hide filters on scroll down (mobile only)
+  const isFiltersVisible = useScrollDirection({ threshold: 15 });
   const filteredStats = useMemo(() => {
     let result = [...stats];
 
@@ -287,12 +313,38 @@ export default function Classification() {
 
     <Header />
 
+    {/* Filter Drawer */}
+    <FilterDrawer
+      isOpen={isFilterDrawerOpen}
+      onClose={() => setIsFilterDrawerOpen(false)}
+      onApply={handleApplyFilters}
+      currentFilters={currentFilters}
+      seasons={seasons}
+      availableMonths={availableMonths}
+      showLevel={true}
+      showRounds={false}
+    />
+
     <main className="flex-1 flex flex-col">
-      {/* Top Bar */}
+      {/* Top Bar - Simplified */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border/50">
         <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between gap-4">
-            <SeasonSelector seasons={seasons} selectedSeason={selectedSeason} onSeasonChange={setSelectedSeason} />
+          <div className="flex items-center justify-between gap-2">
+            {/* Filter Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsFilterDrawerOpen(true)}
+              className="rounded-full gap-2"
+            >
+              <Filter className="h-4 w-4" />
+              Filtros
+              {(selectedMonth !== null || selectedLevel !== null) && (
+                <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
+                  {[selectedMonth !== null, selectedLevel !== null].filter(Boolean).length}
+                </span>
+              )}
+            </Button>
 
             <h1 className="text-xl font-bold text-primary flex-1 text-center">
               Classificação
@@ -341,34 +393,13 @@ export default function Classification() {
               </AlertDialogContent>
             </AlertDialog>
           </div>
-        </div>
-      </div>
 
-      {/* Tabs - Sticky */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border/30">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex gap-2">
-            <button onClick={() => {
-              setSelectedTab("todos");
-              setSelectedLevel(null);
-            }} className={cn("px-6 py-2 rounded-full text-sm font-medium transition-all", selectedTab === "todos" ? "bg-primary text-primary-foreground" : "bg-muted/30 text-muted-foreground hover:bg-muted/50")}>
-              Todos
-            </button>
-            <button onClick={() => setSelectedTab("nivel")} className={cn("px-6 py-2 rounded-full text-sm font-medium transition-all", selectedTab === "nivel" ? "bg-primary text-primary-foreground" : "bg-muted/30 text-muted-foreground hover:bg-muted/50")}>
-              Nível
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Sub-filters - Sticky */}
-      <div className="sticky top-[52px] z-20 bg-background/95 backdrop-blur border-b border-border/20">
-        <div className="container mx-auto px-4 py-3 space-y-3">
-          {selectedTab === "todos" ? <MonthChips availableMonths={availableMonths} selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} /> : <>
-            <LevelSelector selectedLevel={selectedLevel} onLevelChange={setSelectedLevel} />
-            {/* Month filter for Level tab */}
-            <MonthChips availableMonths={availableMonths} selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
-          </>}
+          {/* Active Filters Badge */}
+          {(selectedMonth !== null || selectedLevel !== null) && (
+            <div className="mt-2">
+              <FilterBadge filters={currentFilters} seasons={seasons} showLevel={true} />
+            </div>
+          )}
         </div>
       </div>
 

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Home, Trophy, User, Settings, BarChart3, Shield, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
+import { useScrollDirection } from "@/hooks/useScrollDirection";
 import logo from "@/assets/novo-logo.png";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,9 @@ export default function BottomNavbar() {
     const navigate = useNavigate();
     const { user, isApproved, isAdmin, isPlayer } = useAuth();
     const [isLogoMenuOpen, setIsLogoMenuOpen] = useState(false);
+
+    // Hide on scroll down, show on scroll up
+    const isNavVisible = useScrollDirection({ threshold: 15 });
 
     // Don't show navbar if user is not logged in
     if (!user) return null;
@@ -213,8 +217,20 @@ export default function BottomNavbar() {
                 )}
             </AnimatePresence>
 
-            {/* Main navigation bar */}
-            <nav className="fixed bottom-0 left-0 right-0 z-50 p-3 pb-safe md:hidden">
+            {/* Main navigation bar - Hide on scroll down */}
+            <motion.nav
+                initial={{ y: 0 }}
+                animate={{
+                    y: isNavVisible || isLogoMenuOpen ? 0 : 100,
+                    opacity: isNavVisible || isLogoMenuOpen ? 1 : 0
+                }}
+                transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 30
+                }}
+                className="fixed bottom-0 left-0 right-0 z-50 p-3 pb-safe md:hidden"
+            >
                 <div className="bg-black/90 backdrop-blur-xl rounded-2xl max-w-md mx-auto flex items-end justify-around px-1 pb-3 pt-2 relative border border-white/10">
 
                     {navItems.map((item) => {
@@ -274,7 +290,7 @@ export default function BottomNavbar() {
                         );
                     })}
                 </div>
-            </nav>
+            </motion.nav>
         </>
     );
 }

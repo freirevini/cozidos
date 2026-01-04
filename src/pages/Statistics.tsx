@@ -3,13 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import FilterDrawer, { FilterState, FilterBadge } from "@/components/FilterDrawer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
-import { SeasonSelector, MonthChips, LevelSelector, RoundSelector } from "@/components/classification";
-import { Trophy, Target, Award, Equal, TrendingDown } from "lucide-react";
+import { Trophy, Target, Award, Equal, TrendingDown, Filter } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +45,23 @@ export default function Statistics() {
 
   // Stats filter
   const [filterType, setFilterType] = useState<FilterType>("goals");
+
+  // Filter drawer state
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+
+  const handleApplyFilters = (filters: FilterState) => {
+    setSelectedSeason(filters.season);
+    setSelectedMonth(filters.month);
+    setSelectedLevel(filters.level);
+    setSelectedRoundId(filters.roundId);
+  };
+
+  const currentFilters: FilterState = {
+    season: selectedSeason,
+    month: selectedMonth,
+    level: selectedLevel,
+    roundId: selectedRoundId,
+  };
 
   const { isRefreshing, pullDistance } = usePullToRefresh({
     onRefresh: async () => {
@@ -286,12 +303,39 @@ export default function Statistics() {
 
       <Header />
 
+      {/* Filter Drawer */}
+      <FilterDrawer
+        isOpen={isFilterDrawerOpen}
+        onClose={() => setIsFilterDrawerOpen(false)}
+        onApply={handleApplyFilters}
+        currentFilters={currentFilters}
+        seasons={seasons}
+        availableMonths={availableMonths}
+        rounds={rounds}
+        showLevel={true}
+        showRounds={true}
+      />
+
       <main className="flex-1 flex flex-col">
-        {/* Top Bar */}
+        {/* Top Bar - Simplified */}
         <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border/50">
           <div className="container mx-auto px-4 py-2 md:py-3">
-            <div className="flex items-center justify-between gap-4">
-              <SeasonSelector seasons={seasons} selectedSeason={selectedSeason} onSeasonChange={setSelectedSeason} />
+            <div className="flex items-center justify-between gap-2">
+              {/* Filter Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsFilterDrawerOpen(true)}
+                className="rounded-full gap-2"
+              >
+                <Filter className="h-4 w-4" />
+                Filtros
+                {(selectedMonth !== null || selectedLevel !== null || selectedRoundId !== null) && (
+                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
+                    {[selectedMonth !== null, selectedLevel !== null, selectedRoundId !== null].filter(Boolean).length}
+                  </span>
+                )}
+              </Button>
 
               <h1 className="text-xl font-bold text-primary flex-1 text-center">
                 Estatísticas
@@ -299,12 +343,19 @@ export default function Statistics() {
 
               <div className="w-10" />
             </div>
+
+            {/* Active Filters Badge */}
+            {(selectedMonth !== null || selectedLevel !== null || selectedRoundId !== null) && (
+              <div className="mt-2">
+                <FilterBadge filters={currentFilters} seasons={seasons} rounds={rounds} showLevel={true} />
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Stats Filter Chips - Sticky */}
-        <div className="sticky top-[44px] md:top-0 z-30 bg-background/95 backdrop-blur border-b border-border/30">
-          <div className="container mx-auto px-4 py-2 md:py-3">
+        {/* Stats Type Filter - Always visible */}
+        <div className="sticky top-[52px] z-20 bg-background/95 backdrop-blur border-b border-border/30">
+          <div className="container mx-auto px-4 py-2">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth pb-1">
               {filterButtons.map(({ type, icon: Icon, label }) => (
                 <Button
@@ -319,43 +370,6 @@ export default function Statistics() {
                 </Button>
               ))}
             </div>
-          </div>
-        </div>
-
-        {/* Round Filter - Above Level Filter */}
-        {rounds.length > 0 && (
-          <div className="sticky top-[88px] md:top-[52px] z-20 bg-background/95 backdrop-blur border-b border-border/20">
-            <div className="container mx-auto px-4 py-2 md:py-3">
-              <RoundSelector
-                rounds={rounds}
-                selectedRoundId={selectedRoundId}
-                onRoundChange={setSelectedRoundId}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Level Filter - Sticky */}
-        <div className={cn(
-          "sticky z-20 bg-background/95 backdrop-blur border-b border-border/20",
-          rounds.length > 0 ? "top-[132px] md:top-[104px]" : "top-[88px] md:top-[52px]"
-        )}>
-          <div className="container mx-auto px-4 py-2 md:py-3">
-            <LevelSelector selectedLevel={selectedLevel} onLevelChange={setSelectedLevel} />
-          </div>
-        </div>
-
-        {/* Month Chips - Sticky */}
-        <div className={cn(
-          "sticky z-10 bg-background/95 backdrop-blur border-b border-border/20",
-          rounds.length > 0 ? "top-[176px] md:top-[156px]" : "top-[132px] md:top-[104px]"
-        )}>
-          <div className="container mx-auto px-4 py-2 md:py-3">
-            <MonthChips
-              availableMonths={availableMonths}
-              selectedMonth={selectedMonth}
-              onMonthChange={setSelectedMonth}
-            />
           </div>
         </div>
 

@@ -4,17 +4,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import FilterDrawer, { FilterState, FilterBadge } from "@/components/FilterDrawer";
 import { useToast } from "@/hooks/use-toast";
 import { useProfileStats } from "@/hooks/useProfileStats";
 import {
   ProfileHeroHeader,
-  ProfileFilters,
   ProfileStatsGrid,
   ProfileCalculatedMetrics,
   ProfileEvolutionChart,
   ProfileBestWorstCards,
 } from "@/components/profile";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Filter } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 
@@ -49,6 +49,21 @@ export default function Profile() {
   const [selectedYear, setSelectedYear] = useState<number | null>(initialYear);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(initialMonth);
 
+  // Filter drawer state
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+
+  const handleApplyFilters = (filters: FilterState) => {
+    setSelectedYear(filters.season);
+    setSelectedMonth(filters.month);
+  };
+
+  const currentFilters: FilterState = {
+    season: selectedYear,
+    month: selectedMonth,
+    level: null,
+    roundId: null,
+  };
+
   // Stats hook - uses profile.id as source of truth
   const {
     stats,
@@ -58,6 +73,9 @@ export default function Profile() {
     bestWorstPeriods,
     loading: statsLoading,
   } = useProfileStats(profile?.id, selectedYear, selectedMonth);
+
+  // Convert availableYears (string[]) to number[] for FilterDrawer
+  const seasonsAsNumbers = availableYears.map(y => parseInt(y)).filter(y => !isNaN(y));
 
   useEffect(() => {
     loadProfile();
@@ -194,6 +212,18 @@ export default function Profile() {
     <div className="min-h-screen bg-background">
       <Header />
 
+      {/* Filter Drawer */}
+      <FilterDrawer
+        isOpen={isFilterDrawerOpen}
+        onClose={() => setIsFilterDrawerOpen(false)}
+        onApply={handleApplyFilters}
+        currentFilters={currentFilters}
+        seasons={seasonsAsNumbers}
+        availableMonths={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]}
+        showLevel={false}
+        showRounds={false}
+      />
+
       <main className="max-w-2xl mx-auto pb-8">
         {/* Botão Voltar - apenas quando visualizando perfil de outro jogador */}
         {urlProfileId && (
@@ -235,14 +265,27 @@ export default function Profile() {
           </TabsList>
 
           <TabsContent value="stats" className="mt-0">
-            {/* Filters */}
-            <ProfileFilters
-              availableYears={availableYears}
-              selectedYear={selectedYear}
-              selectedMonth={selectedMonth}
-              onYearChange={setSelectedYear}
-              onMonthChange={setSelectedMonth}
-            />
+            {/* Filter Header */}
+            <div className="px-4 py-3 border-b border-border/30 flex items-center justify-between">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsFilterDrawerOpen(true)}
+                className="rounded-full gap-2"
+              >
+                <Filter className="h-4 w-4" />
+                Filtros
+                {selectedMonth !== null && (
+                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
+                    1
+                  </span>
+                )}
+              </Button>
+
+              {selectedMonth !== null && (
+                <FilterBadge filters={currentFilters} seasons={seasonsAsNumbers} showLevel={false} />
+              )}
+            </div>
 
             {statsLoading ? (
               <div className="flex items-center justify-center py-12">
