@@ -9,6 +9,7 @@ import PageTransition from "@/components/PageTransition";
 import LoadingLogo from "@/components/LoadingLogo";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { GlobalPendingBanner } from "@/components/GlobalPendingBanner";
+import BottomNavbar from "@/components/BottomNavbar";
 import Classification from "./pages/Classification";
 import Matches from "./pages/Matches";
 import MatchDetails from "./pages/MatchDetails";
@@ -29,6 +30,8 @@ import AttendanceRecord from "./pages/AttendanceRecord";
 import ViewTeams from "./pages/ViewTeams";
 
 import ProfileMonitoring from "./pages/ProfileMonitoring";
+import PlayersList from "./pages/PlayersList";
+import CozIA from "./pages/CozIA";
 
 const queryClient = new QueryClient();
 
@@ -101,6 +104,8 @@ function AnimatedRoutes() {
         <Route path="/profile/:id" element={<ApprovedOnlyRoute><PageTransition><Profile /></PageTransition></ApprovedOnlyRoute>} />
         <Route path="/times" element={<ProtectedRoute><PageTransition><ViewTeams /></PageTransition></ProtectedRoute>} />
         <Route path="/teams/view" element={<ProtectedRoute><PageTransition><ViewTeams /></PageTransition></ProtectedRoute>} />
+        <Route path="/players-list" element={<ProtectedRoute><PageTransition><PlayersList /></PageTransition></ProtectedRoute>} />
+        <Route path="/coz-ia" element={<ProtectedRoute><PageTransition><CozIA /></PageTransition></ProtectedRoute>} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
@@ -117,6 +122,7 @@ const App = () => (
         <AuthProvider>
           <GlobalPendingBanner />
           <AnimatedRoutes />
+          <BottomNavbar />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

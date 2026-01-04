@@ -2,7 +2,7 @@ import { Instagram } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="w-full border-t border-border bg-background py-8 mt-auto">
+    <footer className="w-full border-t border-border bg-background py-8 mt-auto pb-28 md:pb-8">
       <div className="container mx-auto px-4">
         {/* Social Media Section */}
         <div className="flex flex-col items-center justify-center space-y-4 mb-6">

@@ -75,7 +75,7 @@ All colors MUST be HSL.
   }
 
   .card-hover:hover {
-    box-shadow: 
+    box-shadow:
       0 10px 40px -10px hsl(330 100% 60% / 0.4),
       0 0 20px hsl(330 100% 60% / 0.2);
   }
@@ -85,13 +85,13 @@ All colors MUST be HSL.
   }
 
   .button-hover:hover {
-    box-shadow: 
+    box-shadow:
       0 8px 20px -8px hsl(330 100% 60% / 0.5),
       0 0 15px hsl(330 100% 60% / 0.3);
   }
 
   .button-hover:active {
-    box-shadow: 
+    box-shadow:
       0 4px 10px -4px hsl(330 100% 60% / 0.4),
       0 0 10px hsl(330 100% 60% / 0.2);
   }
@@ -111,7 +111,7 @@ All colors MUST be HSL.
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
@@ -162,4 +162,16 @@ All colors MUST be HSL.
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* Safe area padding for iOS devices */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* Bottom navbar spacing for mobile */
+  /* Footer already has pb-28 md:pb-8, no extra CSS needed */
 }

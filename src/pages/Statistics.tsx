@@ -289,7 +289,7 @@ export default function Statistics() {
       <main className="flex-1 flex flex-col">
         {/* Top Bar */}
         <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border/50">
-          <div className="container mx-auto px-4 py-3">
+          <div className="container mx-auto px-4 py-2 md:py-3">
             <div className="flex items-center justify-between gap-4">
               <SeasonSelector seasons={seasons} selectedSeason={selectedSeason} onSeasonChange={setSelectedSeason} />
 
@@ -303,8 +303,8 @@ export default function Statistics() {
         </div>
 
         {/* Stats Filter Chips - Sticky */}
-        <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border/30">
-          <div className="container mx-auto px-4 py-3">
+        <div className="sticky top-[44px] md:top-0 z-30 bg-background/95 backdrop-blur border-b border-border/30">
+          <div className="container mx-auto px-4 py-2 md:py-3">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth pb-1">
               {filterButtons.map(({ type, icon: Icon, label }) => (
                 <Button
@@ -324,8 +324,8 @@ export default function Statistics() {
 
         {/* Round Filter - Above Level Filter */}
         {rounds.length > 0 && (
-          <div className="sticky top-[52px] z-20 bg-background/95 backdrop-blur border-b border-border/20">
-            <div className="container mx-auto px-4 py-3">
+          <div className="sticky top-[88px] md:top-[52px] z-20 bg-background/95 backdrop-blur border-b border-border/20">
+            <div className="container mx-auto px-4 py-2 md:py-3">
               <RoundSelector
                 rounds={rounds}
                 selectedRoundId={selectedRoundId}
@@ -338,9 +338,9 @@ export default function Statistics() {
         {/* Level Filter - Sticky */}
         <div className={cn(
           "sticky z-20 bg-background/95 backdrop-blur border-b border-border/20",
-          rounds.length > 0 ? "top-[104px]" : "top-[52px]"
+          rounds.length > 0 ? "top-[132px] md:top-[104px]" : "top-[88px] md:top-[52px]"
         )}>
-          <div className="container mx-auto px-4 py-3">
+          <div className="container mx-auto px-4 py-2 md:py-3">
             <LevelSelector selectedLevel={selectedLevel} onLevelChange={setSelectedLevel} />
           </div>
         </div>
@@ -348,9 +348,9 @@ export default function Statistics() {
         {/* Month Chips - Sticky */}
         <div className={cn(
           "sticky z-10 bg-background/95 backdrop-blur border-b border-border/20",
-          rounds.length > 0 ? "top-[156px]" : "top-[104px]"
+          rounds.length > 0 ? "top-[176px] md:top-[156px]" : "top-[132px] md:top-[104px]"
         )}>
-          <div className="container mx-auto px-4 py-3">
+          <div className="container mx-auto px-4 py-2 md:py-3">
             <MonthChips
               availableMonths={availableMonths}
               selectedMonth={selectedMonth}
