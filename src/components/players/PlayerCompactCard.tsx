@@ -25,6 +25,7 @@ interface PlayerCompactCardProps {
   player: Player;
   onEdit: (player: Player) => void;
   onDelete: (player: Player) => void;
+  onUnlink: (player: Player) => void;
   onApprove: (player: Player) => void;
   onReject: (player: Player) => void;
   onLinkPlayer: (player: Player) => void;
@@ -46,6 +47,7 @@ const statusConfig: Record<string, { color: string; label: string }> = {
   aprovado: { color: "bg-green-500/20 text-green-400 border-green-500/30", label: "Aprovado" },
   congelado: { color: "bg-gray-500/20 text-gray-400 border-gray-500/30", label: "Congelado" },
   rejeitado: { color: "bg-red-500/20 text-red-400 border-red-500/30", label: "Rejeitado" },
+  inativo: { color: "bg-slate-500/20 text-slate-400 border-slate-500/30", label: "Inativo" },
 };
 
 const levelColors: Record<string, string> = {
@@ -60,6 +62,7 @@ export function PlayerCompactCard({
   player,
   onEdit,
   onDelete,
+  onUnlink,
   onApprove,
   onReject,
   onLinkPlayer,
@@ -126,6 +129,7 @@ export function PlayerCompactCard({
         player={player}
         onEdit={() => onEdit(player)}
         onDelete={() => onDelete(player)}
+        onUnlink={() => onUnlink(player)}
         onApprove={() => onApprove(player)}
         onReject={() => onReject(player)}
         onLinkPlayer={() => onLinkPlayer(player)}

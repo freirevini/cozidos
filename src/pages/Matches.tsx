@@ -192,14 +192,14 @@ export default function Matches() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#0e0e10] text-white">
       <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
 
       <Header />
 
       <main className="container mx-auto px-4 py-6 max-w-6xl">
         {/* Title */}
-        <h1 className="text-2xl sm:text-3xl font-bold text-primary mb-6">Rodadas</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-pink-300 mb-6">Rodadas</h1>
 
         {/* Round Navigation */}
         <div className="mb-6 overflow-x-auto scrollbar-hide">
@@ -213,10 +213,10 @@ export default function Matches() {
                   key={round.id}
                   onClick={() => setCurrentRoundIndex(actualIndex)}
                   className={cn(
-                    "flex flex-col items-center justify-center px-4 py-3 rounded-lg min-w-[80px] transition-all",
+                    "flex flex-col items-center justify-center px-4 py-3 rounded-lg min-w-[80px] transition-all border",
                     isActive
-                      ? "bg-primary text-primary-foreground shadow-lg"
-                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                      ? "bg-pink-500 text-white border-pink-500 shadow-lg"
+                      : "bg-[#1c1c1e] text-gray-400 border-white/10 hover:bg-white/10"
                   )}
                 >
                   <span className="text-xl font-bold">{round.round_number}</span>
@@ -244,7 +244,7 @@ export default function Matches() {
               currentRound.matches.map((match) => (
                 <Card
                   key={match.id}
-                  className="overflow-hidden hover:shadow-lg hover:shadow-primary/20 transition-all border-border cursor-pointer active:scale-[0.98]"
+                  className="overflow-hidden hover:shadow-lg hover:shadow-pink-500/20 transition-all bg-[#1c1c1e] border-white/5 cursor-pointer active:scale-[0.98]"
                   onClick={() => navigate(`/match/${match.id}`)}
                 >
                   <CardContent className="p-4 sm:p-6">
@@ -258,7 +258,7 @@ export default function Matches() {
                             {teamNames[match.team_home]}
                           </span>
                         </div>
-                        <span className="text-2xl sm:text-3xl md:text-4xl font-bold tabular-nums text-primary">
+                        <span className="text-2xl sm:text-3xl md:text-4xl font-bold tabular-nums text-pink-300">
                           {match.score_home}
                         </span>
                       </div>
@@ -281,7 +281,7 @@ export default function Matches() {
 
                       {/* Away Team */}
                       <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-start">
-                        <span className="text-2xl sm:text-3xl md:text-4xl font-bold tabular-nums text-primary">
+                        <span className="text-2xl sm:text-3xl md:text-4xl font-bold tabular-nums text-pink-300">
                           {match.score_away}
                         </span>
                         <div className="flex flex-col items-center gap-1">

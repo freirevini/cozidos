@@ -79,10 +79,9 @@ function ApprovedOnlyRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// HomeRouter: Redirects admins to AdminHome, regular users to Home
+// HomeRouter: Now shows the same Home for all users (including admins)
 function HomeRouter() {
-  const { isAdmin } = useAuth();
-  return isAdmin ? <AdminHome /> : <Home />;
+  return <Home />;
 }
 
 function AnimatedRoutes() {

@@ -6,13 +6,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Pencil, Trash2, UserCheck, UserX, Link2, Camera, Copy, ExternalLink } from "lucide-react";
+import { MoreVertical, Pencil, Trash2, UserCheck, UserX, Link2, Camera, Copy, ExternalLink, UserMinus } from "lucide-react";
 import type { Player } from "./PlayerCompactCard";
 
 export interface PlayerActionMenuProps {
   player: Player;
   onEdit: () => void;
   onDelete: () => void;
+  onUnlink: () => void;
   onApprove: () => void;
   onReject: () => void;
   onLinkPlayer: () => void;
@@ -26,6 +27,7 @@ export function PlayerActionMenu({
   player,
   onEdit,
   onDelete,
+  onUnlink,
   onApprove,
   onReject,
   onLinkPlayer,
@@ -42,9 +44,9 @@ export function PlayerActionMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <Button
+          variant="ghost"
+          size="icon"
           className="h-9 w-9 shrink-0 hover:bg-primary/10"
         >
           <MoreVertical className="h-4 w-4" />
@@ -104,11 +106,21 @@ export function PlayerActionMenu({
           Alterar Foto
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+
+        {/* Desvincular - só aparece se tem conta vinculada */}
+        {hasUserAccount && (
+          <DropdownMenuItem onClick={onUnlink} className="text-orange-500">
+            <UserMinus className="h-4 w-4 mr-2" />
+            Desvincular Conta
+          </DropdownMenuItem>
+        )}
+
         <DropdownMenuItem onClick={onDelete} className="text-destructive">
           <Trash2 className="h-4 w-4 mr-2" />
-          Excluir
+          Excluir Permanente
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
+

@@ -308,7 +308,7 @@ export default function Classification() {
     D: "bg-orange-500/20 text-orange-400 border-orange-500/30",
     E: "bg-red-500/20 text-red-400 border-red-500/30"
   };
-  return <div className="min-h-screen bg-background flex flex-col">
+  return <div className="min-h-screen bg-[#0e0e10] text-white flex flex-col">
     <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
 
     <Header />
@@ -327,7 +327,7 @@ export default function Classification() {
 
     <main className="flex-1 flex flex-col">
       {/* Top Bar - Simplified */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border/50">
+      <div className="sticky top-0 z-30 bg-[#0e0e10]/95 backdrop-blur border-b border-white/10">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-2">
             {/* Filter Button */}
@@ -335,24 +335,24 @@ export default function Classification() {
               variant="outline"
               size="sm"
               onClick={() => setIsFilterDrawerOpen(true)}
-              className="rounded-full gap-2"
+              className="rounded-full gap-2 border-white/10 bg-[#1c1c1e] hover:bg-white/10 text-white"
             >
               <Filter className="h-4 w-4" />
               Filtros
               {(selectedMonth !== null || selectedLevel !== null) && (
-                <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
+                <span className="px-1.5 py-0.5 text-xs rounded-full bg-pink-500 text-white">
                   {[selectedMonth !== null, selectedLevel !== null].filter(Boolean).length}
                 </span>
               )}
             </Button>
 
-            <h1 className="text-xl font-bold text-primary flex-1 text-center">
+            <h1 className="text-xl font-bold text-pink-300 flex-1 text-center">
               Classificação
             </h1>
 
             <AlertDialog open={showRules} onOpenChange={setShowRules}>
               <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
+                <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/10 text-gray-400 hover:text-white">
                   <Info className="h-5 w-5" />
                 </Button>
               </AlertDialogTrigger>

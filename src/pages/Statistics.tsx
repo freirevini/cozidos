@@ -298,7 +298,7 @@ export default function Statistics() {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-[#0e0e10] text-white flex flex-col">
       <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
 
       <Header />
@@ -318,7 +318,7 @@ export default function Statistics() {
 
       <main className="flex-1 flex flex-col">
         {/* Top Bar - Simplified */}
-        <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border/50">
+        <div className="sticky top-0 z-30 bg-[#0e0e10]/95 backdrop-blur border-b border-white/10">
           <div className="container mx-auto px-4 py-2 md:py-3">
             <div className="flex items-center justify-between gap-2">
               {/* Filter Button */}
@@ -326,18 +326,18 @@ export default function Statistics() {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsFilterDrawerOpen(true)}
-                className="rounded-full gap-2"
+                className="rounded-full gap-2 border-white/10 bg-[#1c1c1e] hover:bg-white/10 text-white"
               >
                 <Filter className="h-4 w-4" />
                 Filtros
                 {(selectedMonth !== null || selectedLevel !== null || selectedRoundId !== null) && (
-                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
+                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-pink-500 text-white">
                     {[selectedMonth !== null, selectedLevel !== null, selectedRoundId !== null].filter(Boolean).length}
                   </span>
                 )}
               </Button>
 
-              <h1 className="text-xl font-bold text-primary flex-1 text-center">
+              <h1 className="text-xl font-bold text-pink-300 flex-1 text-center">
                 Estatísticas
               </h1>
 
@@ -354,7 +354,7 @@ export default function Statistics() {
         </div>
 
         {/* Stats Type Filter - Always visible */}
-        <div className="sticky top-[52px] z-20 bg-background/95 backdrop-blur border-b border-border/30">
+        <div className="sticky top-[52px] z-20 bg-[#0e0e10]/95 backdrop-blur border-b border-white/10">
           <div className="container mx-auto px-4 py-2">
             <div className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth pb-1">
               {filterButtons.map(({ type, icon: Icon, label }) => (
@@ -362,7 +362,12 @@ export default function Statistics() {
                   key={type}
                   variant={filterType === type ? "default" : "outline"}
                   onClick={() => setFilterType(type)}
-                  className="flex-shrink-0 rounded-full"
+                  className={cn(
+                    "flex-shrink-0 rounded-full",
+                    filterType === type
+                      ? "bg-pink-500 hover:bg-pink-600 text-white border-pink-500"
+                      : "border-white/10 bg-[#1c1c1e] hover:bg-white/10 text-white"
+                  )}
                   size="sm"
                 >
                   <Icon className="h-4 w-4 mr-2" />
@@ -391,10 +396,10 @@ export default function Statistics() {
                 <div
                   key={player.player_id}
                   onClick={() => navigate(`/profile/${player.player_id}`)}
-                  className="group flex items-center justify-between p-4 rounded-xl bg-card/50 border border-border/30 hover:bg-primary/10 hover:border-primary/40 transition-all duration-200 cursor-pointer"
+                  className="group flex items-center justify-between p-4 rounded-xl bg-[#1c1c1e] border border-white/5 hover:bg-white/5 hover:border-pink-500/30 transition-all duration-200 cursor-pointer"
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <span className="text-xl font-bold text-primary w-8 flex-shrink-0 text-center">
+                    <span className="text-xl font-bold text-pink-300 w-8 flex-shrink-0 text-center">
                       {index + 1}
                     </span>
                     <Avatar className="h-10 w-10 flex-shrink-0 bg-muted ring-2 ring-transparent group-hover:ring-primary/50 transition-all">
@@ -407,7 +412,7 @@ export default function Statistics() {
                       )}
                     </Avatar>
                     <div className="min-w-0">
-                      <div className="font-bold text-sm text-foreground truncate group-hover:text-primary transition-colors">
+                      <div className="font-bold text-sm text-white truncate group-hover:text-pink-300 transition-colors">
                         {player.nickname}
                       </div>
                       {player.level && (

@@ -186,7 +186,7 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-[#0e0e10] text-white">
         <Header />
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -198,7 +198,7 @@ export default function Profile() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-[#0e0e10] text-white">
         <Header />
         <div className="container mx-auto px-4 py-8 text-center">
           <p className="text-muted-foreground">Perfil não encontrado</p>
@@ -209,7 +209,7 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#0e0e10] text-white">
       <Header />
 
       {/* Filter Drawer */}
@@ -255,10 +255,10 @@ export default function Profile() {
 
         {/* Stats Tab */}
         <Tabs defaultValue="stats" className="w-full">
-          <TabsList className="w-full justify-start px-4 bg-transparent border-b border-border/50 rounded-none h-auto py-0">
+          <TabsList className="w-full justify-start px-4 bg-transparent border-b border-white/10 rounded-none h-auto py-0">
             <TabsTrigger
               value="stats"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-pink-500 data-[state=active]:text-pink-300 data-[state=active]:bg-transparent px-4 py-3 text-gray-400"
             >
               Estatísticas
             </TabsTrigger>
@@ -266,17 +266,17 @@ export default function Profile() {
 
           <TabsContent value="stats" className="mt-0">
             {/* Filter Header */}
-            <div className="px-4 py-3 border-b border-border/30 flex items-center justify-between">
+            <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setIsFilterDrawerOpen(true)}
-                className="rounded-full gap-2"
+                className="rounded-full gap-2 border-white/10 bg-[#1c1c1e] hover:bg-white/10 text-white"
               >
                 <Filter className="h-4 w-4" />
                 Filtros
                 {selectedMonth !== null && (
-                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
+                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-pink-500 text-white">
                     1
                   </span>
                 )}
@@ -289,7 +289,7 @@ export default function Profile() {
 
             {statsLoading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                <Loader2 className="w-6 h-6 animate-spin text-pink-500" />
               </div>
             ) : (
               <>

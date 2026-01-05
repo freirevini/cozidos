@@ -352,6 +352,60 @@ export default function ManagePlayers() {
     }
   };
 
+  // Soft delete: remove access but preserve all data
+  const handleUnlinkPlayer = async (player: Player) => {
+    const confirmDialog = document.createElement('div');
+    document.body.appendChild(confirmDialog);
+    const root = document.createElement('div');
+    confirmDialog.appendChild(root);
+
+    const cleanup = () => document.body.removeChild(confirmDialog);
+
+    const { createRoot } = await import('react-dom/client');
+    const reactRoot = createRoot(root);
+
+    reactRoot.render(
+      <AlertDialogIcon
+        icon={AlertTriangle}
+        title="Desvincular Conta"
+        description={`Deseja remover o acesso de ${player.nickname || player.name} ao aplicativo? Os dados históricos serão PRESERVADOS e o jogador poderá ser vinculado novamente no futuro.`}
+        actionText="Desvincular"
+        cancelText="Cancelar"
+        variant="default"
+        open={true}
+        onOpenChange={(open) => { if (!open) { reactRoot.unmount(); cleanup(); } }}
+        onAction={async () => {
+          try {
+            // Clear user_id to revoke access, keep claim_token for future linking
+            const { error } = await supabase
+              .from("profiles")
+              .update({
+                user_id: null,
+                status: "inativo" as any // Mark as inactive
+              })
+              .eq("id", player.id);
+
+            if (error) throw error;
+
+            // Update local state
+            setAllPlayers(prev => prev.map(p =>
+              p.id === player.id
+                ? { ...p, user_id: null, status: "inativo" }
+                : p
+            ));
+
+            sonnerToast.success(`Conta de ${player.nickname || player.name} desvinculada! Dados preservados.`);
+          } catch (error: any) {
+            sonnerToast.error(getUserFriendlyError(error));
+          }
+          reactRoot.unmount();
+          cleanup();
+        }}
+        onCancel={() => { reactRoot.unmount(); cleanup(); }}
+      />
+    );
+  };
+
   const handleRejectPlayer = async (player: Player) => {
     try {
       const { error } = await supabase
@@ -601,6 +655,7 @@ export default function ManagePlayers() {
                   player={player}
                   onEdit={handleEditPlayer}
                   onDelete={handleDeletePlayer}
+                  onUnlink={handleUnlinkPlayer}
                   onApprove={handleApprovePlayer}
                   onReject={handleRejectPlayer}
                   onLinkPlayer={handleLinkPlayer}

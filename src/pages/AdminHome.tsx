@@ -108,7 +108,7 @@ export default function AdminHome() {
     const currentYear = new Date().getFullYear();
 
     return (
-        <div className="min-h-screen bg-background flex flex-col">
+        <div className="min-h-screen bg-[#0e0e10] text-white flex flex-col">
             <Header />
 
             <main className="flex-1 container mx-auto px-4 py-6 max-w-2xl">
@@ -125,7 +125,7 @@ export default function AdminHome() {
                         variant="ghost"
                         size="sm"
                         onClick={signOut}
-                        className="text-muted-foreground hover:text-destructive"
+                        className="text-gray-400 hover:text-red-400 hover:bg-white/10"
                     >
                         <LogOut className="w-4 h-4 mr-1" />
                         Sair
@@ -334,8 +334,8 @@ function ActionButton({
             className={cn(
                 "flex items-center justify-center gap-2 p-3 rounded-xl font-medium transition-all",
                 variant === "primary"
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "bg-muted/30 hover:bg-muted/50 text-foreground border border-border/30"
+                    ? "bg-pink-500 text-white hover:bg-pink-600"
+                    : "bg-[#1c1c1e] hover:bg-white/10 text-white border border-white/10"
             )}
         >
             {icon}
@@ -354,10 +354,10 @@ function QuickLink({
     return (
         <button
             onClick={onClick}
-            className="w-full flex items-center justify-between p-3 bg-muted/10 hover:bg-muted/30 border border-border/20 rounded-xl transition-all text-sm"
+            className="w-full flex items-center justify-between p-3 bg-[#1c1c1e] hover:bg-white/10 border border-white/10 rounded-xl transition-all text-sm"
         >
-            <span className="text-muted-foreground">{label}</span>
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            <span className="text-gray-400">{label}</span>
+            <ChevronRight className="w-4 h-4 text-gray-400" />
         </button>
     );
 }
