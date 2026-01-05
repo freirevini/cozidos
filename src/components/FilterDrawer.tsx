@@ -200,8 +200,8 @@ export default function FilterDrawer({
                             )}
                         </div>
 
-                        {/* Footer */}
-                        <div className="p-4 border-t border-border">
+                        {/* Footer - Extra padding to avoid navbar overlap */}
+                        <div className="p-4 pb-28 border-t border-border">
                             <Button
                                 onClick={handleApply}
                                 className="w-full rounded-full"

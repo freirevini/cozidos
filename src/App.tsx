@@ -10,6 +10,8 @@ import LoadingLogo from "@/components/LoadingLogo";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { GlobalPendingBanner } from "@/components/GlobalPendingBanner";
 import BottomNavbar from "@/components/BottomNavbar";
+import Home from "./pages/Home";
+import AdminHome from "./pages/AdminHome";
 import Classification from "./pages/Classification";
 import Matches from "./pages/Matches";
 import MatchDetails from "./pages/MatchDetails";
@@ -77,6 +79,12 @@ function ApprovedOnlyRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// HomeRouter: Redirects admins to AdminHome, regular users to Home
+function HomeRouter() {
+  const { isAdmin } = useAuth();
+  return isAdmin ? <AdminHome /> : <Home />;
+}
+
 function AnimatedRoutes() {
   const location = useLocation();
 
@@ -84,7 +92,8 @@ function AnimatedRoutes() {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/auth" element={<Auth />} />
-        <Route path="/" element={<ProtectedRoute><PageTransition><Classification /></PageTransition></ProtectedRoute>} />
+        <Route path="/" element={<ProtectedRoute><PageTransition><HomeRouter /></PageTransition></ProtectedRoute>} />
+        <Route path="/classification" element={<ProtectedRoute><PageTransition><Classification /></PageTransition></ProtectedRoute>} />
         <Route path="/matches" element={<ProtectedRoute><PageTransition><Matches /></PageTransition></ProtectedRoute>} />
         <Route path="/match/:matchId" element={<ProtectedRoute><PageTransition><MatchDetails /></PageTransition></ProtectedRoute>} />
         <Route path="/statistics" element={<ProtectedRoute><PageTransition><Statistics /></PageTransition></ProtectedRoute>} />

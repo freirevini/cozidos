@@ -17,8 +17,10 @@ interface AuthContextType {
   isPending: boolean;
   isApproved: boolean;
   profileData: ProfileData | null;
+  profile: ProfileData | null; // Alias for profileData
   loading: boolean;
   refreshAuth: () => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -28,8 +30,10 @@ const AuthContext = createContext<AuthContextType>({
   isPending: false,
   isApproved: false,
   profileData: null,
+  profile: null,
   loading: true,
   refreshAuth: async () => { },
+  signOut: async () => { },
 });
 
 export const useAuth = () => {
@@ -145,6 +149,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     };
   }, []);
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -153,8 +161,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       isPending,
       isApproved,
       profileData,
+      profile: profileData, // Alias
       loading,
-      refreshAuth: async () => loadUserData(true)
+      refreshAuth: async () => loadUserData(true),
+      signOut: handleSignOut,
     }}>
       {children}
     </AuthContext.Provider>

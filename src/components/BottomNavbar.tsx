@@ -64,7 +64,7 @@ export default function BottomNavbar() {
                     activeIcon: <Home className="w-6 h-6" strokeWidth={2} />,
                 },
                 {
-                    path: "/statistics",
+                    path: "/classification",
                     label: "Classificação",
                     icon: <Trophy className="w-6 h-6" strokeWidth={1.5} />,
                     activeIcon: <Trophy className="w-6 h-6" strokeWidth={2} />,
@@ -102,7 +102,7 @@ export default function BottomNavbar() {
                 activeIcon: <Home className="w-6 h-6" strokeWidth={2} />,
             },
             {
-                path: "/statistics",
+                path: "/classification",
                 label: "Classificação",
                 icon: <Trophy className="w-6 h-6" strokeWidth={1.5} />,
                 activeIcon: <Trophy className="w-6 h-6" strokeWidth={2} />,

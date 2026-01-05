@@ -59,23 +59,28 @@ export default function Header() {
   };
 
   const navLinks = [
-    { href: "/", label: "Classificação" },
-    { href: "/statistics", label: "Estatísticas" },
+    { href: "/", label: "Home" },
+    { href: "/classification", label: "Classificação" },
     { href: "/matches", label: "Rodadas" },
   ];
 
   const adminLinks = [
+    { href: "/statistics", label: "Estatísticas" },
+    { href: "/coz-ia", label: "CozIA" },
     { href: "/admin/teams", label: "Times" },
     { href: "/admin/round", label: "Gerenciar Rodada" },
-    { href: "/admin/players", label: "Gerenciar Jogadores" },
+    { href: "/admin/players", label: "Jogadores" },
   ];
 
   const userLinks = isPlayer
     ? [
+      { href: "/statistics", label: "Estatísticas" },
       { href: "/times", label: "Times" },
       { href: "/profile", label: "Meu Perfil" },
     ]
     : [
+      { href: "/statistics", label: "Estatísticas" },
+      { href: "/times", label: "Times" },
       { href: "/profile", label: "Meu Perfil" },
     ];
 
