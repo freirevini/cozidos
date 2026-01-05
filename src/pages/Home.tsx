@@ -13,7 +13,8 @@ import {
     Check,
     X,
     Minus,
-    LogOut
+    LogOut,
+    PlusCircle, Search, Trophy, History, ArrowRight, UserPlus, BarChart3, Goal, Footprints, Shield
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Users, CalendarDays, DollarSign, Play, AlertTriangle } from "lucide-react";
@@ -664,7 +665,59 @@ export default function Home() {
                             </h2>
 
                             <div className="grid grid-cols-2 gap-3">
-                                {/* Players Card */}
+                                {/* Financeiro Card */}
+                                <article
+                                    className="relative overflow-hidden bg-[#1c1c1e] rounded-2xl p-4 border border-white/5 shadow-lg cursor-pointer hover:bg-white/5 transition-all group"
+                                    onClick={() => navigate("/admin/financeiro")}
+                                >
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="p-2 bg-amber-500/20 rounded-xl">
+                                            <DollarSign className="w-5 h-5 text-amber-400" />
+                                        </div>
+                                        <span className="text-sm font-bold text-white">Financeiro</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-2xl font-black text-white">{defaultersCount}</span>
+                                        <span className="text-xs text-gray-400">pendentes</span>
+                                    </div>
+                                    {defaultersCount > 0 && (
+                                        <div className="mt-2 px-2 py-1 bg-red-500/20 rounded-lg inline-flex items-center gap-1.5">
+                                            <AlertTriangle className="w-3 h-3 text-red-400" />
+                                            <span className="text-xs font-bold text-red-400">
+                                                Ação necessária
+                                            </span>
+                                        </div>
+                                    )}
+                                    <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-hover:text-white transition-colors" />
+                                </article>
+
+                                {/* Rodadas Card */}
+                                <article
+                                    className="relative overflow-hidden bg-[#1c1c1e] rounded-2xl p-4 border border-white/5 shadow-lg cursor-pointer hover:bg-white/5 transition-all group"
+                                    onClick={() => navigate("/admin/round/manage")}
+                                >
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="p-2 bg-emerald-500/20 rounded-xl">
+                                            <CalendarDays className="w-5 h-5 text-emerald-400" />
+                                        </div>
+                                        <span className="text-sm font-bold text-white">Rodadas</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-2xl font-black text-white">{adminStats.totalRounds}</span>
+                                        <span className="text-xs text-gray-400">total</span>
+                                    </div>
+                                    {adminStats.activeRounds > 0 && (
+                                        <div className="mt-2 px-2 py-1 bg-emerald-500/20 rounded-lg inline-flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                            <span className="text-xs font-bold text-emerald-400">
+                                                {adminStats.activeRounds} ativa{adminStats.activeRounds > 1 ? 's' : ''}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-hover:text-white transition-colors" />
+                                </article>
+
+                                {/* Jogadores Card */}
                                 <article
                                     className="relative overflow-hidden bg-[#1c1c1e] rounded-2xl p-4 border border-white/5 shadow-lg cursor-pointer hover:bg-white/5 transition-all group"
                                     onClick={() => navigate("/admin/players")}
@@ -690,90 +743,25 @@ export default function Home() {
                                     <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-hover:text-white transition-colors" />
                                 </article>
 
-                                {/* Rounds Card */}
+                                {/* Criar Times Card (Replaces Live Games) */}
                                 <article
                                     className="relative overflow-hidden bg-[#1c1c1e] rounded-2xl p-4 border border-white/5 shadow-lg cursor-pointer hover:bg-white/5 transition-all group"
-                                    onClick={() => navigate("/admin/rounds")}
+                                    onClick={() => navigate("/admin/teams/define")}
                                 >
                                     <div className="flex items-center gap-3 mb-3">
-                                        <div className="p-2 bg-emerald-500/20 rounded-xl">
-                                            <CalendarDays className="w-5 h-5 text-emerald-400" />
+                                        <div className="p-2 bg-pink-500/20 rounded-xl">
+                                            <Shield className="w-5 h-5 text-pink-400" />
                                         </div>
-                                        <span className="text-sm font-bold text-white">Rodadas</span>
+                                        <span className="text-sm font-bold text-white">Criar Times</span>
                                     </div>
                                     <div className="flex items-baseline gap-2">
-                                        <span className="text-2xl font-black text-white">{adminStats.totalRounds}</span>
-                                        <span className="text-xs text-gray-400">total</span>
+                                        <span className="text-xs text-gray-400">Sortear e definir</span>
                                     </div>
-                                    {adminStats.activeRounds > 0 && (
-                                        <div className="mt-2 px-2 py-1 bg-emerald-500/20 rounded-lg inline-flex items-center gap-1.5">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                            <span className="text-xs font-bold text-emerald-400">
-                                                {adminStats.activeRounds} ativa{adminStats.activeRounds > 1 ? 's' : ''}
-                                            </span>
-                                        </div>
-                                    )}
-                                    <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-hover:text-white transition-colors" />
-                                </article>
-
-                                {/* Financeiro Card */}
-                                <article
-                                    className="relative overflow-hidden bg-[#1c1c1e] rounded-2xl p-4 border border-white/5 shadow-lg cursor-pointer hover:bg-white/5 transition-all group"
-                                    onClick={() => navigate("/admin/financeiro")}
-                                >
-                                    <div className="flex items-center gap-3 mb-3">
-                                        <div className="p-2 bg-amber-500/20 rounded-xl">
-                                            <DollarSign className="w-5 h-5 text-amber-400" />
-                                        </div>
-                                        <span className="text-sm font-bold text-white">Financeiro</span>
+                                    <div className="mt-2 px-2 py-1 bg-pink-500/10 rounded-lg inline-flex items-center gap-1.5">
+                                        <span className="text-xs font-bold text-pink-400">
+                                            Nova rodada
+                                        </span>
                                     </div>
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-2xl font-black text-white">{defaultersCount}</span>
-                                        <span className="text-xs text-gray-400">inadimplente{defaultersCount !== 1 ? 's' : ''}</span>
-                                    </div>
-                                    {defaultersCount > 0 && (
-                                        <div className="mt-2 px-2 py-1 bg-red-500/20 rounded-lg inline-flex items-center gap-1.5">
-                                            <AlertTriangle className="w-3 h-3 text-red-400" />
-                                            <span className="text-xs font-bold text-red-400">
-                                                Pendências
-                                            </span>
-                                        </div>
-                                    )}
-                                    <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-hover:text-white transition-colors" />
-                                </article>
-
-                                {/* Jogos Ao Vivo Card */}
-                                <article
-                                    className="relative overflow-hidden bg-[#1c1c1e] rounded-2xl p-4 border border-white/5 shadow-lg cursor-pointer hover:bg-white/5 transition-all group"
-                                    onClick={() => liveMatch ? navigate(`/admin/match/${liveMatch.id}`) : navigate("/matches")}
-                                >
-                                    <div className="flex items-center gap-3 mb-3">
-                                        <div className="p-2 bg-rose-500/20 rounded-xl">
-                                            <Play className="w-5 h-5 text-rose-400" />
-                                        </div>
-                                        <span className="text-sm font-bold text-white">Jogos Ao Vivo</span>
-                                    </div>
-                                    {liveMatch ? (
-                                        <>
-                                            <div className="flex items-center justify-center gap-3 mt-1">
-                                                <div className="flex items-center gap-1.5">
-                                                    <div className="w-4 h-4 rounded" style={{ backgroundColor: liveMatch.teamHome === 'branco' ? '#fff' : liveMatch.teamHome === 'preto' ? '#1a1a1a' : liveMatch.teamHome === 'azul' ? '#3b82f6' : '#f97316' }} />
-                                                    <span className="text-xl font-black text-white">{liveMatch.scoreHome}</span>
-                                                </div>
-                                                <span className="text-gray-500 text-sm">x</span>
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className="text-xl font-black text-white">{liveMatch.scoreAway}</span>
-                                                    <div className="w-4 h-4 rounded" style={{ backgroundColor: liveMatch.teamAway === 'branco' ? '#fff' : liveMatch.teamAway === 'preto' ? '#1a1a1a' : liveMatch.teamAway === 'azul' ? '#3b82f6' : '#f97316' }} />
-                                                </div>
-                                            </div>
-                                            <div className="mt-2 px-2 py-1 bg-rose-500/20 rounded-lg inline-flex items-center gap-1.5">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                                                <span className="text-xs font-bold text-rose-400">{liveMatch.minutes}'</span>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className="text-gray-400 text-sm">Nenhum jogo ao vivo</div>
-                                    )}
                                     <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-hover:text-white transition-colors" />
                                 </article>
                             </div>

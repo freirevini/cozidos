@@ -36,7 +36,7 @@ interface PlayerStats {
   pontos_totais: number;
 }
 type TabType = "todos" | "nivel";
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 200;
 export default function Classification() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<PlayerStats[]>([]);

@@ -69,6 +69,11 @@ export default function BottomNavbar() {
             label: "Gerenciar Jogadores",
             icon: <UserCog className="w-6 h-6" />,
         },
+        {
+            path: "/statistics",
+            label: "Estatísticas",
+            icon: <BarChart3 className="w-6 h-6" />,
+        },
     ];
 
     // Navigation items - Order: Home | Classificação | LOGO | Rodadas | Meu Perfil
@@ -260,7 +265,7 @@ export default function BottomNavbar() {
                         transition={{ type: "spring", damping: 25, stiffness: 300 }}
                         className="fixed bottom-32 left-0 right-0 z-50 md:hidden flex justify-center px-4"
                     >
-                        <div className="flex gap-4 sm:gap-6 items-end justify-center">
+                        <div className="flex gap-4 sm:gap-6 items-start justify-center">
                             {adminPopupOptions.map((option, index) => (
                                 <motion.button
                                     key={option.path}

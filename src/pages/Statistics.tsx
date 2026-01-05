@@ -356,14 +356,21 @@ export default function Statistics() {
         {/* Stats Type Filter - Always visible */}
         <div className="sticky top-[52px] z-20 bg-[#0e0e10]/95 backdrop-blur border-b border-white/10">
           <div className="container mx-auto px-4 py-2">
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth pb-1">
+            <div
+              className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth pb-1"
+              style={{
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-x',
+                scrollSnapType: 'x mandatory'
+              }}
+            >
               {filterButtons.map(({ type, icon: Icon, label }) => (
                 <Button
                   key={type}
                   variant={filterType === type ? "default" : "outline"}
                   onClick={() => setFilterType(type)}
                   className={cn(
-                    "flex-shrink-0 rounded-full",
+                    "flex-shrink-0 rounded-full snap-start",
                     filterType === type
                       ? "bg-pink-500 hover:bg-pink-600 text-white border-pink-500"
                       : "border-white/10 bg-[#1c1c1e] hover:bg-white/10 text-white"
