@@ -38,7 +38,7 @@ interface Round {
 
 const teamNames: Record<string, string> = {
   branco: "Branco",
-  vermelho: "Vermelho",
+  preto: "preto",
   azul: "Azul",
   laranja: "Laranja",
 };

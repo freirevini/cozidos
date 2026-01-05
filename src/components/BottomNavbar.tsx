@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Trophy, User, Settings, BarChart3, Shield, Sparkles } from "lucide-react";
+import { Home, Trophy, User, Settings, BarChart3, Shield, Sparkles, Users, CalendarDays, UserCog } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
@@ -25,6 +25,7 @@ export default function BottomNavbar() {
     const navigate = useNavigate();
     const { user, isApproved, isAdmin, isPlayer } = useAuth();
     const [isLogoMenuOpen, setIsLogoMenuOpen] = useState(false);
+    const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
 
     // Hide on scroll down, show on scroll up
     const isNavVisible = useScrollDirection({ threshold: 15 });
@@ -48,6 +49,25 @@ export default function BottomNavbar() {
             path: "/coz-ia",
             label: "CozIA",
             icon: <Sparkles className="w-6 h-6" />,
+        },
+    ];
+
+    // Admin popup options when clicking "Gerenciar"
+    const adminPopupOptions: PopupOption[] = [
+        {
+            path: "/admin/round/manage",
+            label: "Gerenciar Rodada",
+            icon: <CalendarDays className="w-6 h-6" />,
+        },
+        {
+            path: "/admin/teams",
+            label: "Gerenciar Times",
+            icon: <Shield className="w-6 h-6" />,
+        },
+        {
+            path: "/admin/players",
+            label: "Gerenciar Jogadores",
+            icon: <UserCog className="w-6 h-6" />,
         },
     ];
 
@@ -144,17 +164,25 @@ export default function BottomNavbar() {
 
     const handleNavigation = (path: string) => {
         if (path === "admin-menu") {
-            navigate("/admin/teams");
+            // Toggle admin popup menu
+            setIsAdminMenuOpen(!isAdminMenuOpen);
+            setIsLogoMenuOpen(false);
             return;
         }
         if (path === "/profile" && !isApproved) {
             return;
         }
         setIsLogoMenuOpen(false);
+        setIsAdminMenuOpen(false);
         navigate(path);
     };
 
     const handleLogoClick = () => {
+        if (isAdmin) {
+            // For admins, logo navigates to players list
+            navigate("/admin/players");
+            return;
+        }
         if (!isPlayer) {
             // For non-players, logo navigates to players list
             navigate("/players-list");
@@ -169,17 +197,22 @@ export default function BottomNavbar() {
         navigate(path);
     };
 
+    const handleAdminPopupOptionClick = (path: string) => {
+        setIsAdminMenuOpen(false);
+        navigate(path);
+    };
+
     return (
         <>
             {/* Backdrop when menu is open */}
             <AnimatePresence>
-                {isLogoMenuOpen && (
+                {(isLogoMenuOpen || isAdminMenuOpen) && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
-                        onClick={() => setIsLogoMenuOpen(false)}
+                        onClick={() => { setIsLogoMenuOpen(false); setIsAdminMenuOpen(false); }}
                     />
                 )}
             </AnimatePresence>
@@ -208,6 +241,39 @@ export default function BottomNavbar() {
                                         {option.icon}
                                     </div>
                                     <span className="text-xs text-white/80 font-medium">
+                                        {option.label}
+                                    </span>
+                                </motion.button>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Admin popup menu when clicking "Gerenciar" */}
+            <AnimatePresence>
+                {isAdminMenuOpen && isAdmin && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 50, scale: 0.8 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 50, scale: 0.8 }}
+                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                        className="fixed bottom-32 left-0 right-0 z-50 md:hidden flex justify-center px-4"
+                    >
+                        <div className="flex gap-4 sm:gap-6 items-end justify-center">
+                            {adminPopupOptions.map((option, index) => (
+                                <motion.button
+                                    key={option.path}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: index * 0.05 }}
+                                    onClick={() => handleAdminPopupOptionClick(option.path)}
+                                    className="flex flex-col items-center gap-2"
+                                >
+                                    <div className="w-14 h-14 rounded-full bg-zinc-800/90 border border-pink-500/30 flex items-center justify-center text-pink-400 hover:bg-zinc-700 transition-colors">
+                                        {option.icon}
+                                    </div>
+                                    <span className="text-xs text-white/80 font-medium max-w-[80px] text-center">
                                         {option.label}
                                     </span>
                                 </motion.button>

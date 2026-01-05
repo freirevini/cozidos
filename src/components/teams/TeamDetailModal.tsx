@@ -7,7 +7,7 @@ import {
 import { TeamLogo } from "@/components/match/TeamLogo";
 import { Badge } from "@/components/ui/badge";
 
-type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
+type TeamColor = "branco" | "preto" | "azul" | "laranja";
 
 interface TeamPlayer {
   id: string;
@@ -29,7 +29,7 @@ interface TeamDetailModalProps {
 }
 
 const teamColorMap: Record<string, string> = {
-  vermelho: "Vermelho",
+  preto: "preto",
   azul: "Azul",
   branco: "Branco",
   laranja: "Laranja",

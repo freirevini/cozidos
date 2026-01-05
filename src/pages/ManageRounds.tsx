@@ -282,12 +282,12 @@ export default function ManageRounds() {
       if (teamColors.length === 4) {
         const matchPairs = [
           ['azul', 'branco'],
-          ['vermelho', 'azul'],
-          ['laranja', 'vermelho'],
+          ['preto', 'azul'],
+          ['laranja', 'preto'],
           ['branco', 'laranja'],
           ['azul', 'branco'],
-          ['vermelho', 'laranja'],
-          ['branco', 'vermelho'],
+          ['preto', 'laranja'],
+          ['branco', 'preto'],
           ['laranja', 'azul'],
         ];
 

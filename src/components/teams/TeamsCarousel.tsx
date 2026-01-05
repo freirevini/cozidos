@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { TeamCard } from "./TeamCard";
 import { cn } from "@/lib/utils";
 
-type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
+type TeamColor = "branco" | "preto" | "azul" | "laranja";
 
 interface TeamPlayer {
   id: string;

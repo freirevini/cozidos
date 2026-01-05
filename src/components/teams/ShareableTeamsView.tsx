@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import { TeamLogo } from "@/components/match/TeamLogo";
 import logoCozidos from "@/assets/logo-cozidos.png";
 
-type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
+type TeamColor = "branco" | "preto" | "azul" | "laranja";
 
 interface Match {
   id: string;
@@ -32,7 +32,7 @@ interface ShareableTeamsViewProps {
 }
 
 const teamColorMap: Record<string, string> = {
-  vermelho: "Vermelho",
+  preto: "preto",
   azul: "Azul",
   branco: "Branco",
   laranja: "Laranja",

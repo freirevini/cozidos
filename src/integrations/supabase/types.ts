@@ -989,7 +989,7 @@ export type Database = {
       player_status: "aprovado" | "pendente" | "congelado" | "rejeitado"
       player_type_enum: "mensal" | "avulso" | "avulso_fixo"
       round_status: "a_iniciar" | "em_andamento" | "finalizada"
-      team_color: "branco" | "vermelho" | "azul" | "laranja"
+      team_color: "branco" | "preto" | "azul" | "laranja"
       user_role: "user" | "admin"
     }
     CompositeTypes: {
@@ -1125,7 +1125,7 @@ export const Constants = {
       player_status: ["aprovado", "pendente", "congelado", "rejeitado"],
       player_type_enum: ["mensal", "avulso", "avulso_fixo"],
       round_status: ["a_iniciar", "em_andamento", "finalizada"],
-      team_color: ["branco", "vermelho", "azul", "laranja"],
+      team_color: ["branco", "preto", "azul", "laranja"],
       user_role: ["user", "admin"],
     },
   },

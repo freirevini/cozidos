@@ -21,7 +21,7 @@ interface TeamPlayer extends Player {
 
 const teamColors: Record<string, string> = {
   branco: "bg-white text-black border border-gray-300",
-  vermelho: "bg-red-600 text-white",
+  preto: "bg-black text-white",
   azul: "bg-blue-600 text-white",
   laranja: "bg-orange-500 text-white",
 };

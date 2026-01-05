@@ -10,7 +10,7 @@ import { ArrowLeft, Download, Share2, Eye, EyeOff, ChevronDown, Calendar } from 
 import { useNavigate } from "react-router-dom";
 import { toPng } from "html-to-image";
 import teamBranco from "@/assets/team-branco.png";
-import teamVermelho from "@/assets/team-vermelho.png";
+import teamPreto from "@/assets/team-preto.png";
 import teamAzul from "@/assets/team-azul.png";
 import teamLaranja from "@/assets/team-laranja.png";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
+type TeamColor = "branco" | "preto" | "azul" | "laranja";
 
 interface Round {
   id: string;
@@ -51,7 +51,7 @@ interface Match {
 
 const teamLogos: Record<TeamColor, string> = {
   branco: teamBranco,
-  vermelho: teamVermelho,
+  preto: teamPreto,
   azul: teamAzul,
   laranja: teamLaranja,
 };
@@ -209,7 +209,7 @@ export default function ViewTeams() {
     return acc;
   }, {} as Record<string, TeamPlayer[]>);
 
-  const orderedTeamColors = ["branco", "azul", "laranja", "vermelho"].filter(
+  const orderedTeamColors = ["branco", "azul", "laranja", "preto"].filter(
     color => teamsByColor[color]?.length > 0
   ) as TeamColor[];
 

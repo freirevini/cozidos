@@ -430,9 +430,9 @@ export default function PlayerPerformanceChart({ playerId, playerEmail }: Player
                     type="monotone"
                     dataKey="derrotasCum"
                     name="Derrotas"
-                    stroke="#ef4444"
+                    stroke="#1a1a1a"
                     strokeWidth={2}
-                    dot={{ fill: "#ef4444", strokeWidth: 2 }}
+                    dot={{ fill: "#1a1a1a", strokeWidth: 2 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -451,7 +451,7 @@ export default function PlayerPerformanceChart({ playerId, playerEmail }: Player
                 </p>
                 <p className="text-xs text-muted-foreground">Empates</p>
               </div>
-              <div className="text-center p-3 bg-red-600/10 rounded-lg border border-red-600/20">
+              <div className="text-center p-3 bg-black/10 rounded-lg border border-red-600/20">
                 <p className="text-xl font-bold text-red-600">
                   {cumulativeData[cumulativeData.length - 1]?.derrotasCum || 0}
                 </p>

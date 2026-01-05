@@ -1,7 +1,7 @@
 import { forwardRef } from "react";
 import logoCozidos from "@/assets/logo-cozidos-novo.png";
 
-type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
+type TeamColor = "branco" | "preto" | "azul" | "laranja";
 
 interface Match {
   id: string;
@@ -31,7 +31,7 @@ interface ShareableTeamsGridProps {
 }
 
 const teamColorMap: Record<string, string> = {
-  vermelho: "VERMELHO",
+  preto: "preto",
   azul: "AZUL",
   branco: "BRANCO",
   laranja: "LARANJA",
@@ -39,14 +39,14 @@ const teamColorMap: Record<string, string> = {
 
 const teamBgColors: Record<string, string> = {
   branco: "#f5f5f5",
-  vermelho: "#dc2626",
+  preto: "#1a1a1a",
   azul: "#2563eb",
   laranja: "#ea580c",
 };
 
 const teamTextColors: Record<string, string> = {
   branco: "#1a1a1a",
-  vermelho: "#ffffff",
+  preto: "#ffffff",
   azul: "#ffffff",
   laranja: "#ffffff",
 };

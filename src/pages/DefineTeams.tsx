@@ -35,14 +35,14 @@ interface IneligiblePlayer {
 
 const teamColors: Record<string, string> = {
   branco: "bg-white text-black border border-gray-300",
-  vermelho: "bg-red-600 text-white",
+  preto: "bg-black text-white",
   azul: "bg-blue-600 text-white",
   laranja: "bg-orange-500 text-white",
 };
 
 const teamColorsBg: Record<string, string> = {
   branco: "border-gray-300 bg-white/10",
-  vermelho: "border-red-600 bg-red-600/10",
+  preto: "border-red-600 bg-black/10",
   azul: "border-blue-600 bg-blue-600/10",
   laranja: "border-orange-500 bg-orange-500/10",
 };
@@ -60,7 +60,7 @@ export default function DefineTeams() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [numTeams, setNumTeams] = useState<number>(4);
-  const [selectedTeams, setSelectedTeams] = useState<string[]>(['branco', 'vermelho', 'azul', 'laranja']);
+  const [selectedTeams, setSelectedTeams] = useState<string[]>(['branco', 'preto', 'azul', 'laranja']);
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Record<string, TeamPlayer[]>>({});
   const [ineligiblePlayers, setIneligiblePlayers] = useState<IneligiblePlayer[]>([]);
@@ -85,7 +85,7 @@ export default function DefineTeams() {
   // Auto-select teams when numTeams changes
   useEffect(() => {
     if (numTeams === 4) {
-      setSelectedTeams(['branco', 'vermelho', 'azul', 'laranja']);
+      setSelectedTeams(['branco', 'preto', 'azul', 'laranja']);
     } else if (numTeams === 3 && selectedTeams.length > 3) {
       // Keep only first 3 selected if switching from 4 to 3
       setSelectedTeams(prev => prev.slice(0, 3));
@@ -347,12 +347,12 @@ export default function DefineTeams() {
         // Fixed match order for 4 teams
         const matchPairs = [
           ['azul', 'branco'],
-          ['vermelho', 'azul'],
-          ['laranja', 'vermelho'],
+          ['preto', 'azul'],
+          ['laranja', 'preto'],
           ['branco', 'laranja'],
           ['azul', 'branco'],
-          ['vermelho', 'laranja'],
-          ['branco', 'vermelho'],
+          ['preto', 'laranja'],
+          ['branco', 'preto'],
           ['laranja', 'azul'],
         ];
 
@@ -501,7 +501,7 @@ export default function DefineTeams() {
                     {numTeams === 4 ? 'Times selecionados:' : `Selecione ${numTeams} times:`}
                   </label>
                   <div className="grid grid-cols-2 gap-3">
-                    {['branco', 'vermelho', 'azul', 'laranja'].map((team) => {
+                    {['branco', 'preto', 'azul', 'laranja'].map((team) => {
                       const isSelected = selectedTeams.includes(team);
                       const isDisabled = numTeams === 4;
 

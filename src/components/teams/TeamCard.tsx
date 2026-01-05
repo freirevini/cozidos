@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { TeamLogo } from "@/components/match/TeamLogo";
 
-type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
+type TeamColor = "branco" | "preto" | "azul" | "laranja";
 
 interface TeamPlayer {
   id: string;
@@ -25,7 +25,7 @@ interface TeamCardProps {
 }
 
 const teamColorMap: Record<string, string> = {
-  vermelho: "Vermelho",
+  preto: "preto",
   azul: "Azul",
   branco: "Branco",
   laranja: "Laranja",

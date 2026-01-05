@@ -22,7 +22,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
+type TeamColor = "branco" | "preto" | "azul" | "laranja";
 
 interface Match {
   id: string;
@@ -96,7 +96,7 @@ interface Substitution {
 
 const teamNames: Record<string, string> = {
   branco: "Branco",
-  vermelho: "Vermelho",
+  preto: "preto",
   azul: "Azul",
   laranja: "Laranja",
 };
@@ -449,13 +449,13 @@ export default function ManageMatch() {
         .from("round_team_players")
         .select("player_id, profiles!inner(id, name, nickname, avatar_url)")
         .eq("round_id", roundId)
-        .eq("team_color", match.team_home as "branco" | "vermelho" | "azul" | "laranja");
+        .eq("team_color", match.team_home as "branco" | "preto" | "azul" | "laranja");
 
       const { data: awayPlayers } = await supabase
         .from("round_team_players")
         .select("player_id, profiles!inner(id, name, nickname, avatar_url)")
         .eq("round_id", roundId)
-        .eq("team_color", match.team_away as "branco" | "vermelho" | "azul" | "laranja");
+        .eq("team_color", match.team_away as "branco" | "preto" | "azul" | "laranja");
 
       const homePlayersList = (homePlayers || []).map((p: any) => p.profiles).filter(Boolean);
       const awayPlayersList = (awayPlayers || []).map((p: any) => p.profiles).filter(Boolean);
@@ -567,7 +567,7 @@ export default function ManageMatch() {
         .from("substitutions")
         .insert([{
           match_id: match.id,
-          team_color: subData.team as "branco" | "vermelho" | "azul" | "laranja",
+          team_color: subData.team as "branco" | "preto" | "azul" | "laranja",
           player_out_id: subData.player_out_id,
           player_in_id: subData.player_in_id,
           minute: currentMin,
@@ -1254,7 +1254,7 @@ export default function ManageMatch() {
                       <Button
                         key={player.id}
                         variant={subData.player_out_id === player.id ? "default" : "outline"}
-                        className={`h-11 text-xs px-2 rounded-lg ${subData.player_out_id === player.id ? "bg-red-600" : ""}`}
+                        className={`h-11 text-xs px-2 rounded-lg ${subData.player_out_id === player.id ? "bg-black" : ""}`}
                         onClick={() => setSubData({ ...subData, player_out_id: player.id })}
                       >
                         {player.nickname || player.name.split(' ')[0]}

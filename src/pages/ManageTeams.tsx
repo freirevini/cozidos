@@ -14,7 +14,7 @@ import { TeamLogo } from "@/components/match/TeamLogo";
 import { ShareableTeamsView } from "@/components/teams";
 import { toPng } from "html-to-image";
 
-type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
+type TeamColor = "branco" | "preto" | "azul" | "laranja";
 
 interface RoundWithTeams {
   id: string;

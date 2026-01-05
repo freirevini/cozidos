@@ -30,7 +30,7 @@ interface MatchLineupsProps {
 
 const teamNames: Record<string, string> = {
   branco: "BRA",
-  vermelho: "VER",
+  preto: "VER",
   azul: "AZU",
   laranja: "LAR",
 };

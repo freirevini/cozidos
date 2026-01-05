@@ -1,11 +1,11 @@
 import { cn } from "@/lib/utils";
 
 import teamBranco from "@/assets/team-branco.png";
-import teamVermelho from "@/assets/team-vermelho.png";
+import teamPreto from "@/assets/team-preto.png";
 import teamAzul from "@/assets/team-azul.png";
 import teamLaranja from "@/assets/team-laranja.png";
 
-type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
+type TeamColor = "branco" | "preto" | "azul" | "laranja";
 
 interface TeamLogoProps {
   teamColor: TeamColor;
@@ -15,7 +15,7 @@ interface TeamLogoProps {
 
 const teamLogoMap: Record<TeamColor, string> = {
   branco: teamBranco,
-  vermelho: teamVermelho,
+  preto: teamPreto,
   azul: teamAzul,
   laranja: teamLaranja,
 };

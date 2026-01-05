@@ -13,7 +13,7 @@ import { EVENT_ICONS, formatMinute } from "@/components/ui/event-item";
 import { TeamLogo } from "@/components/match/TeamLogo";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-type TeamColor = "branco" | "vermelho" | "azul" | "laranja";
+type TeamColor = "branco" | "preto" | "azul" | "laranja";
 
 interface Match {
   id: string;
@@ -56,7 +56,7 @@ interface CardEvent {
 
 const teamNames: Record<string, string> = {
   branco: "Branco",
-  vermelho: "Vermelho",
+  preto: "preto",
   azul: "Azul",
   laranja: "Laranja",
 };
@@ -166,13 +166,13 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
         .from("round_team_players")
         .select("player_id, profiles!inner(id, name, nickname)")
         .eq("round_id", roundId)
-        .eq("team_color", match.team_home as "azul" | "branco" | "laranja" | "vermelho");
+        .eq("team_color", match.team_home as "azul" | "branco" | "laranja" | "preto");
 
       const { data: awayPlayers } = await supabase
         .from("round_team_players")
         .select("player_id, profiles!inner(id, name, nickname)")
         .eq("round_id", roundId)
-        .eq("team_color", match.team_away as "azul" | "branco" | "laranja" | "vermelho");
+        .eq("team_color", match.team_away as "azul" | "branco" | "laranja" | "preto");
 
       setPlayers({
         [match.team_home]: (homePlayers || []).map((p: any) => p.profiles),
