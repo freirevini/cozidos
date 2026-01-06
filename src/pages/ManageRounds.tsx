@@ -16,7 +16,6 @@ import { cn } from "@/lib/utils";
 import { AdminMatchCard, AdminMatchMiniNav, useSwipeGesture } from "@/components/admin/AdminMatchCard";
 import { RoundCarousel } from "@/components/admin/RoundCarousel";
 import { AbsenceSubstituteModal } from "@/components/admin/AbsenceSubstituteModal";
-import { MatchLineups } from "@/components/match/MatchLineups";
 
 interface Match {
   id: string;

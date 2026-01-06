@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { ArrowLeft, Play, Pause, Goal, Square, Undo2, Flag, ArrowLeftRight, X, Check } from "lucide-react";
 import { MatchTimeline, TimelineEvent } from "@/components/match/MatchTimeline";
+import { MatchLineups } from "@/components/match/MatchLineups";
 import { TeamLogo } from "@/components/match/TeamLogo";
 import { formatMatchTimer, formatEventMinute, getMatchCurrentMinute, getMatchElapsedSeconds } from "@/lib/matchTimer";
 import {
@@ -47,6 +48,8 @@ interface Player {
   name: string;
   nickname: string | null;
   avatar_url?: string | null;
+  position: "goleiro" | "defensor" | "meio-campista" | "atacante" | null;
+  level?: string;
 }
 
 interface AssistData {
@@ -447,13 +450,13 @@ export default function ManageMatch() {
     try {
       const { data: homePlayers } = await supabase
         .from("round_team_players")
-        .select("player_id, profiles!inner(id, name, nickname, avatar_url)")
+        .select("player_id, profiles!inner(id, name, nickname, avatar_url, position, level)")
         .eq("round_id", roundId)
         .eq("team_color", match.team_home as "branco" | "preto" | "azul" | "laranja");
 
       const { data: awayPlayers } = await supabase
         .from("round_team_players")
-        .select("player_id, profiles!inner(id, name, nickname, avatar_url)")
+        .select("player_id, profiles!inner(id, name, nickname, avatar_url, position, level)")
         .eq("round_id", roundId)
         .eq("team_color", match.team_away as "branco" | "preto" | "azul" | "laranja");
 
@@ -1318,6 +1321,16 @@ export default function ManageMatch() {
             </CardContent>
           </Card>
         )}
+
+        {/* Team Lineups */}
+        <MatchLineups
+          teamHome={match.team_home}
+          teamAway={match.team_away}
+          homePlayers={players[match.team_home] || []}
+          awayPlayers={players[match.team_away] || []}
+          matchId={matchId}
+          className="mb-6"
+        />
 
         {/* Start Match Button */}
         {match.status === 'not_started' && (
