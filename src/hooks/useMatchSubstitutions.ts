@@ -39,8 +39,7 @@ export function useMatchSubstitutions(matchId: string | undefined) {
     }
 
     try {
-      console.log('[useMatchSubstitutions] Fetching substitutions for match:', matchId);
-      
+
       const { data, error } = await supabase
         .from("substitutions")
         .select(`
@@ -72,7 +71,6 @@ export function useMatchSubstitutions(matchId: string | undefined) {
         player_in: sub.player_in,
       }));
 
-      console.log('[useMatchSubstitutions] Loaded substitutions:', subs);
       setSubstitutions(subs);
     } catch (err) {
       console.error('[useMatchSubstitutions] Error:', err);
@@ -104,10 +102,7 @@ export function useMatchSubstitutions(matchId: string | undefined) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'substitutions', filter: `match_id=eq.${matchId}` },
-        (payload) => {
-          console.log('[useMatchSubstitutions] Realtime update:', payload);
-          debouncedRefetch();
-        }
+        () => debouncedRefetch()
       )
       .subscribe();
 

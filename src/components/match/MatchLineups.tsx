@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { PlayerEventBadges } from "./PlayerEventBadges";
 import { useMatchPlayerEvents, PlayerEventCounts } from "@/hooks/useMatchPlayerEvents";
 import { useMatchSubstitutions } from "@/hooks/useMatchSubstitutions";
+import { useMatchAbsenceSubstitutes } from "@/hooks/useMatchAbsenceSubstitutes";
 import { Skeleton } from "@/components/ui/skeleton";
 type Position = "goleiro" | "defensor" | "meio-campista" | "atacante";
 
@@ -453,6 +454,7 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
   const [currentFormation, setCurrentFormation] = useState("2-2-1");
   const { getPlayerEvents } = useMatchPlayerEvents(matchId);
   const { substitutions, loading: subsLoading } = useMatchSubstitutions(matchId);
+  const { absenceSubstitutes, loading: absenceLoading } = useMatchAbsenceSubstitutes(matchId);
 
   // Mapa de jogadores que entraram via substituição -> minuto de entrada
   const subInMinuteMap = useMemo(() => {
@@ -460,7 +462,6 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
     substitutions.forEach(s => {
       map.set(s.player_in_id, s.minute);
     });
-    console.log('[MatchLineups] subInMinuteMap:', Array.from(map.entries()));
     return map;
   }, [substitutions]);
 
@@ -478,7 +479,6 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
 
     // Se não tem eventos mas entrou via substituição, cria objeto mínimo com badge
     if (subMinute !== undefined) {
-      console.log(`[MatchLineups] Creating sub badge for player ${playerId}, minute: ${subMinute}`);
       return {
         player_id: playerId,
         goals_count: 0,
@@ -501,7 +501,7 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
         .map(s => s.player_out_id)
     );
 
-    // Jogadores que entraram (com dados completos)
+    // Jogadores que entraram via substituição durante a partida
     const playersIn = substitutions
       .filter(s => s.team_color === teamColor && s.player_in)
       .map(s => ({
@@ -513,16 +513,36 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
         avatar_url: s.player_in!.avatar_url,
       }));
 
-    // Titulares que não saíram + jogadores que entraram
+    // Jogadores que entraram como substitutos de ausência (antes da partida)
+    const absencePlayers = absenceSubstitutes
+      .filter(as => as.team_color === teamColor && as.player)
+      .map(as => ({
+        id: as.player!.id,
+        name: as.player!.name,
+        nickname: as.player!.nickname,
+        position: as.player!.position as Position | null,
+        level: as.player!.level,
+        avatar_url: as.player!.avatar_url,
+      }));
+
+    // Titulares que não saíram + jogadores que entraram + substitutos de ausência
     const onField = [
       ...originalPlayers.filter(p => !playersOutIds.has(p.id)),
-      ...playersIn
+      ...playersIn,
+      ...absencePlayers
     ];
 
-    console.log(`[MatchLineups] ${teamColor} - Out: ${Array.from(playersOutIds)}, In: ${playersIn.map(p => p.nickname || p.name)}, OnField: ${onField.map(p => p.nickname || p.name)}`);
+    // Remove duplicatas
+    const uniqueIds = new Set<string>();
+    const uniquePlayers = onField.filter(p => {
+      if (uniqueIds.has(p.id)) return false;
+      uniqueIds.add(p.id);
+      return true;
+    });
 
-    return onField;
-  }, [substitutions]);
+
+    return uniquePlayers;
+  }, [substitutions, absenceSubstitutes]);
 
   // Jogadores em campo calculados com useMemo usando a função callback
   const homeOnField = useMemo(() =>
@@ -546,7 +566,7 @@ export function MatchLineups({ teamHome, teamAway, homePlayers, awayPlayers, mat
   };
 
   // Loading state enquanto carrega substituições
-  if (subsLoading) {
+  if (subsLoading || absenceLoading) {
     return (
       <div className={cn("space-y-4", className)}>
         <div className="flex justify-center">

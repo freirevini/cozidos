@@ -409,7 +409,7 @@ export default function ManageTeams() {
 
         {/* Modal/View de compartilhamento */}
         {selectedRoundId && shareData && selectedRound && (
-          <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm overflow-y-auto">
+          <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
             <div className="container mx-auto px-4 py-6">
               <div className="flex items-center justify-between mb-6">
                 <Button

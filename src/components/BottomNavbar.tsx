@@ -33,6 +33,24 @@ export default function BottomNavbar() {
     // Don't show navbar if user is not logged in
     if (!user) return null;
 
+    // Routes where navbar should be hidden (admin/management pages)
+    const hideNavbarRoutes = [
+        '/admin/match/',        // Gestão ao vivo da partida (/admin/match/:matchId/:roundId)
+        '/admin/teams/define',  // Definição de times/sorteio
+        '/admin/teams/manage',  // Gerenciamento de times
+        '/admin/round/',        // Edição/visualização de rodada (/admin/round/:roundId/...)
+        '/admin/players',       // Gerenciamento de jogadores
+        '/auth',                // Tela de login
+    ];
+
+    // Check if current path starts with any hidden route
+    const shouldHideNavbar = hideNavbarRoutes.some(route =>
+        location.pathname.startsWith(route)
+    );
+
+    // Don't render navbar on excluded routes
+    if (shouldHideNavbar) return null;
+
     // Popup options when clicking center logo (for players)
     const playerPopupOptions: PopupOption[] = [
         {
@@ -55,7 +73,7 @@ export default function BottomNavbar() {
     // Admin popup options when clicking "Gerenciar"
     const adminPopupOptions: PopupOption[] = [
         {
-            path: "/admin/round/manage",
+            path: "/admin/round",
             label: "Gerenciar Rodada",
             icon: <CalendarDays className="w-6 h-6" />,
         },
@@ -216,7 +234,7 @@ export default function BottomNavbar() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+                        className="fixed inset-0 bg-black/70 z-40 md:hidden"
                         onClick={() => { setIsLogoMenuOpen(false); setIsAdminMenuOpen(false); }}
                     />
                 )}
@@ -229,7 +247,7 @@ export default function BottomNavbar() {
                         initial={{ opacity: 0, y: 50, scale: 0.8 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 50, scale: 0.8 }}
-                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                        transition={{ type: "tween", duration: 0.2, ease: "easeOut" }}
                         className="fixed bottom-32 left-0 right-0 z-50 md:hidden flex justify-center px-4"
                     >
                         <div className="flex gap-4 sm:gap-6 items-end justify-center">
@@ -262,7 +280,7 @@ export default function BottomNavbar() {
                         initial={{ opacity: 0, y: 50, scale: 0.8 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 50, scale: 0.8 }}
-                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                        transition={{ type: "tween", duration: 0.2, ease: "easeOut" }}
                         className="fixed bottom-32 left-0 right-0 z-50 md:hidden flex justify-center px-4"
                     >
                         <div className="flex gap-4 sm:gap-6 items-start justify-center">
@@ -302,7 +320,7 @@ export default function BottomNavbar() {
                 }}
                 className="fixed bottom-0 left-0 right-0 z-50 p-3 pb-safe md:hidden"
             >
-                <div className="bg-black/90 backdrop-blur-xl rounded-2xl max-w-md mx-auto flex items-end justify-around px-1 pb-3 pt-2 relative border border-white/10">
+                <div className="bg-black/95 rounded-2xl max-w-md mx-auto flex items-end justify-around px-1 pb-3 pt-2 relative border border-white/10">
 
                     {navItems.map((item) => {
                         // Center logo - larger, no circle, no rotation

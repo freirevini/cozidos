@@ -327,7 +327,7 @@ export default function Classification() {
 
     <main className="flex-1 flex flex-col">
       {/* Top Bar - Simplified */}
-      <div className="sticky top-0 z-30 bg-[#0e0e10]/95 backdrop-blur border-b border-white/10">
+      <div className="sticky top-0 z-30 bg-[#0e0e10] border-b border-white/10">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-2">
             {/* Filter Button */}
