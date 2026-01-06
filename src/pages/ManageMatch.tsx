@@ -127,6 +127,7 @@ export default function ManageMatch() {
   const [goals, setGoals] = useState<GoalData[]>([]);
   const [cards, setCards] = useState<CardEvent[]>([]);
   const [substitutions, setSubstitutions] = useState<Substitution[]>([]);
+  const [absenceSubstitutes, setAbsenceSubstitutes] = useState<Array<{ player_id: string; team_color: string; player: Player }>>([]);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [activeForm, setActiveForm] = useState<"goal" | "card" | "sub" | null>(null);
   const [timer, setTimer] = useState(720);
@@ -436,6 +437,23 @@ export default function ManageMatch() {
       }));
 
       setSubstitutions(subsWithPlayers);
+
+      // Load absence substitutes (players who replaced absent players)
+      const { data: absenceSubsData } = await supabase
+        .from("match_absence_substitutes")
+        .select(`
+          substitute_player_id,
+          team_color,
+          player:profiles!match_absence_substitutes_substitute_player_id_fkey(id, name, nickname, avatar_url, position, level)
+        `)
+        .eq("match_id", matchId);
+
+      const absenceSubs = (absenceSubsData || []).map((sub: any) => ({
+        player_id: sub.substitute_player_id,
+        team_color: sub.team_color,
+        player: sub.player,
+      }));
+      setAbsenceSubstitutes(absenceSubs);
     } catch (error) {
       console.error("Erro ao carregar partida:", error);
       toast.error("Erro ao carregar dados da partida");
@@ -547,9 +565,15 @@ export default function ManageMatch() {
       }
     });
 
+    // Add absence substitutes for this team
+    const absencePlayers: Player[] = absenceSubstitutes
+      .filter(as => as.team_color === teamColor && as.player)
+      .map(as => as.player)
+      .filter((p): p is Player => p !== null && p !== undefined);
+
     // Combine and remove duplicates
     const uniqueIds = new Set<string>();
-    return [...onFieldFromStarters, ...onFieldFromSubs].filter(p => {
+    return [...onFieldFromStarters, ...onFieldFromSubs, ...absencePlayers].filter(p => {
       if (uniqueIds.has(p.id)) return false;
       uniqueIds.add(p.id);
       return true;
