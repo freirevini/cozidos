@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import RoundOverviewSection from "@/components/admin/RoundOverviewSection";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -767,70 +768,8 @@ export default function Home() {
                             </div>
                         </div>
 
-                        {/* Próximo Jogo - Inside Admin Section */}
-                        <div className="col-span-2 mt-4">
-                            <h2 className="text-[16px] font-bold text-white mb-3 pl-1 tracking-tight flex items-center gap-2">
-                                Próximo Jogo
-                                <div className="h-px bg-white/10 flex-grow" />
-                            </h2>
-
-                            {loading ? (
-                                <Skeleton className="h-36 w-full rounded-2xl" />
-                            ) : nextMatch ? (
-                                <article
-                                    className="relative overflow-hidden bg-[#1c1c1e] rounded-2xl p-5 flex flex-col min-h-[140px] border border-white/5 shadow-lg group cursor-pointer"
-                                    onClick={() => navigate("/times")}
-                                >
-                                    <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-black/40 to-transparent" />
-
-                                    <div className="relative z-10 flex items-center gap-4 mb-5">
-                                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-gray-800 to-black border border-white/10 flex items-center justify-center shadow-inner">
-                                            <Calendar className="w-6 h-6 text-white" />
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-[10px] font-bold uppercase tracking-widest text-pink-200 bg-pink-500/20 px-2.5 py-1 rounded-md border border-pink-500/20">
-                                                    Rodada {nextMatch.round_number}
-                                                </span>
-                                            </div>
-                                            <h3 className="text-[18px] font-bold text-white tracking-tight capitalize">
-                                                {formatDate(nextMatch.scheduled_date)}
-                                            </h3>
-                                        </div>
-                                    </div>
-
-                                    <div className="relative z-10 mt-auto bg-black/40 rounded-xl p-3 border border-white/5 backdrop-blur-sm flex items-center justify-between">
-                                        {nextMatch.user_team_name ? (
-                                            <div className="flex items-center gap-2">
-                                                <div
-                                                    className="w-6 h-6 rounded flex items-center justify-center text-white text-xs font-bold"
-                                                    style={{ backgroundColor: nextMatch.user_team_color || "#6b7280" }}
-                                                >
-                                                    {nextMatch.user_team_name.charAt(0)}
-                                                </div>
-                                                <span className="text-[13px] font-bold text-green-400">
-                                                    ✓ Você está no {nextMatch.user_team_name}
-                                                </span>
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-center gap-2">
-                                                <div className="relative flex h-2 w-2">
-                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
-                                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500" />
-                                                </div>
-                                                <span className="text-[13px] font-bold text-gray-100">Escalação Pendente</span>
-                                            </div>
-                                        )}
-                                        <ChevronRight className="w-4 h-4 text-gray-300" />
-                                    </div>
-                                </article>
-                            ) : (
-                                <div className="bg-[#1c1c1e] rounded-2xl p-6 text-center border border-white/5">
-                                    <Calendar className="w-8 h-8 text-gray-500 mx-auto mb-2" />
-                                    <div className="text-gray-400">Nenhum jogo agendado</div>
-                                </div>
-                            )}
-                        </div>
+                        {/* Dynamic Round Overview Section */}
+                        <RoundOverviewSection />
 
                         {/* Estatísticas Section Header */}
                         <div className="col-span-2 mt-4">

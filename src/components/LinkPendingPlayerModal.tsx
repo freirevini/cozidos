@@ -82,11 +82,11 @@ export function LinkPendingPlayerModal({
 
   const loadAdminCreatedProfiles = async () => {
     try {
+      // Load all player profiles without user_id (ghost profiles available for linking)
       const { data, error } = await supabase
         .from("profiles")
         .select("id, name, nickname, email, birth_date")
         .eq("is_player", true)
-        .eq("created_by_admin_simple", true)
         .is("user_id", null)
         .order("name");
 

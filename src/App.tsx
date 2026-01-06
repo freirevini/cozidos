@@ -29,6 +29,7 @@ import EditRound from "./pages/EditRound";
 import ViewRound from "./pages/ViewRound";
 import ManageMatch from "./pages/ManageMatch";
 import AttendanceRecord from "./pages/AttendanceRecord";
+import ManageAttendance from "./pages/ManageAttendance";
 import ViewTeams from "./pages/ViewTeams";
 
 import ProfileMonitoring from "./pages/ProfileMonitoring";
@@ -105,7 +106,8 @@ function AnimatedRoutes() {
         <Route path="/admin/round/:roundId/edit" element={<ProtectedRoute><PageTransition><EditRound /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/round/:roundId/view" element={<ProtectedRoute><PageTransition><ViewRound /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/match/:matchId/:roundId" element={<ProtectedRoute><PageTransition><ManageMatch /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/round/:roundId/attendance" element={<ProtectedRoute><PageTransition><AttendanceRecord /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/round/:roundId/attendance" element={<ProtectedRoute><PageTransition><ManageAttendance /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/round/:roundId/attendance-old" element={<ProtectedRoute><PageTransition><AttendanceRecord /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/round" element={<ProtectedRoute><PageTransition><StartRound /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/round/manage" element={<ProtectedRoute><PageTransition><ManageRounds /></PageTransition></ProtectedRoute>} />
         <Route path="/profile" element={<ApprovedOnlyRoute><PageTransition><Profile /></PageTransition></ApprovedOnlyRoute>} />

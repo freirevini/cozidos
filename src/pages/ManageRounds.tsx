@@ -15,6 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { AdminMatchCard, AdminMatchMiniNav, useSwipeGesture } from "@/components/admin/AdminMatchCard";
 import { RoundCarousel } from "@/components/admin/RoundCarousel";
+import { AbsenceSubstituteModal } from "@/components/admin/AbsenceSubstituteModal";
+import { MatchLineups } from "@/components/match/MatchLineups";
 
 interface Match {
   id: string;
@@ -108,6 +110,8 @@ export default function ManageRounds() {
   const [deleteConfirmMatch, setDeleteConfirmMatch] = useState<Match | null>(null);
   const [finishAllConfirm, setFinishAllConfirm] = useState(false);
   const [finalizeConfirm, setFinalizeConfirm] = useState(false);
+  const [pendingStartMatch, setPendingStartMatch] = useState<Match | null>(null);
+  const [absenceModalOpen, setAbsenceModalOpen] = useState(false);
   const [, setTick] = useState(0); // For timer updates
 
   // Timer update every second for live matches
@@ -136,6 +140,20 @@ export default function ManageRounds() {
       }
     }
   }, [isAdmin, roundId, navigate]);
+
+  // Auto-select the most recent/active round if no roundId is provided
+  useEffect(() => {
+    if (!roundId && allRounds.length > 0) {
+      // Priority: em_andamento > a_iniciar > first available
+      const activeRound = allRounds.find(r => r.status === 'em_andamento');
+      const upcomingRound = allRounds.find(r => r.status === 'a_iniciar');
+      const targetRound = activeRound || upcomingRound || allRounds[0];
+
+      if (targetRound) {
+        navigate(`/admin/round/manage?round=${targetRound.id}`, { replace: true });
+      }
+    }
+  }, [roundId, allRounds, navigate]);
 
   useEffect(() => {
     if (matches.length > 0 && !selectedMatchId) {
@@ -458,6 +476,37 @@ export default function ManageRounds() {
     }
   };
 
+  // Check for absences before starting match
+  const checkAndStartMatch = async (match: Match) => {
+    if (!roundId) return;
+
+    // Check if there are absences for teams in this match
+    const { data: absences } = await supabase
+      .from("round_absences")
+      .select("id")
+      .eq("round_id", roundId)
+      .eq("status", "falta")
+      .in("original_team_color", [match.team_home, match.team_away]);
+
+    if (absences && absences.length > 0) {
+      // Check if substitutes are already assigned
+      const { data: existingSubs } = await supabase
+        .from("match_absence_substitutes")
+        .select("id")
+        .eq("match_id", match.id);
+
+      if (!existingSubs || existingSubs.length < absences.length) {
+        // Need to select substitutes
+        setPendingStartMatch(match);
+        setAbsenceModalOpen(true);
+        return;
+      }
+    }
+
+    // No absences or all substitutes assigned, start match directly
+    await startMatch(match.id);
+  };
+
   const startMatch = async (matchId: string) => {
     setActionLoading(matchId);
     try {
@@ -486,6 +535,7 @@ export default function ManageRounds() {
       toast.error('Erro ao iniciar partida: ' + error.message);
     } finally {
       setActionLoading(null);
+      setPendingStartMatch(null);
     }
   };
 
@@ -621,12 +671,12 @@ export default function ManageRounds() {
             </Button>
             <Button
               onClick={() => setFinalizeConfirm(true)}
-              disabled={!!actionLoading || !allFinished}
+              disabled={!!actionLoading || !allFinished || round?.status === 'finalizada'}
               size="sm"
               className="flex-1 min-w-[140px] gap-1"
             >
               {actionLoading === 'finalize' ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle size={14} />}
-              Finalizar Rodada
+              {round?.status === 'finalizada' ? 'Rodada Finalizada' : 'Finalizar Rodada'}
             </Button>
           </div>
         )}
@@ -666,7 +716,7 @@ export default function ManageRounds() {
                 matches={matches}
                 selectedMatchId={selectedMatchId}
                 onSelectMatch={setSelectedMatchId}
-                onStart={() => startMatch(selectedMatch.id)}
+                onStart={() => checkAndStartMatch(selectedMatch)}
                 onManage={() => openMatchPage(selectedMatch)}
                 onEdit={() => handleEditMatch(selectedMatch.id)}
                 onDelete={() => setDeleteConfirmMatch(selectedMatch)}
@@ -747,6 +797,24 @@ export default function ManageRounds() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Absence Substitute Modal */}
+      {pendingStartMatch && roundId && (
+        <AbsenceSubstituteModal
+          open={absenceModalOpen}
+          onOpenChange={(open) => {
+            setAbsenceModalOpen(open);
+            if (!open) setPendingStartMatch(null);
+          }}
+          matchId={pendingStartMatch.id}
+          roundId={roundId}
+          teamHome={pendingStartMatch.team_home}
+          teamAway={pendingStartMatch.team_away}
+          onSubstitutesConfirmed={() => {
+            startMatch(pendingStartMatch.id);
+          }}
+        />
+      )}
     </div>
   );
 }
