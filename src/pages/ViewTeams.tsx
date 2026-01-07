@@ -5,7 +5,7 @@ import Header from "@/components/Header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { TeamCardModern, ShareableTeamsGrid } from "@/components/teams";
+import { TeamCardModern, ShareableTeamsView } from "@/components/teams";
 import { ArrowLeft, Download, Share2, Eye, EyeOff, ChevronDown, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toPng } from "html-to-image";
@@ -470,7 +470,7 @@ export default function ViewTeams() {
                   Preview para WhatsApp:
                 </p>
                 <div className="border border-border/30 rounded-2xl overflow-hidden overflow-x-auto bg-[#0a0a0a]">
-                  <ShareableTeamsGrid
+                  <ShareableTeamsView
                     ref={shareRef}
                     roundNumber={selectedRoundData.round_number}
                     scheduledDate={selectedRoundData.scheduled_date || ""}
