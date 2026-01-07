@@ -877,6 +877,10 @@ export type Database = {
         Args: { p_token: string; p_user_id: string }
         Returns: Json
       }
+      admin_reset_round: {
+        Args: { p_round_id: string }
+        Returns: Json
+      }
       close_all_matches_by_round: {
         Args: { p_round_id: string }
         Returns: Json

@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, PlayCircle, Edit3, Trash2, CheckCircle, Clock, AlertCircle, PlusCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, PlayCircle, Edit3, Trash2, CheckCircle, Clock, AlertCircle, PlusCircle, Loader2, RotateCcw } from "lucide-react";
 import ManageMatchDialog from "@/components/ManageMatchDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { AdminMatchCard, AdminMatchMiniNav, useSwipeGesture } from "@/components/admin/AdminMatchCard";
 import { RoundCarousel } from "@/components/admin/RoundCarousel";
@@ -111,6 +112,8 @@ export default function ManageRounds() {
   const [finalizeConfirm, setFinalizeConfirm] = useState(false);
   const [pendingStartMatch, setPendingStartMatch] = useState<Match | null>(null);
   const [absenceModalOpen, setAbsenceModalOpen] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState(false);
+  const [resetInput, setResetInput] = useState("");
   const [, setTick] = useState(0); // For timer updates
 
   // Timer update every second for live matches
@@ -565,6 +568,36 @@ export default function ManageRounds() {
     navigate(`/admin/match/${match.id}/${roundId}`);
   };
 
+  // Reset entire round to initial state
+  const resetRound = async () => {
+    if (resetInput !== "Reset" || !roundId) return;
+
+    setActionLoading('reset');
+    try {
+      const { data, error } = await supabase.rpc('admin_reset_round', {
+        p_round_id: roundId
+      });
+
+      if (error) throw error;
+
+      const result = data as { success: boolean; error?: string; message?: string };
+
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao resetar rodada');
+      }
+
+      toast.success('Rodada resetada com sucesso!');
+      setResetConfirm(false);
+      setResetInput("");
+      await loadRoundData();
+      await loadAllRounds();
+    } catch (error: any) {
+      toast.error('Erro ao resetar: ' + error.message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (!roundId) {
     return (
       <div className="min-h-screen bg-background">
@@ -676,6 +709,16 @@ export default function ManageRounds() {
             >
               {actionLoading === 'finalize' ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle size={14} />}
               {round?.status === 'finalizada' ? 'Rodada Finalizada' : 'Finalizar Rodada'}
+            </Button>
+            <Button
+              onClick={() => setResetConfirm(true)}
+              disabled={!!actionLoading}
+              variant="outline"
+              size="sm"
+              className="flex-1 min-w-[140px] gap-1 border-destructive/50 text-destructive hover:bg-destructive/10"
+            >
+              {actionLoading === 'reset' ? <Loader2 className="animate-spin" size={14} /> : <RotateCcw size={14} />}
+              Resetar Rodada
             </Button>
           </div>
         )}
@@ -792,6 +835,53 @@ export default function ManageRounds() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={finalizeRound}>
               Finalizar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset Round Confirmation */}
+      <AlertDialog open={resetConfirm} onOpenChange={(open) => {
+        setResetConfirm(open);
+        if (!open) setResetInput("");
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive flex items-center gap-2">
+              <RotateCcw size={20} />
+              Resetar Rodada {round?.round_number}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Isso apagará <strong>permanentemente</strong>:</p>
+                <ul className="list-disc pl-4 space-y-1 text-sm">
+                  <li>Todos os gols e assistências</li>
+                  <li>Todos os cartões</li>
+                  <li>Todas as substituições</li>
+                  <li>Estatísticas da rodada</li>
+                </ul>
+                <p className="text-destructive font-medium">Esta ação é irreversível!</p>
+                <p className="text-sm">Digite <strong>"Reset"</strong> para confirmar:</p>
+                <Input
+                  value={resetInput}
+                  onChange={(e) => setResetInput(e.target.value)}
+                  placeholder="Digite Reset"
+                  className="mt-2"
+                />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setResetInput("")}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={resetRound}
+              disabled={resetInput !== "Reset" || actionLoading === 'reset'}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {actionLoading === 'reset' && <Loader2 className="animate-spin mr-2" size={16} />}
+              Resetar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
