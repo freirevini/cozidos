@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { ArrowLeft, Play, Pause, Goal, Square, Undo2, Flag, ArrowLeftRight, X, Check } from "lucide-react";
+import { ArrowLeft, Play, Pause, Goal, Square, Undo2, Flag, ArrowLeftRight, X, Check, Pencil, Save } from "lucide-react";
 import { MatchTimeline, TimelineEvent } from "@/components/match/MatchTimeline";
 import { MatchLineups } from "@/components/match/MatchLineups";
 import { TeamLogo } from "@/components/match/TeamLogo";
@@ -151,6 +151,7 @@ export default function ManageMatch() {
     player_in_id: "",
   });
   const [availablePlayersIn, setAvailablePlayersIn] = useState<Player[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     checkAdminAndLoad();
@@ -694,6 +695,34 @@ export default function ManageMatch() {
     setSubData({ team: "", player_out_id: "", player_in_id: "" });
   };
 
+  // Save edits and recalculate stats for finished matches
+  const handleSaveEdits = async () => {
+    if (!match?.round_id) return;
+
+    setLoading(true);
+    try {
+      // Call RPC to recalculate all round stats
+      const { data, error } = await supabase.rpc('recalc_round_aggregates', {
+        p_round_id: match.round_id
+      });
+
+      if (error) throw error;
+
+      const result = data as { success: boolean; error?: string; message?: string };
+
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao recalcular estatísticas');
+      }
+
+      toast.success('Alterações salvas! Estatísticas recalculadas.');
+      setIsEditing(false);
+    } catch (error: any) {
+      toast.error('Erro ao recalcular: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const addGoal = async () => {
     if (!goalData.team || !goalData.player_id || !match) {
       toast.error("Preencha todos os campos obrigatórios");
@@ -985,11 +1014,37 @@ export default function ManageMatch() {
                 {timerRunning ? <Pause size={14} /> : <Play size={14} />}
               </Button>
             )}
+
+            {/* Edit button for finished matches */}
+            {isMatchFinished && !isEditing && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditing(true)}
+                className="h-8 gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
+              >
+                <Pencil size={12} />
+                Editar
+              </Button>
+            )}
+
+            {/* Save button when editing finished match */}
+            {isMatchFinished && isEditing && (
+              <Button
+                size="sm"
+                onClick={handleSaveEdits}
+                disabled={loading}
+                className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700"
+              >
+                <Save size={12} />
+                {loading ? "Salvando..." : "Salvar"}
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* Action Buttons - Only show when match is active */}
-        {isMatchActive && !activeForm && (
+        {/* Action Buttons - Show when match is active OR when editing finished match */}
+        {(isMatchActive || (isMatchFinished && isEditing)) && !activeForm && (
           <div className="grid grid-cols-4 gap-2 mb-4">
             <Button
               onClick={() => setActiveForm("goal")}
