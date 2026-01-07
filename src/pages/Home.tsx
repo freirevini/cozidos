@@ -655,6 +655,13 @@ export default function Home() {
                     </>
                 )}
 
+                {/* Round Overview Section for ALL users - non-admins see it here */}
+                {!isAdmin && (
+                    <div className="col-span-2 mt-4">
+                        <RoundOverviewSection isAdmin={false} />
+                    </div>
+                )}
+
                 {/* Admin Quick Access Section - Only for Admins */}
                 {isAdmin && adminStats && (
                     <>
@@ -768,8 +775,8 @@ export default function Home() {
                             </div>
                         </div>
 
-                        {/* Dynamic Round Overview Section */}
-                        <RoundOverviewSection />
+                        {/* Dynamic Round Overview Section for ADMIN */}
+                        <RoundOverviewSection isAdmin={true} />
 
                         {/* Estatísticas Section Header */}
                         <div className="col-span-2 mt-4">

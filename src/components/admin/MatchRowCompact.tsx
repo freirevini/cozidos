@@ -28,6 +28,7 @@ interface MatchRowCompactProps {
     minutes?: number; // For live matches
     scheduledTime?: string; // For scheduled matches (e.g., "20:00")
     onClick?: () => void;
+    isAdmin?: boolean; // Controls navigation route
 }
 
 const MatchRowCompact: React.FC<MatchRowCompactProps> = ({
@@ -40,7 +41,8 @@ const MatchRowCompact: React.FC<MatchRowCompactProps> = ({
     status,
     minutes,
     scheduledTime,
-    onClick
+    onClick,
+    isAdmin = false
 }) => {
     const navigate = useNavigate();
 
@@ -50,8 +52,10 @@ const MatchRowCompact: React.FC<MatchRowCompactProps> = ({
     const handleClick = () => {
         if (onClick) {
             onClick();
-        } else {
+        } else if (isAdmin) {
             navigate(`/admin/match/${matchId}/${roundId}`);
+        } else {
+            navigate(`/matches/${matchId}`);
         }
     };
 

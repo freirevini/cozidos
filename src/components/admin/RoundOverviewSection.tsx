@@ -44,7 +44,11 @@ interface RoundStats {
 
 type SectionState = 'active_round' | 'finished_round' | 'upcoming_matches' | 'none';
 
-const RoundOverviewSection: React.FC = () => {
+interface RoundOverviewSectionProps {
+    isAdmin?: boolean;
+}
+
+const RoundOverviewSection: React.FC<RoundOverviewSectionProps> = ({ isAdmin = false }) => {
     const navigate = useNavigate();
     const [rounds, setRounds] = useState<Round[]>([]);
     const [matches, setMatches] = useState<Match[]>([]);
@@ -97,10 +101,10 @@ const RoundOverviewSection: React.FC = () => {
     }, [matches, relevantRound]);
 
     // Categorize matches for active round view
-    // Match status: not_started, em_andamento, finalizada
+    // Match status: not_started, in_progress, finished/finalizada
     const categorizedMatches = useMemo(() => {
-        const finished = roundMatches.filter(m => m.status === 'finalizada');
-        const inProgress = roundMatches.filter(m => m.status === 'em_andamento');
+        const finished = roundMatches.filter(m => m.status === 'finalizada' || m.status === 'finished');
+        const inProgress = roundMatches.filter(m => m.status === 'in_progress');
         const scheduled = roundMatches.filter(m => m.status === 'not_started' || !m.status);
 
         return {
@@ -112,7 +116,7 @@ const RoundOverviewSection: React.FC = () => {
 
     // Calculate match minutes
     const getMatchMinutes = (match: Match): number => {
-        if (match.status !== 'em_andamento' || !match.match_timer_started_at) return 0;
+        if (match.status !== 'in_progress' || !match.match_timer_started_at) return 0;
         const started = new Date(match.match_timer_started_at).getTime();
         const now = Date.now();
         return Math.floor((now - started) / 60000);
@@ -128,7 +132,7 @@ const RoundOverviewSection: React.FC = () => {
             .on('postgres_changes', {
                 event: '*',
                 schema: 'public',
-                table: 'game_matches'
+                table: 'matches'
             }, () => loadData())
             .on('postgres_changes', {
                 event: '*',
@@ -256,6 +260,7 @@ const RoundOverviewSection: React.FC = () => {
                                         scoreHome={match.score_home}
                                         scoreAway={match.score_away}
                                         status="finished"
+                                        isAdmin={isAdmin}
                                     />
                                 ))}
                             </>
@@ -279,6 +284,7 @@ const RoundOverviewSection: React.FC = () => {
                                     scoreAway={categorizedMatches.current.score_away}
                                     status="in_progress"
                                     minutes={getMatchMinutes(categorizedMatches.current)}
+                                    isAdmin={isAdmin}
                                 />
                             </>
                         )}
@@ -302,6 +308,7 @@ const RoundOverviewSection: React.FC = () => {
                                         scoreAway={match.score_away}
                                         status="scheduled"
                                         scheduledTime={formatTime(match.scheduled_time)}
+                                        isAdmin={isAdmin}
                                     />
                                 ))}
                             </>
