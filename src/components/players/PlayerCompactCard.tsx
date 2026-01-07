@@ -33,6 +33,7 @@ interface PlayerCompactCardProps {
   onCopyToken: (token: string) => void;
   onCopyInviteLink: (token: string) => void;
   onGenerateToken: (playerId: string) => void;
+  onViewProfile?: (player: Player) => void;
 }
 
 const positionIcons: Record<string, { icon: string; label: string }> = {
@@ -70,6 +71,7 @@ export function PlayerCompactCard({
   onCopyToken,
   onCopyInviteLink,
   onGenerateToken,
+  onViewProfile,
 }: PlayerCompactCardProps) {
   const displayName = player.nickname || player.first_name || player.name || "Sem nome";
   const position = player.position ? positionIcons[player.position] : null;
@@ -85,42 +87,48 @@ export function PlayerCompactCard({
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl bg-card/50 border border-border/50 hover:bg-card/80 hover:border-primary/30 transition-all duration-200">
-      {/* Avatar */}
-      <Avatar className="h-10 w-10 border border-border/50 bg-muted">
-        <AvatarImage src={player.avatar_url || undefined} alt={displayName} />
-        <AvatarFallback className="bg-muted text-xs font-medium">
-          {initials}
-        </AvatarFallback>
-      </Avatar>
+      {/* Clickable area for profile navigation */}
+      <div
+        className={`flex items-center gap-3 flex-1 min-w-0 ${onViewProfile ? 'cursor-pointer' : ''}`}
+        onClick={() => onViewProfile?.(player)}
+      >
+        {/* Avatar */}
+        <Avatar className="h-10 w-10 border border-border/50 bg-muted shrink-0">
+          <AvatarImage src={player.avatar_url || undefined} alt={displayName} />
+          <AvatarFallback className="bg-muted text-xs font-medium">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
 
-      {/* Info principal */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-foreground truncate">
-            {displayName}
-          </span>
-        </div>
-
-        {/* Badges */}
-        <div className="flex items-center gap-1.5 mt-1">
-          {/* Posição */}
-          {position && (
-            <span className="text-xs px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground">
-              {position.icon} {position.label}
+        {/* Info principal */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-foreground truncate">
+              {displayName}
             </span>
-          )}
+          </div>
 
-          {/* Nível */}
-          {player.level && (
-            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-5 ${level}`}>
-              {player.level}
+          {/* Badges */}
+          <div className="flex items-center gap-1.5 mt-1">
+            {/* Posição */}
+            {position && (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground">
+                {position.icon} {position.label}
+              </span>
+            )}
+
+            {/* Nível */}
+            {player.level && (
+              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-5 ${level}`}>
+                {player.level}
+              </Badge>
+            )}
+
+            {/* Status */}
+            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-5 ${status.color}`}>
+              {status.label}
             </Badge>
-          )}
-
-          {/* Status */}
-          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-5 ${status.color}`}>
-            {status.label}
-          </Badge>
+          </div>
         </div>
       </div>
 

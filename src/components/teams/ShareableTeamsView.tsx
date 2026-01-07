@@ -242,7 +242,7 @@ export const ShareableTeamsView = forwardRef<HTMLDivElement, ShareableTeamsViewP
                     className="inline-flex items-center gap-2 bg-white/5 backdrop-blur-sm rounded-lg px-2.5 py-1.5 border border-white/5"
                   >
                     {/* Time */}
-                    <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-center min-w-[30px]">
                       <span className="text-white text-xs font-semibold tabular-nums">
                         {formatTime(match.scheduled_time)}
                       </span>
@@ -254,17 +254,18 @@ export const ShareableTeamsView = forwardRef<HTMLDivElement, ShareableTeamsViewP
                     {/* Divider */}
                     <div className="w-px h-6 bg-zinc-700/50" />
 
-                    {/* Match badges - Same width, centered */}
-                    <div className="flex items-center gap-1.5">
-                      {/* Home Team Badge - Fixed width */}
-                      <span className={`${homeStyle.badgeBg} ${homeStyle.badgeText} w-[54px] text-center py-1 rounded-md text-[10px] font-bold shadow-sm`}>
+                    {/* Match badges - Aumentado e Centralizado */}
+                    <div className="flex items-center gap-3">
+                      {/* Home Team Badge */}
+                      <span className={`${homeStyle.badgeBg} ${homeStyle.badgeText} w-[75px] text-center py-1 rounded-md text-[10px] font-bold shadow-sm`}>
                         {teamDisplayNames[match.team_home]}
                       </span>
 
-                      <span className="text-zinc-600 text-[10px] font-medium">×</span>
+                      {/* X centralizado */}
+                      <span className="text-zinc-600 text-[10px] font-medium w-4 text-center">×</span>
 
-                      {/* Away Team Badge - Fixed width */}
-                      <span className={`${awayStyle.badgeBg} ${awayStyle.badgeText} w-[54px] text-center py-1 rounded-md text-[10px] font-bold shadow-sm`}>
+                      {/* Away Team Badge */}
+                      <span className={`${awayStyle.badgeBg} ${awayStyle.badgeText} w-[75px] text-center py-1 rounded-md text-[10px] font-bold shadow-sm`}>
                         {teamDisplayNames[match.team_away]}
                       </span>
                     </div>

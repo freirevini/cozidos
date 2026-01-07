@@ -453,6 +453,11 @@ export default function ManagePlayers() {
     }
   };
 
+  // Navigate to player profile
+  const handleViewProfile = (player: Player) => {
+    navigate(`/profile/${player.id}`);
+  };
+
   const handleCreatePlayer = async () => {
     if (!formData.nickname || !formData.level || !formData.position) {
       sonnerToast.error("Preencha todos os campos obrigatórios");
@@ -663,6 +668,7 @@ export default function ManagePlayers() {
                   onCopyToken={handleCopyToken}
                   onCopyInviteLink={handleCopyInviteLink}
                   onGenerateToken={handleGenerateToken}
+                  onViewProfile={handleViewProfile}
                 />
               ))}
 
