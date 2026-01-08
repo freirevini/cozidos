@@ -6,6 +6,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
 import logo from "@/assets/novo-logo.png";
 import { cn } from "@/lib/utils";
+import {
+    Drawer,
+    DrawerContent,
+    DrawerHeader,
+    DrawerTitle,
+} from "@/components/ui/drawer";
 
 interface NavItem {
     path: string;
@@ -227,84 +233,51 @@ export default function BottomNavbar() {
 
     return (
         <>
-            {/* Backdrop when menu is open */}
-            <AnimatePresence>
-                {(isLogoMenuOpen || isAdminMenuOpen) && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/70 z-40 md:hidden"
-                        onClick={() => { setIsLogoMenuOpen(false); setIsAdminMenuOpen(false); }}
-                    />
-                )}
-            </AnimatePresence>
+            {/* Quick Actions Drawer - Player */}
+            <Drawer open={isLogoMenuOpen && isPlayer} onOpenChange={setIsLogoMenuOpen}>
+                <DrawerContent className="max-h-[50vh]">
+                    <DrawerHeader className="border-b border-border/50 pb-4">
+                        <DrawerTitle className="text-center text-lg">Ações Rápidas</DrawerTitle>
+                    </DrawerHeader>
+                    <div className="p-4 space-y-2">
+                        {playerPopupOptions.map((option) => (
+                            <button
+                                key={option.path}
+                                onClick={() => handlePopupOptionClick(option.path)}
+                                className="w-full h-14 flex items-center gap-4 px-4 rounded-xl bg-zinc-800/50 hover:bg-zinc-700/50 border border-white/10 transition-colors"
+                            >
+                                <div className="w-10 h-10 rounded-full bg-zinc-700 flex items-center justify-center text-white">
+                                    {option.icon}
+                                </div>
+                                <span className="text-base font-medium text-white">{option.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </DrawerContent>
+            </Drawer>
 
-            {/* Popup menu for center logo - CENTERED */}
-            <AnimatePresence>
-                {isLogoMenuOpen && isPlayer && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 50, scale: 0.8 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 50, scale: 0.8 }}
-                        transition={{ type: "tween", duration: 0.2, ease: "easeOut" }}
-                        className="fixed bottom-32 left-0 right-0 z-50 md:hidden flex justify-center px-4"
-                    >
-                        <div className="flex gap-4 sm:gap-6 items-end justify-center">
-                            {playerPopupOptions.map((option, index) => (
-                                <motion.button
-                                    key={option.path}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: index * 0.05 }}
-                                    onClick={() => handlePopupOptionClick(option.path)}
-                                    className="flex flex-col items-center gap-2"
-                                >
-                                    <div className="w-14 h-14 rounded-full bg-zinc-800/90 border border-white/10 flex items-center justify-center text-white hover:bg-zinc-700 transition-colors">
-                                        {option.icon}
-                                    </div>
-                                    <span className="text-xs text-white/80 font-medium">
-                                        {option.label}
-                                    </span>
-                                </motion.button>
-                            ))}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Admin popup menu when clicking "Gerenciar" */}
-            <AnimatePresence>
-                {isAdminMenuOpen && isAdmin && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 50, scale: 0.8 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 50, scale: 0.8 }}
-                        transition={{ type: "tween", duration: 0.2, ease: "easeOut" }}
-                        className="fixed bottom-32 left-0 right-0 z-50 md:hidden flex justify-center px-4"
-                    >
-                        <div className="flex gap-4 sm:gap-6 items-start justify-center">
-                            {adminPopupOptions.map((option, index) => (
-                                <motion.button
-                                    key={option.path}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: index * 0.05 }}
-                                    onClick={() => handleAdminPopupOptionClick(option.path)}
-                                    className="flex flex-col items-center gap-2"
-                                >
-                                    <div className="w-14 h-14 rounded-full bg-zinc-800/90 border border-pink-500/30 flex items-center justify-center text-pink-400 hover:bg-zinc-700 transition-colors">
-                                        {option.icon}
-                                    </div>
-                                    <span className="text-xs text-white/80 font-medium max-w-[80px] text-center">
-                                        {option.label}
-                                    </span>
-                                </motion.button>
-                            ))}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {/* Quick Actions Drawer - Admin */}
+            <Drawer open={isAdminMenuOpen && isAdmin} onOpenChange={setIsAdminMenuOpen}>
+                <DrawerContent className="max-h-[60vh]">
+                    <DrawerHeader className="border-b border-pink-500/30 pb-4">
+                        <DrawerTitle className="text-center text-lg text-pink-400">Gerenciamento</DrawerTitle>
+                    </DrawerHeader>
+                    <div className="p-4 space-y-2">
+                        {adminPopupOptions.map((option) => (
+                            <button
+                                key={option.path}
+                                onClick={() => handleAdminPopupOptionClick(option.path)}
+                                className="w-full h-14 flex items-center gap-4 px-4 rounded-xl bg-zinc-800/50 hover:bg-zinc-700/50 border border-pink-500/20 transition-colors"
+                            >
+                                <div className="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-400">
+                                    {option.icon}
+                                </div>
+                                <span className="text-base font-medium text-white">{option.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </DrawerContent>
+            </Drawer>
 
             {/* Main navigation bar - Hide on scroll down */}
             <motion.nav

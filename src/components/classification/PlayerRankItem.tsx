@@ -32,8 +32,8 @@ export default function PlayerRankItem({
     <div
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 px-4 py-3 border-b border-border/30 hover:bg-muted/20 transition-colors",
-        onClick && "cursor-pointer"
+        "flex items-center gap-3 px-4 py-3 min-h-[56px] border-b border-border/30 hover:bg-muted/30 active:scale-[0.98] transition-all duration-150",
+        onClick && "cursor-pointer active:bg-muted/50"
       )}
     >
       {/* Rank */}

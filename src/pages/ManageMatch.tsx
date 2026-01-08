@@ -10,6 +10,7 @@ import { ArrowLeft, Play, Pause, Goal, Square, Undo2, Flag, ArrowLeftRight, X, C
 import { MatchTimeline, TimelineEvent } from "@/components/match/MatchTimeline";
 import { MatchLineups } from "@/components/match/MatchLineups";
 import { TeamLogo } from "@/components/match/TeamLogo";
+import { GoalFormDrawer, CardFormDrawer, SubstitutionFormDrawer } from "@/components/match";
 import { formatMatchTimer, formatEventMinute, getMatchCurrentMinute, getMatchElapsedSeconds } from "@/lib/matchTimer";
 import {
   AlertDialog,
@@ -152,6 +153,11 @@ export default function ManageMatch() {
   });
   const [availablePlayersIn, setAvailablePlayersIn] = useState<Player[]>([]);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Drawer open states
+  const [goalDrawerOpen, setGoalDrawerOpen] = useState(false);
+  const [cardDrawerOpen, setCardDrawerOpen] = useState(false);
+  const [subDrawerOpen, setSubDrawerOpen] = useState(false);
 
   useEffect(() => {
     checkAdminAndLoad();
@@ -1044,10 +1050,10 @@ export default function ManageMatch() {
         </div>
 
         {/* Action Buttons - Show when match is active OR when editing finished match */}
-        {(isMatchActive || (isMatchFinished && isEditing)) && !activeForm && (
+        {(isMatchActive || (isMatchFinished && isEditing)) && (
           <div className="grid grid-cols-4 gap-2 mb-4">
             <Button
-              onClick={() => setActiveForm("goal")}
+              onClick={() => setGoalDrawerOpen(true)}
               className="flex flex-col items-center gap-1 h-auto py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
             >
               <Goal size={18} />
@@ -1055,7 +1061,7 @@ export default function ManageMatch() {
             </Button>
 
             <Button
-              onClick={() => setActiveForm("card")}
+              onClick={() => setCardDrawerOpen(true)}
               className="flex flex-col items-center gap-1 h-auto py-3 bg-amber-500 hover:bg-amber-600 text-black rounded-xl"
             >
               <Square size={16} />
@@ -1063,7 +1069,7 @@ export default function ManageMatch() {
             </Button>
 
             <Button
-              onClick={() => setActiveForm("sub")}
+              onClick={() => setSubDrawerOpen(true)}
               variant="outline"
               className="flex flex-col items-center gap-1 h-auto py-3 rounded-xl border-border hover:bg-muted"
             >
@@ -1470,6 +1476,50 @@ export default function ManageMatch() {
               Voltar para Gerenciar Rodada
             </Button>
           </div>
+        )}
+
+        {/* Form Drawers - Mobile First UX */}
+        {match && (
+          <>
+            <GoalFormDrawer
+              open={goalDrawerOpen}
+              onOpenChange={setGoalDrawerOpen}
+              teamHome={match.team_home as any}
+              teamAway={match.team_away as any}
+              getPlayersOnField={getPlayersOnField}
+              onSubmit={addGoal}
+              loading={loading}
+              displayMinute={displayMinute}
+              goalData={goalData}
+              setGoalData={setGoalData}
+            />
+            <CardFormDrawer
+              open={cardDrawerOpen}
+              onOpenChange={setCardDrawerOpen}
+              teamHome={match.team_home as any}
+              teamAway={match.team_away as any}
+              getPlayersOnField={getPlayersOnField}
+              onSubmit={addCard}
+              loading={loading}
+              displayMinute={displayMinute}
+              cardData={cardData}
+              setCardData={setCardData}
+            />
+            <SubstitutionFormDrawer
+              open={subDrawerOpen}
+              onOpenChange={setSubDrawerOpen}
+              teamHome={match.team_home as any}
+              teamAway={match.team_away as any}
+              getPlayersOnField={getPlayersOnField}
+              availablePlayersIn={availablePlayersIn}
+              onSubmit={addSubstitution}
+              loading={loading}
+              displayMinute={displayMinute}
+              subData={subData}
+              setSubData={setSubData}
+              loadAvailablePlayersIn={loadAvailablePlayersIn}
+            />
+          </>
         )}
       </main>
     </div>
