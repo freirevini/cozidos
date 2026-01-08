@@ -1,0 +1,6 @@
+Boa noite,
+
+retomei essa leitura e alguns dados chamaram atenção comparando ao nosso modelo atual no BV:
+
+hj temos uma diferença de 27 pontos de inteligência entre o nosso modelo (Gemini 2.5 Pro) e a liderança global (GPT-5.2). 
+um upgrade para o Gemini 3 Flash já traria um salto de 17 pontos, diminuindo a distância.
