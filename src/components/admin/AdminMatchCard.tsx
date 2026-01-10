@@ -35,7 +35,7 @@ interface AdminMatchCardProps {
 
 const teamNames: Record<string, string> = {
   branco: "Branco",
-  preto: "preto",
+  preto: "Preto",
   azul: "Azul",
   laranja: "Laranja",
 };

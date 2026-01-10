@@ -416,7 +416,7 @@ export default function Classification() {
           </div>)}
         </div> : <>
           {/* Mobile: Lista com scroll nativo */}
-          <div className="lg:hidden px-2 pb-4">
+          <div className="lg:hidden px-2 pb-24">
             {filteredStats.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 Nenhum jogador encontrado

@@ -46,10 +46,10 @@ export function ProfileEvolutionChart({ roundStats }: ProfileEvolutionChartProps
         <TrendingUp className="w-5 h-5 text-primary" />
         Evolução do Desempenho
       </h3>
-      
+
       <div className="bg-muted/10 rounded-lg border border-border/30 p-4">
         <p className="text-xs text-muted-foreground mb-2">Pontos por Rodada</p>
-        <div className="h-48">
+        <div className="h-[250px] sm:h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={cumulativeData}>
               <defs>

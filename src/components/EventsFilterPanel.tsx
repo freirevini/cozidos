@@ -35,7 +35,7 @@ const teamColors: Record<string, string> = {
 
 const teamNames: Record<string, string> = {
   branco: "Branco",
-  preto: "preto",
+  preto: "Preto",
   azul: "Azul",
   laranja: "Laranja",
 };
@@ -44,12 +44,12 @@ export default function EventsFilterPanel({ roundId, onEventClick }: EventsFilte
   const [isOpen, setIsOpen] = useState(false);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(false);
-  
+
   // Filters
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [playerFilter, setPlayerFilter] = useState<string>("");
   const [teamFilter, setTeamFilter] = useState<string>("all");
-  
+
   // Sorting
   const [sortBy, setSortBy] = useState<"minute" | "player" | "type" | "match">("minute");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
@@ -186,7 +186,7 @@ export default function EventsFilterPanel({ roundId, onEventClick }: EventsFilte
     // Apply player filter
     if (playerFilter) {
       const search = playerFilter.toLowerCase();
-      filtered = filtered.filter(e => 
+      filtered = filtered.filter(e =>
         e.player_name.toLowerCase().includes(search) ||
         (e.assist_name && e.assist_name.toLowerCase().includes(search))
       );
@@ -263,7 +263,7 @@ export default function EventsFilterPanel({ roundId, onEventClick }: EventsFilte
             </div>
           </CardHeader>
         </CollapsibleTrigger>
-        
+
         <CollapsibleContent>
           <CardContent className="pt-0">
             {loading ? (
@@ -284,7 +284,7 @@ export default function EventsFilterPanel({ roundId, onEventClick }: EventsFilte
                     <span>{EVENT_ICONS.amarelo} {stats.totalYellowCards}</span>
                     <span>{EVENT_ICONS.azul} {stats.totalBlueCards}</span>
                   </div>
-                  
+
                   {/* Filter row */}
                   <div className="flex flex-wrap gap-2">
                     {/* Type filter */}
@@ -329,8 +329,8 @@ export default function EventsFilterPanel({ roundId, onEventClick }: EventsFilte
 
                     {/* Clear filters */}
                     {hasActiveFilters && (
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="icon"
                         onClick={clearFilters}
                         className="h-10 w-10"
@@ -396,7 +396,7 @@ export default function EventsFilterPanel({ roundId, onEventClick }: EventsFilte
                       >
                         {/* Event icon */}
                         <EventIcon type={event.type as EventType} size="md" />
-                        
+
                         {/* Event info */}
                         <div className="flex-1 min-w-0">
                           <div className="font-medium truncate">

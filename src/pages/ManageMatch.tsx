@@ -978,74 +978,76 @@ export default function ManageMatch() {
           Voltar
         </Button>
 
-        {/* Compact Header - Score Board */}
-        <div className="bg-card border border-border rounded-2xl p-4 mb-4">
-          {/* Round info */}
-          <p className="text-center text-xs text-muted-foreground mb-3">
-            Rodada {match.round_number || '?'} • Jogo {match.match_number}
-          </p>
+        {/* Compact Header - Score Board (Sticky) */}
+        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm -mx-4 px-4 pt-2 pb-2">
+          <div className="bg-card border border-border rounded-2xl p-4">
+            {/* Round info */}
+            <p className="text-center text-xs text-muted-foreground mb-3">
+              Rodada {match.round_number || '?'} • Jogo {match.match_number}
+            </p>
 
-          {/* Score display */}
-          <div className="flex items-center justify-center gap-6 mb-3">
-            <div className="flex flex-col items-center gap-1">
-              <TeamLogo teamColor={match.team_home as TeamColor} size="md" />
-              <span className="text-xs text-muted-foreground">{teamNames[match.team_home]}</span>
+            {/* Score display */}
+            <div className="flex items-center justify-center gap-6 mb-3">
+              <div className="flex flex-col items-center gap-1">
+                <TeamLogo teamColor={match.team_home as TeamColor} size="md" />
+                <span className="text-xs text-muted-foreground">{teamNames[match.team_home]}</span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="text-4xl font-bold text-foreground">{match.score_home}</span>
+                <span className="text-2xl text-muted-foreground">:</span>
+                <span className="text-4xl font-bold text-foreground">{match.score_away}</span>
+              </div>
+
+              <div className="flex flex-col items-center gap-1">
+                <TeamLogo teamColor={match.team_away as TeamColor} size="md" />
+                <span className="text-xs text-muted-foreground">{teamNames[match.team_away]}</span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="text-4xl font-bold text-foreground">{match.score_home}</span>
-              <span className="text-2xl text-muted-foreground">:</span>
-              <span className="text-4xl font-bold text-foreground">{match.score_away}</span>
+            {/* Status / Timer */}
+            <div className="flex items-center justify-center gap-2">
+              <span className={`px-3 py-1 text-sm font-medium rounded-full border ${getStatusStyle()}`}>
+                {getStatusText()}
+              </span>
+
+              {isMatchActive && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleTimer}
+                  className="h-8 w-8 p-0 rounded-full hover:bg-muted"
+                >
+                  {timerRunning ? <Pause size={14} /> : <Play size={14} />}
+                </Button>
+              )}
+
+              {/* Edit button for finished matches */}
+              {isMatchFinished && !isEditing && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                  className="h-8 gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  <Pencil size={12} />
+                  Editar
+                </Button>
+              )}
+
+              {/* Save button when editing finished match */}
+              {isMatchFinished && isEditing && (
+                <Button
+                  size="sm"
+                  onClick={handleSaveEdits}
+                  disabled={loading}
+                  className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700"
+                >
+                  <Save size={12} />
+                  {loading ? "Salvando..." : "Salvar"}
+                </Button>
+              )}
             </div>
-
-            <div className="flex flex-col items-center gap-1">
-              <TeamLogo teamColor={match.team_away as TeamColor} size="md" />
-              <span className="text-xs text-muted-foreground">{teamNames[match.team_away]}</span>
-            </div>
-          </div>
-
-          {/* Status / Timer */}
-          <div className="flex items-center justify-center gap-2">
-            <span className={`px-3 py-1 text-sm font-medium rounded-full border ${getStatusStyle()}`}>
-              {getStatusText()}
-            </span>
-
-            {isMatchActive && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleTimer}
-                className="h-8 w-8 p-0 rounded-full hover:bg-muted"
-              >
-                {timerRunning ? <Pause size={14} /> : <Play size={14} />}
-              </Button>
-            )}
-
-            {/* Edit button for finished matches */}
-            {isMatchFinished && !isEditing && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditing(true)}
-                className="h-8 gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
-              >
-                <Pencil size={12} />
-                Editar
-              </Button>
-            )}
-
-            {/* Save button when editing finished match */}
-            {isMatchFinished && isEditing && (
-              <Button
-                size="sm"
-                onClick={handleSaveEdits}
-                disabled={loading}
-                className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700"
-              >
-                <Save size={12} />
-                {loading ? "Salvando..." : "Salvar"}
-              </Button>
-            )}
           </div>
         </div>
 
@@ -1054,37 +1056,37 @@ export default function ManageMatch() {
           <div className="grid grid-cols-4 gap-2 mb-4">
             <Button
               onClick={() => setGoalDrawerOpen(true)}
-              className="flex flex-col items-center gap-1 h-auto py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
+              className="flex flex-col items-center justify-center gap-1.5 min-h-[56px] py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
             >
-              <Goal size={18} />
-              <span className="text-xs">Gol</span>
+              <Goal size={20} />
+              <span className="text-xs font-medium">Gol</span>
             </Button>
 
             <Button
               onClick={() => setCardDrawerOpen(true)}
-              className="flex flex-col items-center gap-1 h-auto py-3 bg-amber-500 hover:bg-amber-600 text-black rounded-xl"
+              className="flex flex-col items-center justify-center gap-1.5 min-h-[56px] py-4 bg-amber-500 hover:bg-amber-600 text-black rounded-xl"
             >
-              <Square size={16} />
-              <span className="text-xs">Cartão</span>
+              <Square size={18} />
+              <span className="text-xs font-medium">Cartão</span>
             </Button>
 
             <Button
               onClick={() => setSubDrawerOpen(true)}
               variant="outline"
-              className="flex flex-col items-center gap-1 h-auto py-3 rounded-xl border-border hover:bg-muted"
+              className="flex flex-col items-center justify-center gap-1.5 min-h-[56px] py-4 rounded-xl border-border hover:bg-muted"
             >
-              <ArrowLeftRight size={18} />
-              <span className="text-xs">Subst.</span>
+              <ArrowLeftRight size={20} />
+              <span className="text-xs font-medium">Subst.</span>
             </Button>
 
             <Button
               onClick={deleteLastEvent}
               variant="outline"
               disabled={goals.length === 0 && cards.length === 0 && substitutions.length === 0}
-              className="flex flex-col items-center gap-1 h-auto py-3 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10"
+              className="flex flex-col items-center justify-center gap-1.5 min-h-[56px] py-4 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10"
             >
-              <Undo2 size={18} />
-              <span className="text-xs">Desfazer</span>
+              <Undo2 size={20} />
+              <span className="text-xs font-medium">Desfazer</span>
             </Button>
           </div>
         )}
