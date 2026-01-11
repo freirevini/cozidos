@@ -195,7 +195,7 @@ export default function Classification() {
         const playerMap = new Map<string, PlayerStats>();
 
         (roundStats || []).forEach((rs: any) => {
-          if (!rs.profile?.is_player || rs.profile?.status !== 'aprovado') return;
+          if (!rs.profile?.is_player || rs.profile?.status !== 'aprovado' || rs.profile?.is_guest) return;
 
           const playerId = rs.player_id;
           const existing = playerMap.get(playerId);

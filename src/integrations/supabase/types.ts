@@ -322,6 +322,7 @@ export type Database = {
           atrasos: number
           cartoes_amarelos: number
           cartoes_azuis: number
+          clean_sheets: number | null
           created_at: string
           derrotas: number
           email: string | null
@@ -334,6 +335,7 @@ export type Database = {
           pontos_totais: number
           presencas: number
           punicoes: number
+          saldo_gols: number | null
           updated_at: string
           vitorias: number
         }
@@ -342,6 +344,7 @@ export type Database = {
           atrasos?: number
           cartoes_amarelos?: number
           cartoes_azuis?: number
+          clean_sheets?: number | null
           created_at?: string
           derrotas?: number
           email?: string | null
@@ -354,6 +357,7 @@ export type Database = {
           pontos_totais?: number
           presencas?: number
           punicoes?: number
+          saldo_gols?: number | null
           updated_at?: string
           vitorias?: number
         }
@@ -362,6 +366,7 @@ export type Database = {
           atrasos?: number
           cartoes_amarelos?: number
           cartoes_azuis?: number
+          clean_sheets?: number | null
           created_at?: string
           derrotas?: number
           email?: string | null
@@ -374,6 +379,7 @@ export type Database = {
           pontos_totais?: number
           presencas?: number
           punicoes?: number
+          saldo_gols?: number | null
           updated_at?: string
           vitorias?: number
         }
@@ -393,13 +399,16 @@ export type Database = {
           absences: number | null
           blue_cards: number | null
           card_points: number | null
+          clean_sheets: number | null
           created_at: string | null
           defeat_points: number | null
           defeats: number | null
           draw_points: number | null
           draws: number | null
+          goal_difference: number | null
           goal_points: number | null
           id: string
+          is_substitute: boolean | null
           late_points: number | null
           lates: number | null
           player_id: string
@@ -417,13 +426,16 @@ export type Database = {
           absences?: number | null
           blue_cards?: number | null
           card_points?: number | null
+          clean_sheets?: number | null
           created_at?: string | null
           defeat_points?: number | null
           defeats?: number | null
           draw_points?: number | null
           draws?: number | null
+          goal_difference?: number | null
           goal_points?: number | null
           id?: string
+          is_substitute?: boolean | null
           late_points?: number | null
           lates?: number | null
           player_id: string
@@ -441,13 +453,16 @@ export type Database = {
           absences?: number | null
           blue_cards?: number | null
           card_points?: number | null
+          clean_sheets?: number | null
           created_at?: string | null
           defeat_points?: number | null
           defeats?: number | null
           draw_points?: number | null
           draws?: number | null
+          goal_difference?: number | null
           goal_points?: number | null
           id?: string
+          is_substitute?: boolean | null
           late_points?: number | null
           lates?: number | null
           player_id?: string
@@ -670,6 +685,48 @@ export type Database = {
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      round_absences: {
+        Row: {
+          id: string
+          round_id: string
+          player_id: string
+          original_team_color: string
+          status: "falta" | "atrasado"
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          round_id: string
+          player_id: string
+          original_team_color: string
+          status: "falta" | "atrasado"
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          round_id?: string
+          player_id?: string
+          original_team_color?: string
+          status?: "falta" | "atrasado"
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "round_absences_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "round_absences_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -951,6 +1008,10 @@ export type Database = {
       }
       import_players_csv: {
         Args: { p_actor_id: string; p_rows: Json }
+        Returns: Json
+      }
+      create_guest_player: {
+        Args: { p_name: string; p_round_id: string; p_team_color: string }
         Returns: Json
       }
       is_admin: { Args: { user_id: string }; Returns: boolean }

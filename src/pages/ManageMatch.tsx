@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { ArrowLeft, Play, Pause, Goal, Square, Undo2, Flag, ArrowLeftRight, X, Check, Pencil, Save } from "lucide-react";
+import { ArrowLeft, Play, Pause, Goal, Square, Undo2, Flag, ArrowLeftRight, X, Check, Pencil, Save, UserPlus } from "lucide-react";
 import { MatchTimeline, TimelineEvent } from "@/components/match/MatchTimeline";
 import { MatchLineups } from "@/components/match/MatchLineups";
 import { TeamLogo } from "@/components/match/TeamLogo";
@@ -1053,7 +1053,7 @@ export default function ManageMatch() {
 
         {/* Action Buttons - Show when match is active OR when editing finished match */}
         {(isMatchActive || (isMatchFinished && isEditing)) && (
-          <div className="grid grid-cols-4 gap-2 mb-4">
+          <div className="grid grid-cols-5 gap-2 mb-4">
             <Button
               onClick={() => setGoalDrawerOpen(true)}
               className="flex flex-col items-center justify-center gap-1.5 min-h-[56px] py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
@@ -1077,6 +1077,15 @@ export default function ManageMatch() {
             >
               <ArrowLeftRight size={20} />
               <span className="text-xs font-medium">Subst.</span>
+            </Button>
+
+            <Button
+              onClick={() => setGuestDrawerOpen(true)}
+              variant="outline"
+              className="flex flex-col items-center justify-center gap-1.5 min-h-[56px] py-4 rounded-xl border-primary/30 text-primary hover:bg-primary/10"
+            >
+              <UserPlus size={20} />
+              <span className="text-xs font-medium">Escalar</span>
             </Button>
 
             <Button

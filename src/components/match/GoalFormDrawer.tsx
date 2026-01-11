@@ -74,7 +74,9 @@ export function GoalFormDrawer({
 
     const handleSubmit = () => {
         onSubmit();
-        handleClose();
+        // Only close the drawer, don't reset data
+        // The parent component (ManageMatch) will handle resetting after successful save
+        onOpenChange(false);
     };
 
     const getPlayerInitials = (player: Player) => {
