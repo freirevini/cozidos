@@ -192,8 +192,22 @@ export function MatchEventsSummary({
         return null;
     }
 
-    const homeGoals = goals.filter(g => g.team_color === teamHome);
-    const awayGoals = goals.filter(g => g.team_color === teamAway);
+    // For own goals: display on the side of the team that BENEFITED (opposite of scorer's team)
+    // Regular goals: display on the side of the team that scored
+    const homeGoals = goals.filter(g => {
+        if (g.is_own_goal) {
+            // Own goal: player's team is NOT home, so benefit goes to home
+            return g.team_color !== teamHome;
+        }
+        return g.team_color === teamHome;
+    });
+    const awayGoals = goals.filter(g => {
+        if (g.is_own_goal) {
+            // Own goal: player's team is NOT away, so benefit goes to away
+            return g.team_color !== teamAway;
+        }
+        return g.team_color === teamAway;
+    });
 
     const handlePlayerClick = (playerId: string) => {
         navigate(`/profile/${playerId}`);
