@@ -60,10 +60,10 @@ const teamStyles: Record<string, {
   preto: {
     headerBg: "bg-gradient-to-br from-zinc-700 to-zinc-800",
     headerText: "text-white",
-    cardBg: "bg-gradient-to-b from-zinc-800/60 to-zinc-900/40",
-    badgeBg: "bg-gradient-to-r from-zinc-600 to-zinc-700",
+    cardBg: "bg-gradient-to-b from-zinc-800 to-zinc-900 border border-zinc-700/50",
+    badgeBg: "bg-gradient-to-r from-zinc-700 to-zinc-800",
     badgeText: "text-white",
-    border: "ring-1 ring-zinc-600/50"
+    border: "ring-1 ring-zinc-700"
   },
   branco: {
     headerBg: "bg-gradient-to-br from-zinc-100 to-zinc-200",
@@ -164,7 +164,7 @@ export const ShareableTeamsView = forwardRef<HTMLDivElement, ShareableTeamsViewP
             <img
               src={logoCozidos}
               alt="Cozidos FC"
-              className="h-12 w-auto object-contain"
+              className="h-12 w-auto object-contain bg-black/20 rounded-full p-1"
             />
             <div className="text-right">
               <h1 className="text-xl font-bold text-white tracking-tight">
@@ -193,7 +193,7 @@ export const ShareableTeamsView = forwardRef<HTMLDivElement, ShareableTeamsViewP
               return (
                 <div
                   key={color}
-                  className={`rounded-lg overflow-hidden backdrop-blur-sm ${style.border || ""}`}
+                  className={`rounded-lg overflow-hidden backdrop-blur-sm ${style.border || ""} flex flex-col h-full`}
                 >
                   {/* Team Header - Gradient */}
                   <div className={`${style.headerBg} ${style.headerText} py-1.5 px-1.5 text-center`}>
@@ -203,7 +203,7 @@ export const ShareableTeamsView = forwardRef<HTMLDivElement, ShareableTeamsViewP
                   </div>
 
                   {/* Players List - Glass effect - COMPACT with full names */}
-                  <div className={`${style.cardBg} px-1.5 py-1.5 space-y-0.5 backdrop-blur-sm`}>
+                  <div className={`${style.cardBg} px-1.5 py-1.5 space-y-0.5 backdrop-blur-sm flex-1`}>
                     {fieldPlayers.map((player, idx) => (
                       <div key={player.id} className="flex items-center gap-1">
                         <span className="font-bold text-zinc-500 w-4 text-center text-[8px] shrink-0">

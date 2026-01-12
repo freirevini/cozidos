@@ -220,7 +220,7 @@ export default function ViewTeams() {
     try {
       const dataUrl = await toJpeg(shareRef.current, {
         quality: 0.95,
-        pixelRatio: 2,
+        pixelRatio: 4,
         backgroundColor: "#0a0a0a",
       });
 
@@ -252,7 +252,7 @@ export default function ViewTeams() {
     try {
       const dataUrl = await toJpeg(shareRef.current, {
         quality: 0.95,
-        pixelRatio: 2,
+        pixelRatio: 4,
         backgroundColor: "#0a0a0a",
       });
 
