@@ -264,8 +264,17 @@ function TimelineRow({
   isLast: boolean;
   onPlayerClick?: (playerId: string) => void;
 }) {
-  const isHome = event.team_color === teamHome;
-  const isAway = event.team_color === teamAway;
+  // For own goals: display on the side of the team that BENEFITED (opposite of scorerteam)
+  // Regular events: display on the side of the team that scored
+  const isOwnGoal = event.type === "goal" && event.is_own_goal === true;
+
+  // For own goals, invert the side (benefit goes to opposing team)
+  const displayTeam = isOwnGoal
+    ? (event.team_color === teamHome ? teamAway : teamHome)
+    : event.team_color;
+
+  const isHome = displayTeam === teamHome;
+  const isAway = displayTeam === teamAway;
   const isMatchEvent = event.type === "match_start" || event.type === "match_end";
 
   // Match start/end events - JUST TEXT, no icons, no circles

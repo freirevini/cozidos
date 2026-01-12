@@ -485,19 +485,59 @@ export default function ManageRounds() {
     // Check if there are absences for teams in this match
     const { data: absences } = await supabase
       .from("round_absences")
-      .select("id")
+      .select("id, original_team_color")
       .eq("round_id", roundId)
       .eq("status", "falta")
       .in("original_team_color", [match.team_home, match.team_away]);
 
     if (absences && absences.length > 0) {
-      // Check if substitutes are already assigned
+      // Count absences per team
+      const absencesByTeam: Record<string, number> = {};
+      absences.forEach(a => {
+        absencesByTeam[a.original_team_color] = (absencesByTeam[a.original_team_color] || 0) + 1;
+      });
+
+      // Check current player count per team (including guests)
+      const { data: teamPlayers } = await supabase
+        .from("round_team_players")
+        .select("team_color")
+        .eq("round_id", roundId)
+        .in("team_color", [match.team_home, match.team_away]);
+
+      const playersByTeam: Record<string, number> = {};
+      (teamPlayers || []).forEach(p => {
+        playersByTeam[p.team_color] = (playersByTeam[p.team_color] || 0) + 1;
+      });
+
+      // Check if teams are complete (typically 5 players each)
+      const MIN_PLAYERS_PER_TEAM = 6; // Adjust if needed
+      const teamsNeedingSubstitutes: string[] = [];
+
+      [match.team_home, match.team_away].forEach(team => {
+        const currentCount = playersByTeam[team] || 0;
+        if (currentCount < MIN_PLAYERS_PER_TEAM) {
+          teamsNeedingSubstitutes.push(team);
+        }
+      });
+
+      // If teams are complete (including guests), no need for substitute modal
+      if (teamsNeedingSubstitutes.length === 0) {
+        // Teams are complete, start match directly
+        await startMatch(match.id);
+        return;
+      }
+
+      // Check if substitutes are already assigned for the absences
       const { data: existingSubs } = await supabase
         .from("match_absence_substitutes")
         .select("id")
         .eq("match_id", match.id);
 
-      if (!existingSubs || existingSubs.length < absences.length) {
+      // Calculate how many absences still need substitutes
+      // Only count absences for teams that are still incomplete
+      const relevantAbsences = absences.filter(a => teamsNeedingSubstitutes.includes(a.original_team_color));
+
+      if (!existingSubs || existingSubs.length < relevantAbsences.length) {
         // Need to select substitutes
         setPendingStartMatch(match);
         setAbsenceModalOpen(true);

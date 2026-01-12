@@ -182,6 +182,35 @@ export default function ManageAttendance() {
             (absData || []).forEach(a => teams.add(a.original_team_color));
             setExpandedTeams(teams);
             setAbsences((absData || []) as Absence[]);
+
+            // Load unallocated guests from round_guests table
+            const { data: poolGuests } = await supabase
+                .from("round_guests")
+                .select(`
+                    id,
+                    player_id,
+                    player:profiles!round_guests_player_id_fkey (
+                        id,
+                        nickname,
+                        name,
+                        avatar_url,
+                        level,
+                        is_guest
+                    )
+                `)
+                .eq("round_id", roundId);
+
+            // Convert pool guests to TeamPlayer format (without team_color)
+            const unallocatedGuests = (poolGuests || []).map(g => ({
+                id: g.id,
+                player_id: g.player_id,
+                team_color: "", // No team yet
+                player: g.player as any
+            })) as TeamPlayer[];
+
+            // Combine allocated guests (from round_team_players) with unallocated (from round_guests)
+            setGuestPool([...guestPlayers, ...unallocatedGuests]);
+
         } catch (error) {
             console.error("Error loading data:", error);
             toast.error("Erro ao carregar dados");
@@ -409,12 +438,35 @@ export default function ManageAttendance() {
 
         setSaving(true);
         try {
-            const { error } = await supabase
-                .from("round_team_players")
-                .update({ team_color: teamColor as "azul" | "branco" | "preto" | "laranja" })
-                .eq("id", guest.id);
+            // Use RPC for unallocated guests (team_color is empty) or update for allocated ones
+            if (!guest.team_color) {
+                // Guest from round_guests - use RPC
+                console.log('Allocating guest via RPC:', { player_id: guest.player_id, round_id: roundId, team_color: teamColor });
 
-            if (error) throw error;
+                const { data, error } = await supabase.rpc('allocate_guest_to_team', {
+                    p_player_id: guest.player_id,
+                    p_round_id: roundId,
+                    p_team_color: teamColor
+                });
+
+                console.log('RPC result:', { data, error });
+
+                if (error) throw error;
+
+                const result = data as { success: boolean; error?: string; message?: string };
+                if (!result.success) {
+                    throw new Error(result.error || 'Erro ao alocar');
+                }
+                console.log('Allocation successful:', result.message);
+            } else {
+                // Guest already in round_team_players - just update
+                const { error } = await supabase
+                    .from("round_team_players")
+                    .update({ team_color: teamColor as "azul" | "branco" | "preto" | "laranja" })
+                    .eq("id", guest.id);
+
+                if (error) throw error;
+            }
 
             toast.success(`${guest.player.nickname || guest.player.name} alocado para ${teamLabels[teamColor]}`);
             await loadData();
@@ -468,14 +520,25 @@ export default function ManageAttendance() {
 
         setSaving(true);
         try {
-            // Remove from round_team_players first
-            await supabase
-                .from("round_team_players")
-                .delete()
-                .eq("id", guest.id);
+            if (guest.team_color) {
+                // Guest is allocated - remove from round_team_players
+                await supabase
+                    .from("round_team_players")
+                    .delete()
+                    .eq("id", guest.id);
+            } else {
+                // Guest is in pool - remove from round_guests
+                await supabase
+                    .from("round_guests")
+                    .delete()
+                    .eq("id", guest.id);
+            }
 
-            // Optionally also delete the profile (or keep for historical data)
-            // For now, just remove from round - profile stays
+            // Also delete the profile since it's a guest created for this round only
+            await supabase
+                .from("profiles")
+                .delete()
+                .eq("id", guest.player_id);
 
             toast.success(`Convidado "${guest.player.nickname || guest.player.name}" removido`);
             await loadData();

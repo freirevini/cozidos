@@ -731,6 +731,42 @@ export type Database = {
           },
         ]
       }
+      round_guests: {
+        Row: {
+          id: string
+          round_id: string
+          player_id: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          round_id: string
+          player_id: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          round_id?: string
+          player_id?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "round_guests_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "round_guests_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       round_team_players: {
         Row: {
           created_at: string | null

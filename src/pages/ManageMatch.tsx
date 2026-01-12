@@ -756,7 +756,9 @@ export default function ManageMatch() {
 
       const { data: result, error: rpcError } = await supabase.rpc('record_goal_with_assist', {
         p_match_id: match.id,
-        p_team_color: goalData.team,
+        // Para gol contra: enviar time do jogador que fez o gol contra (opposingTeam)
+        // Para gol normal: enviar o time que marcou (goalData.team)
+        p_team_color: isOwnGoal ? opposingTeam : goalData.team,
         p_scorer_profile_id: goalData.player_id,
         p_minute: currentMin,
         p_is_own_goal: isOwnGoal,
@@ -778,7 +780,7 @@ export default function ManageMatch() {
           player_id: goalData.player_id,
           minute: currentMin,
           is_own_goal: isOwnGoal,
-          team_color: goalData.team,
+          team_color: isOwnGoal ? opposingTeam as string : goalData.team,
           player: scorer || undefined,
           assists: rpcResult.assist_id && assister ? [{
             player_id: goalData.assist_player_id,
@@ -838,7 +840,7 @@ export default function ManageMatch() {
 
   const deleteLastEvent = async () => {
     const allEvents = [
-      ...goals.map(g => ({ type: 'goal' as const, minute: g.minute, id: g.id, team_color: g.team_color })),
+      ...goals.map(g => ({ type: 'goal' as const, minute: g.minute, id: g.id, team_color: g.team_color, is_own_goal: g.is_own_goal })),
       ...cards.map(c => ({ type: 'card' as const, minute: c.minute, id: c.id })),
       ...substitutions.map(s => ({ type: 'sub' as const, minute: s.minute, id: s.id })),
     ].sort((a, b) => b.minute - a.minute);
@@ -857,21 +859,21 @@ export default function ManageMatch() {
     setLoading(true);
     try {
       if (lastEvent.type === 'goal') {
-        const { error: deleteError } = await supabase
-          .from("goals")
-          .delete()
-          .eq("id", lastEvent.id);
+        // Use RPC that deletes goal and recalculates score correctly
+        // This handles both regular goals and own goals properly
+        const { data, error: rpcError } = await supabase.rpc('delete_goal_and_recalc', {
+          p_goal_id: lastEvent.id,
+          p_match_id: match?.id
+        });
 
-        if (deleteError) throw deleteError;
+        if (rpcError) throw rpcError;
 
-        const teamToUpdate = lastEvent.team_color === match?.team_home ? 'score_home' : 'score_away';
-        const currentScore = lastEvent.team_color === match?.team_home ? match?.score_home : match?.score_away;
+        const result = data as { success: boolean; error?: string };
+        if (!result.success) {
+          throw new Error(result.error || 'Erro ao deletar gol');
+        }
 
-        await supabase
-          .from("matches")
-          .update({ [teamToUpdate]: Math.max(0, (currentScore || 0) - 1) })
-          .eq("id", match?.id);
-
+        // Recalculate round stats
         await supabase.rpc('recalc_round_aggregates', { p_round_id: match?.round_id });
         await supabase.rpc('recalc_all_player_rankings');
       } else if (lastEvent.type === 'card') {
@@ -892,9 +894,9 @@ export default function ManageMatch() {
 
       toast.success(`${eventTypeText.charAt(0).toUpperCase() + eventTypeText.slice(1)} desfeito!`);
       await loadMatchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao desfazer evento:", error);
-      toast.error("Erro ao desfazer evento");
+      toast.error("Erro ao desfazer evento: " + (error.message || 'Erro desconhecido'));
     } finally {
       setLoading(false);
     }
