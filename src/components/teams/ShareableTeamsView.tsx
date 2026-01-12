@@ -193,7 +193,7 @@ export const ShareableTeamsView = forwardRef<HTMLDivElement, ShareableTeamsViewP
               return (
                 <div
                   key={color}
-                  className={`rounded-lg overflow-hidden backdrop-blur-sm ${style.border || ""} ${style.glow ? `shadow-lg ${style.glow}` : ""}`}
+                  className={`rounded-lg overflow-hidden backdrop-blur-sm ${style.border || ""}`}
                 >
                   {/* Team Header - Gradient */}
                   <div className={`${style.headerBg} ${style.headerText} py-1.5 px-1.5 text-center`}>
