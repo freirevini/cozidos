@@ -105,13 +105,23 @@ export const ShareableTeamsView = forwardRef<HTMLDivElement, ShareableTeamsViewP
     // Get first match time for header
     const firstMatchTime = matches.length > 0 ? formatTime(matches[0].scheduled_time) : "19:00";
 
-    // Sort players by position for display
+    // Sort players by level (A, B, C, D, E) then goalkeepers at the end
     const sortPlayers = (players: TeamPlayer[]) => {
-      const positionOrder = ["atacante", "meio-campista", "defensor", "goleiro"];
+      const levelOrder = ["A", "B", "C", "D", "E"];
       return [...players].sort((a, b) => {
-        const posA = positionOrder.indexOf(a.profiles.position || "");
-        const posB = positionOrder.indexOf(b.profiles.position || "");
-        return posA - posB;
+        // Goalkeepers always go to the end
+        const aIsGK = a.profiles.position === "goleiro";
+        const bIsGK = b.profiles.position === "goleiro";
+        if (aIsGK && !bIsGK) return 1;
+        if (!aIsGK && bIsGK) return -1;
+        if (aIsGK && bIsGK) return 0;
+
+        // Sort by level for non-goalkeepers
+        const levelA = a.profiles.level?.toUpperCase() || "Z";
+        const levelB = b.profiles.level?.toUpperCase() || "Z";
+        const indexA = levelOrder.indexOf(levelA);
+        const indexB = levelOrder.indexOf(levelB);
+        return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
       });
     };
 

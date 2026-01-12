@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { TeamCardModern, ShareableTeamsView } from "@/components/teams";
 import { ArrowLeft, Download, Share2, Eye, EyeOff, ChevronDown, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { toPng } from "html-to-image";
+import { toJpeg } from "html-to-image";
 import teamBranco from "@/assets/team-branco.png";
 import teamPreto from "@/assets/team-preto.png";
 import teamAzul from "@/assets/team-azul.png";
@@ -218,14 +218,14 @@ export default function ViewTeams() {
 
     setGenerating(true);
     try {
-      const dataUrl = await toPng(shareRef.current, {
-        quality: 1,
+      const dataUrl = await toJpeg(shareRef.current, {
+        quality: 0.95,
         pixelRatio: 2,
         backgroundColor: "#0a0a0a",
       });
 
       const link = document.createElement("a");
-      link.download = `cozidos-rodada-${selectedRoundData?.round_number || "times"}.png`;
+      link.download = `cozidos-rodada-${selectedRoundData?.round_number || "times"}.jpeg`;
       link.href = dataUrl;
       link.click();
 
@@ -250,15 +250,15 @@ export default function ViewTeams() {
 
     setGenerating(true);
     try {
-      const dataUrl = await toPng(shareRef.current, {
-        quality: 1,
+      const dataUrl = await toJpeg(shareRef.current, {
+        quality: 0.95,
         pixelRatio: 2,
         backgroundColor: "#0a0a0a",
       });
 
       const response = await fetch(dataUrl);
       const blob = await response.blob();
-      const file = new File([blob], `cozidos-rodada-${selectedRoundData?.round_number}.png`, { type: "image/png" });
+      const file = new File([blob], `cozidos-rodada-${selectedRoundData?.round_number}.jpeg`, { type: "image/jpeg" });
 
       if (navigator.share && navigator.canShare({ files: [file] })) {
         await navigator.share({
