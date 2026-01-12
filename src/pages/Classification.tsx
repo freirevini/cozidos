@@ -364,23 +364,26 @@ export default function Classification() {
                   <AlertDialogDescription asChild>
                     <div className="text-foreground space-y-4 mt-4">
                       <div className="space-y-2">
-                        <h3 className="font-bold text-sm text-primary">Pontos Individuais:</h3>
+                        <h3 className="font-bold text-sm text-primary">Pontos Ganhos:</h3>
                         <ul className="space-y-1 text-sm">
-                          <li>✅ Presença: +10 pts</li>
-                          <li>⏰ Atraso: -5 pts</li>
-                          <li>❌ Falta: -10 pts</li>
-                          <li>🟨 Amarelo: -1 pt</li>
-                          <li>🟦 Azul: -2 pts</li>
+                          <li>✅ Presença: +3 pts</li>
+                          <li>🏆 Vitória: +3 pts</li>
+                          <li>🤝 Empate: +1 pt</li>
+                          <li>📊 Saldo de gols positivo: +N pts (igual ao saldo)</li>
+                          <li>🧤 Clean sheet (não tomar gol): +2 pts</li>
                         </ul>
                       </div>
                       <div className="space-y-2">
-                        <h3 className="font-bold text-sm text-primary">Pontos Coletivos:</h3>
+                        <h3 className="font-bold text-sm text-destructive">Penalidades:</h3>
                         <ul className="space-y-1 text-sm">
-                          <li>🏆 Vitória: +3 pts</li>
-                          <li>🤝 Empate: +1 pt</li>
-                          <li>⚽ Gol: +1 pt</li>
-                          <li>🎯 Assistência: +2 pts</li>
+                          <li>⏰ Atraso: -10 pts</li>
+                          <li>❌ Falta: -20 pts</li>
+                          <li>🟨 Cartão Amarelo: -5 pts</li>
+                          <li>🟦 Cartão Azul: -10 pts</li>
                         </ul>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border/30">
+                        ⚠️ Pontuação mínima é 0 (não fica negativa)
                       </div>
                     </div>
                   </AlertDialogDescription>
