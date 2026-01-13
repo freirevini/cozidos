@@ -150,15 +150,82 @@ export default function Profile() {
         return;
       }
 
-      // Buscar posição no ranking
+      // Buscar posição no ranking da temporada atual com critérios de desempate
       let rankingPosition: number | null = null;
-      const { data: rankingData } = await supabase
-        .from("player_rankings")
-        .select("player_id, pontos_totais")
-        .order("pontos_totais", { ascending: false });
+      const currentYear = new Date().getFullYear();
 
-      if (rankingData) {
-        const position = rankingData.findIndex(r => r.player_id === profileId);
+      const { data: roundStats } = await supabase
+        .from("player_round_stats")
+        .select(`
+          player_id,
+          total_points,
+          presence_points,
+          victories,
+          defeats,
+          goal_difference,
+          yellow_cards,
+          blue_cards,
+          assists,
+          goals,
+          round:rounds!inner(scheduled_date)
+        `)
+        .gte("round.scheduled_date", `${currentYear}-01-01`)
+        .lte("round.scheduled_date", `${currentYear}-12-31`);
+
+      if (roundStats) {
+        // Interface para agregação
+        interface PlayerAgg {
+          pontos: number;
+          presencas: number;
+          vitorias: number;
+          saldo_gols: number;
+          cartoes: number;
+          assistencias: number;
+          gols: number;
+          derrotas: number;
+        }
+
+        // Agregar estatísticas por jogador
+        const playerTotals = new Map<string, PlayerAgg>();
+        roundStats.forEach((rs: any) => {
+          const current = playerTotals.get(rs.player_id) || {
+            pontos: 0, presencas: 0, vitorias: 0, saldo_gols: 0,
+            cartoes: 0, assistencias: 0, gols: 0, derrotas: 0
+          };
+          playerTotals.set(rs.player_id, {
+            pontos: current.pontos + (rs.total_points || 0),
+            presencas: current.presencas + (rs.presence_points || 0),
+            vitorias: current.vitorias + (rs.victories || 0),
+            saldo_gols: current.saldo_gols + (rs.goal_difference || 0),
+            cartoes: current.cartoes + (rs.yellow_cards || 0) + (rs.blue_cards || 0),
+            assistencias: current.assistencias + (rs.assists || 0),
+            gols: current.gols + (rs.goals || 0),
+            derrotas: current.derrotas + (rs.defeats || 0),
+          });
+        });
+
+        // Ordenar com critérios de desempate (igual a Classification.tsx)
+        const sortedPlayers = Array.from(playerTotals.entries())
+          .sort(([, a], [, b]) => {
+            // 1. Mais pontos totais
+            if (a.pontos !== b.pontos) return b.pontos - a.pontos;
+            // 2. Mais presenças
+            if (a.presencas !== b.presencas) return b.presencas - a.presencas;
+            // 3. Mais vitórias
+            if (a.vitorias !== b.vitorias) return b.vitorias - a.vitorias;
+            // 4. Maior saldo de gols
+            if (a.saldo_gols !== b.saldo_gols) return b.saldo_gols - a.saldo_gols;
+            // 5. Menos cartões
+            if (a.cartoes !== b.cartoes) return a.cartoes - b.cartoes;
+            // 6. Mais assistências
+            if (a.assistencias !== b.assistencias) return b.assistencias - a.assistencias;
+            // 7. Mais gols
+            if (a.gols !== b.gols) return b.gols - a.gols;
+            // 8. Menos derrotas
+            return a.derrotas - b.derrotas;
+          });
+
+        const position = sortedPlayers.findIndex(([id]) => id === profileId);
         if (position !== -1) {
           rankingPosition = position + 1;
         }

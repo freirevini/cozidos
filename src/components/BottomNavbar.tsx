@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Trophy, User, Settings, BarChart3, Shield, Sparkles, Users, CalendarDays, UserCog } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useLocation, useNavigate, Link } from "react-router-dom";
+import { Home, Trophy, User, Settings, BarChart3, Shield, Sparkles, CalendarDays, UserCog, LogIn } from "lucide-react";
+import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
 import logo from "@/assets/novo-logo.png";
@@ -29,15 +29,12 @@ interface PopupOption {
 export default function BottomNavbar() {
     const location = useLocation();
     const navigate = useNavigate();
-    const { user, isApproved, isAdmin, isPlayer } = useAuth();
+    const { user, isApproved, isAdmin, isPlayer, isGuest } = useAuth();
     const [isLogoMenuOpen, setIsLogoMenuOpen] = useState(false);
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
 
     // Hide on scroll down, show on scroll up
     const isNavVisible = useScrollDirection({ threshold: 15 });
-
-    // Don't show navbar if user is not logged in
-    if (!user) return null;
 
     // Routes where navbar should be hidden (admin/management pages)
     const hideNavbarRoutes = [
@@ -142,6 +139,45 @@ export default function BottomNavbar() {
             ];
         }
 
+        // Para visitantes - mostrar botão "Entrar" no lugar de "Meu Perfil"
+        if (isGuest) {
+            return [
+                {
+                    path: "/",
+                    label: "Home",
+                    icon: <Home className="w-6 h-6" strokeWidth={1.5} />,
+                    activeIcon: <Home className="w-6 h-6" strokeWidth={2} />,
+                },
+                {
+                    path: "/classification",
+                    label: "Classificação",
+                    icon: <Trophy className="w-6 h-6" strokeWidth={1.5} />,
+                    activeIcon: <Trophy className="w-6 h-6" strokeWidth={2} />,
+                },
+                { path: "center", label: "", icon: null, activeIcon: null },
+                {
+                    path: "/matches",
+                    label: "Rodadas",
+                    icon: (
+                        <div className="w-6 h-6 border-[1.5px] border-current rounded flex items-center justify-center text-[10px] font-bold">
+                            3:2
+                        </div>
+                    ),
+                    activeIcon: (
+                        <div className="w-6 h-6 border-2 border-current rounded flex items-center justify-center text-[10px] font-bold">
+                            3:2
+                        </div>
+                    ),
+                },
+                {
+                    path: "/statistics",
+                    label: "Estatísticas",
+                    icon: <BarChart3 className="w-6 h-6" strokeWidth={1.5} />,
+                    activeIcon: <BarChart3 className="w-6 h-6" strokeWidth={2} />,
+                },
+            ];
+        }
+
         // For regular players and non-players
         return [
             {
@@ -207,6 +243,11 @@ export default function BottomNavbar() {
     };
 
     const handleLogoClick = () => {
+        if (isGuest) {
+            // Para visitantes, logo navega para times
+            navigate("/times");
+            return;
+        }
         if (isAdmin) {
             // For admins, logo navigates to players list
             navigate("/admin/players");

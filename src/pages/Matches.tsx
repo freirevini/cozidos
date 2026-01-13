@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -45,6 +45,7 @@ const teamNames: Record<string, string> = {
 
 export default function Matches() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [rounds, setRounds] = useState<Round[]>([]);
   const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -102,10 +103,33 @@ export default function Matches() {
           };
         })
       );
-
       setRounds(roundsWithMatches);
+
+      // Auto-selecionar a rodada mais recente que tem partidas
+      // Prioridade: rodada em andamento > última finalizada > próxima futura
       if (roundsWithMatches.length > 0) {
-        setCurrentRoundIndex(0);
+        // Check for roundId param
+        const roundIdParam = searchParams.get("roundId");
+        const paramIdx = roundIdParam ? roundsWithMatches.findIndex(r => r.id === roundIdParam) : -1;
+
+        if (paramIdx !== -1) {
+          setCurrentRoundIndex(paramIdx);
+        } else {
+          // Encontrar rodada em andamento
+          const inProgressIdx = roundsWithMatches.findIndex((r) => r.status === "em_andamento");
+          if (inProgressIdx !== -1) {
+            setCurrentRoundIndex(inProgressIdx);
+          } else {
+            // Encontrar última rodada finalizada ou a mais recente com partidas
+            const withMatches = roundsWithMatches.filter((r) => r.matches.length > 0);
+            if (withMatches.length > 0) {
+              const lastWithMatches = roundsWithMatches.findIndex((r) => r.id === withMatches[0].id);
+              setCurrentRoundIndex(lastWithMatches !== -1 ? lastWithMatches : 0);
+            } else {
+              setCurrentRoundIndex(0);
+            }
+          }
+        }
       }
       setLoading(false);
     } catch (error) {
@@ -141,8 +165,11 @@ export default function Matches() {
     };
   }, [currentRound]);
 
-  // Filter only visible rounds (not "a_iniciar")
-  const visibleRounds = rounds.filter((r) => r.status !== "a_iniciar");
+  // Mostrar rodadas que tem partidas (incluindo futuras com times já criados)
+  // Ou rodadas que não são "a_iniciar" (já tiveram algo)
+  const visibleRounds = rounds.filter((r) =>
+    r.matches.length > 0 || r.status !== "a_iniciar"
+  );
 
   const formatDate = (dateString: string) => {
     try {
@@ -245,7 +272,7 @@ export default function Matches() {
                 <Card
                   key={match.id}
                   className="overflow-hidden hover:shadow-lg hover:shadow-pink-500/20 transition-all bg-[#1c1c1e] border-white/5 cursor-pointer active:scale-[0.98]"
-                  onClick={() => navigate(`/match/${match.id}`)}
+                  onClick={() => navigate(`/match/${match.id}`)}  /* Permite entrar mesmo em partidas futuras */
                 >
                   <CardContent className="p-4 sm:p-6">
                     {/* Score Layout - Centered with Status Pill */}

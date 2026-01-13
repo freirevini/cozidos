@@ -12,6 +12,8 @@ interface ProfileData {
 
 interface AuthContextType {
   user: User | null;
+  isAuthenticated: boolean;  // true when user is logged in
+  isGuest: boolean;          // true when user is NOT logged in (visitor)
   isAdmin: boolean;
   isPlayer: boolean;
   isPending: boolean;
@@ -25,6 +27,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  isAuthenticated: false,
+  isGuest: true,
   isAdmin: false,
   isPlayer: false,
   isPending: false,
@@ -156,6 +160,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   return (
     <AuthContext.Provider value={{
       user,
+      isAuthenticated: !!user,
+      isGuest: !user,
       isAdmin,
       isPlayer,
       isPending,

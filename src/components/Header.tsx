@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { Menu, X, LogOut, LogIn, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -9,7 +9,7 @@ import logo from "@/assets/novo-logo.png";
 import { SlideTabs } from "@/components/ui/slide-tabs";
 
 export default function Header() {
-  const { isAdmin, isPlayer } = useAuth();
+  const { isAdmin, isPlayer, isGuest } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
@@ -72,6 +72,15 @@ export default function Header() {
     { href: "/admin/players", label: "Jogadores" },
   ];
 
+  // Links para visitantes (público)
+  const guestLinks = [
+    { href: "/", label: "Home" },
+    { href: "/classification", label: "Classificação" },
+    { href: "/matches", label: "Rodadas" },
+    { href: "/statistics", label: "Estatísticas" },
+    { href: "/times", label: "Times" },
+  ];
+
   const userLinks = isPlayer
     ? [
       { href: "/statistics", label: "Estatísticas" },
@@ -84,9 +93,12 @@ export default function Header() {
       { href: "/profile", label: "Meu Perfil" },
     ];
 
-  const allLinks = isAdmin
-    ? [...navLinks, ...adminLinks]
-    : [...navLinks, ...userLinks];
+  // Lógica de links baseada no tipo de usuário
+  const allLinks = isGuest
+    ? guestLinks
+    : isAdmin
+      ? [...navLinks, ...adminLinks]
+      : [...navLinks, ...userLinks];
 
   const checkScrollPosition = () => {
     const container = scrollContainerRef.current;
@@ -139,13 +151,23 @@ export default function Header() {
             />
           </nav>
 
-          <button
-            onClick={handleLogout}
-            className="hidden lg:flex px-4 py-2 rounded-md text-sm font-medium text-foreground hover:bg-muted transition-colors items-center gap-2"
-          >
-            <LogOut size={16} />
-            Sair
-          </button>
+          {isGuest ? (
+            <Link
+              to="/auth"
+              className="hidden lg:flex px-4 py-2 rounded-md text-sm font-medium bg-pink-500 text-white hover:bg-pink-600 transition-colors items-center gap-2"
+            >
+              <LogIn size={16} />
+              Entrar
+            </Link>
+          ) : (
+            <button
+              onClick={handleLogout}
+              className="hidden lg:flex px-4 py-2 rounded-md text-sm font-medium text-foreground hover:bg-muted transition-colors items-center gap-2"
+            >
+              <LogOut size={16} />
+              Sair
+            </button>
+          )}
 
           {/* Tablet Navigation - Compact version with scroll indicators */}
           <nav className="hidden md:flex lg:hidden items-center gap-2 flex-1 max-w-[calc(100%-120px)]">
@@ -178,12 +200,21 @@ export default function Header() {
                 </button>
               )}
             </div>
-            <button
-              onClick={handleLogout}
-              className="px-3 py-2 rounded-md text-sm font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-2 flex-shrink-0"
-            >
-              <LogOut size={16} />
-            </button>
+            {isGuest ? (
+              <Link
+                to="/auth"
+                className="px-3 py-2 rounded-md text-sm font-medium bg-pink-500 text-white hover:bg-pink-600 transition-colors flex items-center gap-2 flex-shrink-0"
+              >
+                <LogIn size={16} />
+              </Link>
+            ) : (
+              <button
+                onClick={handleLogout}
+                className="px-3 py-2 rounded-md text-sm font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-2 flex-shrink-0"
+              >
+                <LogOut size={16} />
+              </button>
+            )}
           </nav>
 
           {/* Mobile Menu Button */}
@@ -221,19 +252,33 @@ export default function Header() {
                 {link.label}
               </Link>
             ))}
-            <button
-              onClick={() => {
-                handleLogout();
-                setMobileMenuOpen(false);
-              }}
-              className="w-full text-left px-4 py-2 rounded-md text-sm font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-2"
-              style={{
-                animation: `fade-in 0.3s ease-out ${allLinks.length * 0.05}s both`
-              }}
-            >
-              <LogOut size={16} />
-              Sair
-            </button>
+            {isGuest ? (
+              <Link
+                to="/auth"
+                className="w-full text-left px-4 py-2 rounded-md text-sm font-medium bg-pink-500 text-white hover:bg-pink-600 transition-colors flex items-center gap-2"
+                onClick={() => setMobileMenuOpen(false)}
+                style={{
+                  animation: `fade-in 0.3s ease-out ${allLinks.length * 0.05}s both`
+                }}
+              >
+                <LogIn size={16} />
+                Entrar
+              </Link>
+            ) : (
+              <button
+                onClick={() => {
+                  handleLogout();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full text-left px-4 py-2 rounded-md text-sm font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-2"
+                style={{
+                  animation: `fade-in 0.3s ease-out ${allLinks.length * 0.05}s both`
+                }}
+              >
+                <LogOut size={16} />
+                Sair
+              </button>
+            )}
           </nav>
         )}
       </div>

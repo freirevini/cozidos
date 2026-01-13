@@ -403,9 +403,22 @@ const RoundOverviewSection: React.FC<RoundOverviewSectionProps> = ({ isAdmin = f
         }
     };
 
+    const handleTitleClick = () => {
+        if (!relevantRound) return;
+
+        if (isAdmin) {
+            navigate(`/matches?roundId=${relevantRound.id}`);
+        } else {
+            navigate(`/matches?roundId=${relevantRound.id}`);
+        }
+    };
+
     return (
         <div className="col-span-2 mt-4">
-            <h2 className="text-[16px] font-bold text-white mb-3 pl-1 tracking-tight flex items-center gap-2">
+            <h2
+                onClick={handleTitleClick}
+                className={`text-[16px] font-bold text-white mb-3 pl-1 tracking-tight flex items-center gap-2 ${relevantRound ? 'cursor-pointer hover:text-pink-300 transition-colors' : ''}`}
+            >
                 {getSectionTitle()}
                 <div className="h-px bg-white/10 flex-grow" />
             </h2>

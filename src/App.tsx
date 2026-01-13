@@ -51,6 +51,48 @@ const queryClient = new QueryClient({
   },
 });
 
+// ============================================================
+// ROUTE WRAPPERS - Access Control
+// ============================================================
+
+// PublicRoute: Accessible by everyone (guests and logged users)
+// Currently used for ALL public pages including profiles
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+
+// AdminOnlyRoute: Requires user to be logged in AND be an admin
+// Redirects to /auth if not logged, or to / if not admin
+function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { user, isAdmin, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading) {
+      if (!user) {
+        navigate('/auth');
+      } else if (!isAdmin) {
+        navigate('/');
+      }
+    }
+  }, [loading, user, isAdmin, navigate]);
+
+  if (loading) {
+    return <LoadingLogo />;
+  }
+
+  if (!user || !isAdmin) return null;
+
+  return <>{children}</>;
+}
+
+// ============================================================
+// FUTURE USE - Uncomment when needed
+// ============================================================
+
+// ProtectedRoute: Requires user to be logged in (any role)
+// Redirects to /auth if not logged in
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -68,7 +110,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return user ? <>{children}</> : null;
 }
 
-// ApprovedOnlyRoute: Blocks access to profile pages for pending users
+// ApprovedOnlyRoute: Requires user to be logged in AND approved (for profile access)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ApprovedOnlyRoute({ children }: { children: React.ReactNode }) {
   const { user, isApproved, loading } = useAuth();
   const navigate = useNavigate();
@@ -113,32 +156,42 @@ function AnimatedRoutes() {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
+        {/* ========== AUTH ========== */}
         <Route path="/auth" element={<Auth />} />
-        <Route path="/" element={<ProtectedRoute><LazyRoute><PageTransition><HomeRouter /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/classification" element={<ProtectedRoute><LazyRoute><PageTransition><Classification /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/matches" element={<ProtectedRoute><LazyRoute><PageTransition><Matches /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/match/:matchId" element={<ProtectedRoute><LazyRoute><PageTransition><MatchDetails /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/statistics" element={<ProtectedRoute><LazyRoute><PageTransition><Statistics /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/admin/players" element={<ProtectedRoute><LazyRoute><PageTransition><ManagePlayers /></PageTransition></LazyRoute></ProtectedRoute>} />
 
-        <Route path="/admin/monitoring" element={<ProtectedRoute><LazyRoute><PageTransition><ProfileMonitoring /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/admin/teams" element={<ProtectedRoute><LazyRoute><PageTransition><Teams /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/admin/teams/define" element={<ProtectedRoute><LazyRoute><PageTransition><DefineTeams /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/admin/teams/manage" element={<ProtectedRoute><LazyRoute><PageTransition><ManageTeams /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/admin/round/:roundId/edit" element={<ProtectedRoute><LazyRoute><PageTransition><EditRound /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/admin/round/:roundId/view" element={<ProtectedRoute><LazyRoute><PageTransition><ViewRound /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/admin/match/:matchId/:roundId" element={<ProtectedRoute><LazyRoute><PageTransition><ManageMatch /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/admin/round/:roundId/attendance" element={<ProtectedRoute><LazyRoute><PageTransition><ManageAttendance /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/admin/round/:roundId/attendance-old" element={<ProtectedRoute><LazyRoute><PageTransition><AttendanceRecord /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/admin/round" element={<ProtectedRoute><LazyRoute><PageTransition><StartRound /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/admin/round/manage" element={<ProtectedRoute><LazyRoute><PageTransition><ManageRounds /></PageTransition></LazyRoute></ProtectedRoute>} />
+        {/* ========== PUBLIC ROUTES (visitors can access) ========== */}
+        <Route path="/" element={<PublicRoute><LazyRoute><PageTransition><HomeRouter /></PageTransition></LazyRoute></PublicRoute>} />
+        <Route path="/classification" element={<PublicRoute><LazyRoute><PageTransition><Classification /></PageTransition></LazyRoute></PublicRoute>} />
+        <Route path="/matches" element={<PublicRoute><LazyRoute><PageTransition><Matches /></PageTransition></LazyRoute></PublicRoute>} />
+        <Route path="/match/:matchId" element={<PublicRoute><LazyRoute><PageTransition><MatchDetails /></PageTransition></LazyRoute></PublicRoute>} />
+        <Route path="/statistics" element={<PublicRoute><LazyRoute><PageTransition><Statistics /></PageTransition></LazyRoute></PublicRoute>} />
+        <Route path="/times" element={<PublicRoute><LazyRoute><PageTransition><ViewTeams /></PageTransition></LazyRoute></PublicRoute>} />
+        <Route path="/teams/view" element={<PublicRoute><LazyRoute><PageTransition><ViewTeams /></PageTransition></LazyRoute></PublicRoute>} />
+        <Route path="/players-list" element={<PublicRoute><LazyRoute><PageTransition><PlayersList /></PageTransition></LazyRoute></PublicRoute>} />
+        <Route path="/coz-ia" element={<PublicRoute><LazyRoute><PageTransition><CozIA /></PageTransition></LazyRoute></PublicRoute>} />
+        <Route path="/profile" element={<PublicRoute><LazyRoute><PageTransition><Profile /></PageTransition></LazyRoute></PublicRoute>} />
+        <Route path="/profile/:id" element={<PublicRoute><LazyRoute><PageTransition><Profile /></PageTransition></LazyRoute></PublicRoute>} />
+
+        {/* FUTURE USE: Uncomment to require login for profiles
         <Route path="/profile" element={<ApprovedOnlyRoute><LazyRoute><PageTransition><Profile /></PageTransition></LazyRoute></ApprovedOnlyRoute>} />
         <Route path="/profile/:id" element={<ApprovedOnlyRoute><LazyRoute><PageTransition><Profile /></PageTransition></LazyRoute></ApprovedOnlyRoute>} />
-        <Route path="/times" element={<ProtectedRoute><LazyRoute><PageTransition><ViewTeams /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/teams/view" element={<ProtectedRoute><LazyRoute><PageTransition><ViewTeams /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/players-list" element={<ProtectedRoute><LazyRoute><PageTransition><PlayersList /></PageTransition></LazyRoute></ProtectedRoute>} />
-        <Route path="/coz-ia" element={<ProtectedRoute><LazyRoute><PageTransition><CozIA /></PageTransition></LazyRoute></ProtectedRoute>} />
-        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+        */}
+
+        {/* ========== ADMIN ROUTES (requires login + admin role) ========== */}
+        <Route path="/admin/players" element={<AdminOnlyRoute><LazyRoute><PageTransition><ManagePlayers /></PageTransition></LazyRoute></AdminOnlyRoute>} />
+        <Route path="/admin/monitoring" element={<AdminOnlyRoute><LazyRoute><PageTransition><ProfileMonitoring /></PageTransition></LazyRoute></AdminOnlyRoute>} />
+        <Route path="/admin/teams" element={<AdminOnlyRoute><LazyRoute><PageTransition><Teams /></PageTransition></LazyRoute></AdminOnlyRoute>} />
+        <Route path="/admin/teams/define" element={<AdminOnlyRoute><LazyRoute><PageTransition><DefineTeams /></PageTransition></LazyRoute></AdminOnlyRoute>} />
+        <Route path="/admin/teams/manage" element={<AdminOnlyRoute><LazyRoute><PageTransition><ManageTeams /></PageTransition></LazyRoute></AdminOnlyRoute>} />
+        <Route path="/admin/round/:roundId/edit" element={<AdminOnlyRoute><LazyRoute><PageTransition><EditRound /></PageTransition></LazyRoute></AdminOnlyRoute>} />
+        <Route path="/admin/round/:roundId/view" element={<AdminOnlyRoute><LazyRoute><PageTransition><ViewRound /></PageTransition></LazyRoute></AdminOnlyRoute>} />
+        <Route path="/admin/match/:matchId/:roundId" element={<AdminOnlyRoute><LazyRoute><PageTransition><ManageMatch /></PageTransition></LazyRoute></AdminOnlyRoute>} />
+        <Route path="/admin/round/:roundId/attendance" element={<AdminOnlyRoute><LazyRoute><PageTransition><ManageAttendance /></PageTransition></LazyRoute></AdminOnlyRoute>} />
+        <Route path="/admin/round/:roundId/attendance-old" element={<AdminOnlyRoute><LazyRoute><PageTransition><AttendanceRecord /></PageTransition></LazyRoute></AdminOnlyRoute>} />
+        <Route path="/admin/round" element={<AdminOnlyRoute><LazyRoute><PageTransition><StartRound /></PageTransition></LazyRoute></AdminOnlyRoute>} />
+        <Route path="/admin/round/manage" element={<AdminOnlyRoute><LazyRoute><PageTransition><ManageRounds /></PageTransition></LazyRoute></AdminOnlyRoute>} />
+
+        {/* ========== CATCH-ALL ========== */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AnimatePresence>

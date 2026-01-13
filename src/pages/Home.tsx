@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RoundOverviewSection from "@/components/admin/RoundOverviewSection";
 import { Skeleton } from "@/components/ui/skeleton";
+import novoLogo from "@/assets/novo-logo.png";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
     Calendar,
@@ -27,7 +28,37 @@ interface PlayerStats {
     pontos_totais: number;
     gols: number;
     assistencias: number;
+    saldo_gols: number;
+    presencas: number;
+    vitorias: number;
+    derrotas: number;
+    cartoes_amarelos: number;
+    cartoes_azuis: number;
 }
+
+// Função de ordenação com critérios de desempate (igual a Classification.tsx)
+const sortPlayers = (a: PlayerStats, b: PlayerStats) => {
+    // 1. Mais pontos totais
+    if (a.pontos_totais !== b.pontos_totais) return b.pontos_totais - a.pontos_totais;
+    // 2. Mais presenças
+    if (a.presencas !== b.presencas) return b.presencas - a.presencas;
+    // 3. Mais vitórias
+    if (a.vitorias !== b.vitorias) return b.vitorias - a.vitorias;
+    // 4. Maior saldo de gols
+    if (a.saldo_gols !== b.saldo_gols) return b.saldo_gols - a.saldo_gols;
+    // 5. Menos cartões (Azul + Amarelo)
+    const cardsA = (a.cartoes_amarelos || 0) + (a.cartoes_azuis || 0);
+    const cardsB = (b.cartoes_amarelos || 0) + (b.cartoes_azuis || 0);
+    if (cardsA !== cardsB) return cardsA - cardsB; // Menos é melhor
+    // 6. Mais assistências
+    if (a.assistencias !== b.assistencias) return b.assistencias - a.assistencias;
+    // 7. Mais gols feitos
+    if (a.gols !== b.gols) return b.gols - a.gols;
+    // 8. Menos derrotas
+    if (a.derrotas !== b.derrotas) return a.derrotas - b.derrotas; // Menos é melhor
+
+    return a.nickname.localeCompare(b.nickname);
+};
 
 interface LastRoundStats {
     total_points: number;
@@ -64,15 +95,62 @@ interface LiveMatch {
     minutes: number;
 }
 
+// Team types for upcoming round display
+interface TeamPlayerHome {
+    id: string;
+    nickname: string;
+    level: string | null;
+    position: string | null;
+}
+
+interface UpcomingTeamData {
+    roundNumber: number;
+    scheduledDate: string;
+    teamsByColor: Record<string, TeamPlayerHome[]>;
+}
+
+// Team color styles for cards
+const teamColorStyles: Record<string, { bg: string; text: string; border: string }> = {
+    laranja: { bg: "bg-gradient-to-r from-orange-500 to-orange-600", text: "text-white", border: "border-orange-500/30" },
+    preto: { bg: "bg-gradient-to-r from-zinc-700 to-zinc-800", text: "text-white", border: "border-zinc-600/30" },
+    branco: { bg: "bg-gradient-to-r from-zinc-100 to-zinc-200", text: "text-zinc-900", border: "border-zinc-300/50" },
+    azul: { bg: "bg-gradient-to-r from-blue-500 to-blue-600", text: "text-white", border: "border-blue-500/30" },
+};
+
+const teamDisplayNames: Record<string, string> = {
+    laranja: "Laranja", preto: "Preto", branco: "Branco", azul: "Azul",
+};
+
+// Sort players by level (A, B, C, D, E) then GK at the end
+const sortPlayersByLevel = (players: TeamPlayerHome[]) => {
+    const levelOrder = ["A", "B", "C", "D", "E"];
+    return [...players].sort((a, b) => {
+        const aIsGK = a.position === "goleiro";
+        const bIsGK = b.position === "goleiro";
+        if (aIsGK && !bIsGK) return 1;
+        if (!aIsGK && bIsGK) return -1;
+        if (aIsGK && bIsGK) return 0;
+        const levelA = a.level?.toUpperCase() || "Z";
+        const levelB = b.level?.toUpperCase() || "Z";
+        return levelOrder.indexOf(levelA) - levelOrder.indexOf(levelB);
+    });
+};
+
+const getLevelDisplay = (level: string | null, position: string | null) => {
+    if (position === "goleiro") return "GK";
+    return level?.toUpperCase() || "-";
+};
+
 export default function Home() {
     const navigate = useNavigate();
-    const { user, profile, signOut, isAdmin } = useAuth();
+    const { user, profile, signOut, isAdmin, isGuest } = useAuth();
     const [loading, setLoading] = useState(true);
 
     // Top 5 data
     const [topRanking, setTopRanking] = useState<PlayerStats[]>([]);
     const [topScorers, setTopScorers] = useState<PlayerStats[]>([]);
     const [topAssists, setTopAssists] = useState<PlayerStats[]>([]);
+    const [topGoalDifference, setTopGoalDifference] = useState<PlayerStats[]>([]);
 
     // User position in each ranking
     const [userRankingPos, setUserRankingPos] = useState<{ position: number; value: number } | null>(null);
@@ -86,6 +164,9 @@ export default function Home() {
     // Next match
     const [nextMatch, setNextMatch] = useState<NextMatchData | null>(null);
 
+    // Upcoming round teams (for guest view)
+    const [upcomingTeams, setUpcomingTeams] = useState<UpcomingTeamData | null>(null);
+
     // Admin stats (only loaded for admins)
     const [adminStats, setAdminStats] = useState<{ totalPlayers: number; pendingPlayers: number; totalRounds: number; activeRounds: number } | null>(null);
     const [adminLastRoundEvents, setAdminLastRoundEvents] = useState<AdminLastRoundEvents | null>(null);
@@ -95,10 +176,151 @@ export default function Home() {
     const currentYear = new Date().getFullYear();
 
     useEffect(() => {
-        if (user && profile) {
+        if (isGuest) {
+            // Para visitantes, carregar apenas dados públicos
+            loadPublicData();
+        } else if (user && profile) {
             loadHomeData();
         }
-    }, [user, profile]);
+    }, [user, profile, isGuest]);
+
+    // Função para carregar dados públicos (visitantes)
+    const loadPublicData = async () => {
+        try {
+            setLoading(true);
+
+            // Carregar stats públicas do ano atual
+            const { data: roundStats, error: statsError } = await supabase
+                .from("player_round_stats")
+                .select(`
+                    player_id,
+                    goals,
+                    assists,
+                    total_points,
+                    goal_difference,
+                    victories,
+                    defeats,
+                    presence_points,
+                    yellow_cards,
+                    blue_cards,
+                    round:rounds!inner(scheduled_date),
+                    profile:profiles!inner(nickname, is_player, status)
+                `)
+                .gte("round.scheduled_date", `${currentYear}-01-01`)
+                .lte("round.scheduled_date", `${currentYear}-12-31`);
+
+            if (statsError) {
+                console.error("[Home] Error loading public stats:", statsError);
+            }
+
+            // Agregar stats por jogador
+            const playerMap = new Map<string, PlayerStats>();
+
+            (roundStats || []).forEach((rs: any) => {
+                if (!rs.profile?.is_player || rs.profile?.status !== 'aprovado') return;
+
+                const playerId = rs.player_id;
+                const existing = playerMap.get(playerId);
+
+                if (existing) {
+                    existing.gols += rs.goals || 0;
+                    existing.assistencias += rs.assists || 0;
+                    existing.pontos_totais += rs.total_points || 0;
+                    existing.saldo_gols += rs.goal_difference || 0;
+                    existing.presencas += rs.presence_points || 0;
+                    existing.vitorias += rs.victories || 0;
+                    existing.derrotas += rs.defeats || 0;
+                    existing.cartoes_amarelos += rs.yellow_cards || 0;
+                    existing.cartoes_azuis += rs.blue_cards || 0;
+                } else {
+                    playerMap.set(playerId, {
+                        player_id: playerId,
+                        nickname: rs.profile?.nickname || 'Sem nome',
+                        gols: rs.goals || 0,
+                        assistencias: rs.assists || 0,
+                        pontos_totais: rs.total_points || 0,
+                        saldo_gols: rs.goal_difference || 0,
+                        presencas: rs.presence_points || 0,
+                        vitorias: rs.victories || 0,
+                        derrotas: rs.defeats || 0,
+                        cartoes_amarelos: rs.yellow_cards || 0,
+                        cartoes_azuis: rs.blue_cards || 0
+                    });
+                }
+            });
+
+            const playersArray = Array.from(playerMap.values());
+
+            // Ordenar usando a mesma lógica da página de Classificação
+            const sortedForRanking = [...playersArray].sort(sortPlayers);
+            const sortedByGoals = [...playersArray].sort((a, b) => b.gols - a.gols);
+            const sortedByAssists = [...playersArray].sort((a, b) => b.assistencias - a.assistencias);
+            const sortedByGoalDiff = [...playersArray].sort((a, b) => b.saldo_gols - a.saldo_gols);
+
+            setTopRanking(sortedForRanking.slice(0, 5));
+            setTopScorers(sortedByGoals.slice(0, 5));
+            setTopAssists(sortedByAssists.slice(0, 5));
+            setTopGoalDifference(sortedByGoalDiff.slice(0, 5));
+
+            // Carregar próxima rodada
+            const { data: nextRound } = await supabase
+                .from("rounds")
+                .select("id, round_number, scheduled_date")
+                .gte("scheduled_date", new Date().toISOString().split("T")[0])
+                .order("scheduled_date", { ascending: true })
+                .limit(1);
+
+            if (nextRound && nextRound.length > 0) {
+                const round = nextRound[0];
+                setNextMatch({
+                    round_id: round.id,
+                    round_number: round.round_number,
+                    scheduled_date: round.scheduled_date,
+                    user_team_name: null,
+                    user_team_color: null,
+                });
+
+                // Carregar times da próxima rodada (se existirem)
+                const { data: teamPlayers, error: teamsError } = await supabase
+                    .from("round_team_players")
+                    .select(`
+                        id,
+                        team_color,
+                        profiles:player_id(nickname, level, position)
+                    `)
+                    .eq("round_id", round.id);
+
+                if (!teamsError && teamPlayers && teamPlayers.length > 0) {
+                    // Agrupar jogadores por cor do time
+                    const teamsByColor: Record<string, TeamPlayerHome[]> = {};
+
+                    teamPlayers.forEach((tp: any) => {
+                        const color = tp.team_color;
+                        if (!teamsByColor[color]) {
+                            teamsByColor[color] = [];
+                        }
+                        teamsByColor[color].push({
+                            id: tp.id,
+                            nickname: tp.profiles?.nickname || "Sem nome",
+                            level: tp.profiles?.level || null,
+                            position: tp.profiles?.position || null,
+                        });
+                    });
+
+                    setUpcomingTeams({
+                        roundNumber: round.round_number,
+                        scheduledDate: round.scheduled_date,
+                        teamsByColor,
+                    });
+                }
+            }
+
+        } catch (error) {
+            console.error("Error loading public data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const loadHomeData = async () => {
         if (!profile?.id) return;
@@ -117,6 +339,10 @@ export default function Home() {
           draws,
           defeats,
           total_points,
+          goal_difference,
+          presence_points,
+          yellow_cards,
+          blue_cards,
           round:rounds!inner(scheduled_date, status),
           profile:profiles!inner(nickname, is_player, status)
         `)
@@ -140,32 +366,46 @@ export default function Home() {
                     existing.gols += rs.goals || 0;
                     existing.assistencias += rs.assists || 0;
                     existing.pontos_totais += rs.total_points || 0;
+                    existing.saldo_gols += rs.goal_difference || 0;
+                    existing.presencas += rs.presence_points || 0;
+                    existing.vitorias += rs.victories || 0;
+                    existing.derrotas += rs.defeats || 0;
+                    existing.cartoes_amarelos += rs.yellow_cards || 0;
+                    existing.cartoes_azuis += rs.blue_cards || 0;
                 } else {
                     playerMap.set(playerId, {
                         player_id: playerId,
                         nickname: rs.profile?.nickname || 'Sem nome',
                         gols: rs.goals || 0,
                         assistencias: rs.assists || 0,
-                        pontos_totais: rs.total_points || 0
+                        pontos_totais: rs.total_points || 0,
+                        saldo_gols: rs.goal_difference || 0,
+                        presencas: rs.presence_points || 0,
+                        vitorias: rs.victories || 0,
+                        derrotas: rs.defeats || 0,
+                        cartoes_amarelos: rs.yellow_cards || 0,
+                        cartoes_azuis: rs.blue_cards || 0
                     });
                 }
             });
 
             const playersArray = Array.from(playerMap.values());
 
-            // Sort and get Top 5 for each category
-            const sortedByPoints = [...playersArray].sort((a, b) => b.pontos_totais - a.pontos_totais);
+            // Ordenar usando a mesma lógica da página de Classificação
+            const sortedForRanking = [...playersArray].sort(sortPlayers);
             const sortedByGoals = [...playersArray].sort((a, b) => b.gols - a.gols);
             const sortedByAssists = [...playersArray].sort((a, b) => b.assistencias - a.assistencias);
+            const sortedByGoalDiff = [...playersArray].sort((a, b) => b.saldo_gols - a.saldo_gols);
 
-            setTopRanking(sortedByPoints.slice(0, 5));
+            setTopRanking(sortedForRanking.slice(0, 5));
             setTopScorers(sortedByGoals.slice(0, 5));
             setTopAssists(sortedByAssists.slice(0, 5));
+            setTopGoalDifference(sortedByGoalDiff.slice(0, 5));
 
             // Find user position in each ranking
-            const userRankIdx = sortedByPoints.findIndex(p => p.player_id === profile.id);
+            const userRankIdx = sortedForRanking.findIndex(p => p.player_id === profile.id);
             if (userRankIdx !== -1) {
-                setUserRankingPos({ position: userRankIdx + 1, value: sortedByPoints[userRankIdx].pontos_totais });
+                setUserRankingPos({ position: userRankIdx + 1, value: sortedForRanking[userRankIdx].pontos_totais });
             }
 
             const userGoalsIdx = sortedByGoals.findIndex(p => p.player_id === profile.id);
@@ -342,8 +582,328 @@ export default function Home() {
         return name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
     };
 
-    // If not logged in or no profile, show skeleton
-    if (!user || !profile) {
+    // GUEST VIEW - Visitante (sem login)
+    if (isGuest) {
+        return (
+            <div className="min-h-screen bg-[#0e0e10] text-white font-sans selection:bg-white/20 relative">
+                {/* Header Section for Guests - Glassmorphism with Logo - ABSOLUTE */}
+                <header className="flex items-center justify-between p-4 pt-5 absolute top-0 left-0 right-0 bg-[#0e0e10]/95 backdrop-blur-xl z-[60] border-b border-white/5">
+                    <div className="flex items-center gap-3">
+                        {/* Logo */}
+                        <img
+                            src={novoLogo}
+                            alt="Cozidos FC"
+                            className="h-12 w-12 object-contain drop-shadow-[0_0_8px_rgba(236,72,153,0.4)]"
+                        />
+                        <div>
+                            <h1 className="text-[18px] font-bold leading-tight text-white tracking-tight">
+                                Cozidos Futebol Clube
+                            </h1>
+                            <span className="block text-[11px] font-medium text-pink-300/80 tracking-wide uppercase">
+                                Temporada {currentYear}
+                            </span>
+                        </div>
+                    </div>
+
+                </header>
+
+                {/* Main Content */}
+                <main className="grid grid-cols-2 gap-3 p-4 pb-24 pt-[88px]">
+
+                    {/* Estatísticas Section Header */}
+                    <div className="col-span-2">
+                        <h2 className="text-[16px] font-bold text-white mb-3 pl-1 tracking-tight flex items-center gap-2">
+                            <BarChart3 className="w-4 h-4 text-pink-400" />
+                            Estatísticas
+                            <div className="h-px bg-transparent flex-grow" />
+                        </h2>
+                    </div>
+
+                    {/* Ranking Card */}
+                    <article
+                        className="relative overflow-hidden bg-[#1c1c1e] rounded-2xl p-4 flex flex-col border border-white/5 shadow-lg group transition-transform duration-300 hover:-translate-y-1 cursor-pointer"
+                        onClick={() => navigate("/classification")}
+                    >
+                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-pink-500/10 blur-[40px] rounded-full group-hover:bg-pink-500/20 transition-colors duration-500" />
+                        <div className="relative z-10 flex justify-between items-start mb-4">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-pink-200 bg-pink-500/20 px-2 py-0.5 rounded-md border border-pink-500/20">
+                                Classificação
+                            </span>
+                        </div>
+                        <div className="relative z-10 flex-grow flex flex-col gap-2">
+                            {loading ? (
+                                Array.from({ length: 5 }).map((_, i) => (
+                                    <Skeleton key={i} className="h-5 w-full" />
+                                ))
+                            ) : topRanking.length > 0 ? (
+                                <>
+                                    <div className="flex items-end justify-between pb-2 mb-1 border-b border-white/10">
+                                        <div>
+                                            <span className="text-[9px] font-bold text-pink-300 uppercase tracking-wider block mb-0.5">1º LUGAR</span>
+                                            <span className="text-lg font-black text-white leading-none">{topRanking[0]?.nickname?.toUpperCase()}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-lg font-bold text-pink-300 leading-none">{topRanking[0]?.pontos_totais}</span>
+                                            <span className="text-[9px] text-gray-300 block uppercase font-bold">Pts</span>
+                                        </div>
+                                    </div>
+                                    {topRanking.slice(1, 5).map((player, idx) => (
+                                        <div key={player.player_id} className="flex items-center justify-between text-xs py-0.5">
+                                            <div className="flex items-center gap-2.5">
+                                                <span className="font-bold text-gray-400 w-3 text-center">{idx + 2}</span>
+                                                <span className="font-bold text-gray-100">{player.nickname?.toUpperCase()}</span>
+                                            </div>
+                                            <span className="font-bold text-white">{player.pontos_totais}</span>
+                                        </div>
+                                    ))}
+                                </>
+                            ) : (
+                                <div className="text-gray-400 text-sm">Sem dados</div>
+                            )}
+                        </div>
+                        <div className="relative z-10 mt-4 pt-3 border-t border-white/10 flex justify-between items-center bg-black/20 -mx-4 -mb-4 px-4 py-3">
+                            <span className="text-[10px] font-bold text-gray-300 uppercase tracking-wide">Ver mais</span>
+                            <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-pink-300 transition-colors" />
+                        </div>
+                    </article>
+
+                    {/* Goals Card */}
+                    <article
+                        className="relative overflow-hidden bg-[#1c1c1e] rounded-2xl p-4 flex flex-col border border-white/5 shadow-lg group transition-transform duration-300 hover:-translate-y-1 cursor-pointer"
+                        onClick={() => navigate("/statistics")}
+                    >
+                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-pink-500/10 blur-[40px] rounded-full group-hover:bg-pink-500/20 transition-colors duration-500" />
+                        <div className="relative z-10 flex justify-between items-start mb-4">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-pink-200 bg-pink-500/20 px-2 py-0.5 rounded-md border border-pink-500/20">
+                                Gols
+                            </span>
+                        </div>
+                        <div className="relative z-10 flex-grow flex flex-col gap-2">
+                            {loading ? (
+                                Array.from({ length: 5 }).map((_, i) => (
+                                    <Skeleton key={i} className="h-5 w-full" />
+                                ))
+                            ) : topScorers.length > 0 ? (
+                                <>
+                                    <div className="flex items-end justify-between pb-2 mb-1 border-b border-white/10">
+                                        <div>
+                                            <span className="text-[9px] font-bold text-pink-300 uppercase tracking-wider block mb-0.5">ARTILHEIRO</span>
+                                            <span className="text-lg font-black text-white leading-none">{topScorers[0]?.nickname?.toUpperCase()}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-lg font-bold text-pink-300 leading-none">{topScorers[0]?.gols}</span>
+                                            <span className="text-[9px] text-gray-300 block uppercase font-bold">Gols</span>
+                                        </div>
+                                    </div>
+                                    {topScorers.slice(1, 5).map((player, idx) => (
+                                        <div key={player.player_id} className="flex items-center justify-between text-xs py-0.5">
+                                            <div className="flex items-center gap-2.5">
+                                                <span className="font-bold text-gray-400 w-3 text-center">{idx + 2}</span>
+                                                <span className="font-bold text-gray-100">{player.nickname?.toUpperCase()}</span>
+                                            </div>
+                                            <span className="font-bold text-white">{player.gols}</span>
+                                        </div>
+                                    ))}
+                                </>
+                            ) : (
+                                <div className="text-gray-400 text-sm">Sem dados</div>
+                            )}
+                        </div>
+                        <div className="relative z-10 mt-4 pt-3 border-t border-white/10 flex justify-between items-center bg-black/20 -mx-4 -mb-4 px-4 py-3">
+                            <span className="text-[10px] font-bold text-gray-300 uppercase tracking-wide">Ver mais</span>
+                            <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-pink-300 transition-colors" />
+                        </div>
+                    </article>
+
+                    {/* Assists Card */}
+                    <article
+                        className="relative overflow-hidden bg-[#1c1c1e] rounded-2xl p-4 flex flex-col border border-white/5 shadow-lg group transition-transform duration-300 hover:-translate-y-1 cursor-pointer"
+                        onClick={() => navigate("/statistics")}
+                    >
+                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-pink-500/10 blur-[40px] rounded-full group-hover:bg-pink-500/20 transition-colors duration-500" />
+                        <div className="relative z-10 flex justify-between items-start mb-4">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-pink-200 bg-pink-500/20 px-2 py-0.5 rounded-md border border-pink-500/20">
+                                Assis.
+                            </span>
+                        </div>
+                        <div className="relative z-10 flex-grow flex flex-col gap-2">
+                            {loading ? (
+                                Array.from({ length: 5 }).map((_, i) => (
+                                    <Skeleton key={i} className="h-5 w-full" />
+                                ))
+                            ) : topAssists.length > 0 ? (
+                                <>
+                                    <div className="flex items-end justify-between pb-2 mb-1 border-b border-white/10">
+                                        <div>
+                                            <span className="text-[9px] font-bold text-pink-300 uppercase tracking-wider block mb-0.5">GARÇOM</span>
+                                            <span className="text-lg font-black text-white leading-none">{topAssists[0]?.nickname?.toUpperCase()}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-lg font-bold text-pink-300 leading-none">{topAssists[0]?.assistencias}</span>
+                                            <span className="text-[9px] text-gray-300 block uppercase font-bold">Ass.</span>
+                                        </div>
+                                    </div>
+                                    {topAssists.slice(1, 5).map((player, idx) => (
+                                        <div key={player.player_id} className="flex items-center justify-between text-xs py-0.5">
+                                            <div className="flex items-center gap-2.5">
+                                                <span className="font-bold text-gray-400 w-3 text-center">{idx + 2}</span>
+                                                <span className="font-bold text-gray-100">{player.nickname?.toUpperCase()}</span>
+                                            </div>
+                                            <span className="font-bold text-white">{player.assistencias}</span>
+                                        </div>
+                                    ))}
+                                </>
+                            ) : (
+                                <div className="text-gray-400 text-sm">Sem dados</div>
+                            )}
+                        </div>
+                        <div className="relative z-10 mt-4 pt-3 border-t border-white/10 flex justify-between items-center bg-black/20 -mx-4 -mb-4 px-4 py-3">
+                            <span className="text-[10px] font-bold text-gray-300 uppercase tracking-wide">Ver mais</span>
+                            <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-pink-300 transition-colors" />
+                        </div>
+                    </article>
+
+                    {/* Goal Difference Card */}
+                    <article
+                        className="relative overflow-hidden bg-[#1c1c1e] rounded-2xl p-4 flex flex-col border border-white/5 shadow-lg group transition-transform duration-300 hover:-translate-y-1 cursor-pointer"
+                        onClick={() => navigate("/statistics")}
+                    >
+                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-pink-500/10 blur-[40px] rounded-full group-hover:bg-pink-500/20 transition-colors duration-500" />
+                        <div className="relative z-10 flex justify-between items-start mb-4">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-pink-200 bg-pink-500/20 px-2 py-0.5 rounded-md border border-pink-500/20">
+                                Saldo
+                            </span>
+                        </div>
+                        <div className="relative z-10 flex-grow flex flex-col gap-2">
+                            {loading ? (
+                                Array.from({ length: 5 }).map((_, i) => (
+                                    <Skeleton key={i} className="h-5 w-full" />
+                                ))
+                            ) : topGoalDifference.length > 0 ? (
+                                <>
+                                    <div className="flex items-end justify-between pb-2 mb-1 border-b border-white/10">
+                                        <div>
+                                            <span className="text-[9px] font-bold text-pink-300 uppercase tracking-wider block mb-0.5">MELHOR SALDO</span>
+                                            <span className="text-lg font-black text-white leading-none">{topGoalDifference[0]?.nickname?.toUpperCase()}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-lg font-bold text-pink-300 leading-none">{topGoalDifference[0]?.saldo_gols > 0 ? '+' : ''}{topGoalDifference[0]?.saldo_gols}</span>
+                                            <span className="text-[9px] text-gray-300 block uppercase font-bold">Saldo</span>
+                                        </div>
+                                    </div>
+                                    {topGoalDifference.slice(1, 5).map((player, idx) => (
+                                        <div key={player.player_id} className="flex items-center justify-between text-xs py-0.5">
+                                            <div className="flex items-center gap-2.5">
+                                                <span className="font-bold text-gray-400 w-3 text-center">{idx + 2}</span>
+                                                <span className="font-bold text-gray-100">{player.nickname?.toUpperCase()}</span>
+                                            </div>
+                                            <span className="font-bold text-white">{player.saldo_gols > 0 ? '+' : ''}{player.saldo_gols}</span>
+                                        </div>
+                                    ))}
+                                </>
+                            ) : (
+                                <div className="text-gray-400 text-sm">Sem dados</div>
+                            )}
+                        </div>
+                        <div className="relative z-10 mt-4 pt-3 border-t border-white/10 flex justify-between items-center bg-black/20 -mx-4 -mb-4 px-4 py-3">
+                            <span className="text-[10px] font-bold text-gray-300 uppercase tracking-wide">Ver mais</span>
+                            <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-pink-300 transition-colors" />
+                        </div>
+                    </article>
+
+                    {/* Times Section Header */}
+                    <div className="col-span-2 mt-4">
+                        <h2 className="text-[16px] font-bold text-white mb-3 pl-1 tracking-tight flex items-center gap-2">
+                            <Shield className="w-4 h-4 text-pink-400" />
+                            Times {upcomingTeams ? `- Rodada ${upcomingTeams.roundNumber}` : ""}
+                            <div className="h-px bg-white/10 flex-grow" />
+                        </h2>
+                    </div>
+
+                    {/* 4 Team Cards - Mostrar quando há times escalados */}
+                    {upcomingTeams && Object.keys(upcomingTeams.teamsByColor).length > 0 ? (
+                        <>
+                            {["laranja", "preto", "branco", "azul"].map((color) => {
+                                const players = upcomingTeams.teamsByColor[color] || [];
+                                const sortedPlayers = sortPlayersByLevel(players);
+                                const style = teamColorStyles[color];
+
+                                return (
+                                    <article
+                                        key={color}
+                                        className={`relative overflow-hidden bg-[#1c1c1e] rounded-2xl flex flex-col border ${style.border} shadow-lg`}
+                                    >
+                                        {/* Header com cor do time */}
+                                        <div className={`${style.bg} ${style.text} px-3 py-2 text-center`}>
+                                            <span className="text-sm font-bold uppercase tracking-wide">
+                                                {teamDisplayNames[color]}
+                                            </span>
+                                        </div>
+
+                                        {/* Lista de jogadores */}
+                                        <div className="p-3 flex-grow flex flex-col gap-1.5">
+                                            {sortedPlayers.length > 0 ? (
+                                                sortedPlayers.map((player, idx) => (
+                                                    <div key={player.id} className="flex items-center justify-between text-xs">
+                                                        <span className="font-medium text-gray-100 truncate flex-1">
+                                                            {player.nickname?.toUpperCase()}
+                                                        </span>
+                                                        <span className="font-bold text-gray-400 text-[10px] ml-2">
+                                                            {getLevelDisplay(player.level, player.position)}
+                                                        </span>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-gray-500 text-xs text-center py-2">Sem jogadores</div>
+                                            )}
+                                        </div>
+                                    </article>
+                                );
+                            })}
+                        </>
+                    ) : (
+                        /* Fallback: Card para ver times quando não há rodada próxima */
+                        <article
+                            className="col-span-2 relative overflow-hidden bg-[#1c1c1e] rounded-2xl p-4 border border-white/5 shadow-lg cursor-pointer hover:bg-white/5 transition-all group"
+                            onClick={() => navigate("/times")}
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-pink-500/20 rounded-xl">
+                                    <Shield className="w-5 h-5 text-pink-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <span className="text-sm font-bold text-white">Ver Times das Rodadas</span>
+                                    <span className="text-xs text-gray-400 block">Confira os times escalados</span>
+                                </div>
+                                <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors" />
+                            </div>
+                        </article>
+                    )}
+
+                    {/* Próximos Jogos Section */}
+                    <div className="col-span-2 mt-4">
+                        <RoundOverviewSection isAdmin={false} />
+                    </div>
+
+                    {/* Botão Entrar Sutil - Área inferior */}
+                    <div className="col-span-2 mt-8 mb-4 flex justify-end">
+                        <button
+                            onClick={() => navigate("/auth")}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-pink-400 transition-colors group"
+                        >
+                            <span>Admin</span>
+                            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </button>
+                    </div>
+                </main>
+
+                <Footer />
+            </div>
+        );
+    }
+
+    // If logged in but no profile yet, show skeleton
+    if (!profile) {
         return (
             <div className="min-h-screen bg-background flex flex-col">
                 <Header />
@@ -358,9 +918,9 @@ export default function Home() {
     const nickname = profile.nickname || profile.name || "Jogador";
 
     return (
-        <div className="min-h-screen bg-[#0e0e10] text-white font-sans selection:bg-white/20">
-            {/* Header Section - Always Fixed at Top */}
-            <header className="flex items-start justify-between p-4 pt-6 fixed top-0 left-0 right-0 bg-[#0e0e10] z-50">
+        <div className="min-h-screen bg-[#0e0e10] text-white font-sans selection:bg-white/20 relative">
+            {/* Header Section - Always Absolute at Top */}
+            <header className="flex items-start justify-between p-4 pt-6 absolute top-0 left-0 right-0 bg-[#0e0e10] z-50">
                 <div className="flex items-center gap-3 flex-1">
                     {/* Avatar - Only for non-admins */}
                     {!isAdmin && (
@@ -414,7 +974,7 @@ export default function Home() {
                             {/* Header */}
                             <div className="relative z-10 flex justify-between items-start mb-4">
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-pink-200 bg-pink-500/20 px-2 py-0.5 rounded-md border border-pink-500/20">
-                                    Ranking
+                                    Classificação
                                 </span>
                             </div>
 
@@ -576,6 +1136,60 @@ export default function Home() {
                                         <span className="text-[12px] font-bold text-white">{userAssistsPos?.value || 0}</span>
                                         <span className="text-[10px] text-gray-300 font-medium">ass.</span>
                                     </div>
+                                </div>
+                            )}
+                        </article>
+
+                        {/* Goal Difference Card - Top 5 */}
+                        <article
+                            className="relative overflow-hidden bg-[#1c1c1e] rounded-2xl p-4 flex flex-col border border-white/5 shadow-lg group transition-transform duration-300 hover:-translate-y-1 cursor-pointer"
+                            onClick={() => navigate("/statistics")}
+                        >
+                            <div className="absolute -top-10 -right-10 w-32 h-32 bg-pink-500/10 blur-[40px] rounded-full group-hover:bg-pink-500/20 transition-colors duration-500" />
+
+                            <div className="relative z-10 flex justify-between items-start mb-4">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-pink-200 bg-pink-500/20 px-2 py-0.5 rounded-md border border-pink-500/20">
+                                    Saldo
+                                </span>
+                            </div>
+
+                            <div className="relative z-10 flex-grow flex flex-col gap-2">
+                                {loading ? (
+                                    Array.from({ length: 5 }).map((_, i) => (
+                                        <Skeleton key={i} className="h-5 w-full" />
+                                    ))
+                                ) : topGoalDifference.length > 0 ? (
+                                    <>
+                                        <div className="flex items-end justify-between pb-2 mb-1 border-b border-white/10">
+                                            <div>
+                                                <span className="text-[9px] font-bold text-pink-300 uppercase tracking-wider block mb-0.5">MELHOR SALDO</span>
+                                                <span className="text-lg font-black text-white leading-none">{topGoalDifference[0]?.nickname?.toUpperCase()}</span>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="text-lg font-bold text-pink-300 leading-none">{topGoalDifference[0]?.saldo_gols > 0 ? '+' : ''}{topGoalDifference[0]?.saldo_gols}</span>
+                                                <span className="text-[9px] text-gray-300 block uppercase font-bold">Saldo</span>
+                                            </div>
+                                        </div>
+
+                                        {topGoalDifference.slice(1, 5).map((player, idx) => (
+                                            <div key={player.player_id} className="flex items-center justify-between text-xs py-0.5">
+                                                <div className="flex items-center gap-2.5">
+                                                    <span className="font-bold text-gray-400 w-3 text-center">{idx + 2}</span>
+                                                    <span className="font-bold text-gray-100">{player.nickname?.toUpperCase()}</span>
+                                                </div>
+                                                <span className="font-bold text-white">{player.saldo_gols > 0 ? '+' : ''}{player.saldo_gols}</span>
+                                            </div>
+                                        ))}
+                                    </>
+                                ) : (
+                                    <div className="text-gray-400 text-sm">Sem dados</div>
+                                )}
+                            </div>
+
+                            {!isAdmin && (
+                                <div className="relative z-10 mt-4 pt-3 border-t border-white/10 flex justify-between items-center bg-black/20 -mx-4 -mb-4 px-4 py-3">
+                                    <span className="text-[10px] font-bold text-gray-300 uppercase tracking-wide">Ver mais</span>
+                                    <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-pink-300 transition-colors" />
                                 </div>
                             )}
                         </article>
