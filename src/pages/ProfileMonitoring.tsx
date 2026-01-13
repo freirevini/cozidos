@@ -106,8 +106,8 @@ export default function ProfileMonitoring() {
 
       if (error) throw error;
 
-      const message = typeof data === 'object' && data !== null && 'message' in data 
-        ? String(data.message) 
+      const message = typeof data === 'object' && data !== null && 'message' in data
+        ? String(data.message)
         : "Sincronização concluída";
       toast.success(message);
       loadData(); // Recarregar dados
@@ -149,10 +149,10 @@ export default function ProfileMonitoring() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-[#0e0e10] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Carregando...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto"></div>
+          <p className="mt-4 text-gray-400">Carregando...</p>
         </div>
       </div>
     );
@@ -163,87 +163,74 @@ export default function ProfileMonitoring() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
+    <div className="min-h-screen bg-[#0e0e10] text-white font-sans p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Monitoramento de Perfis</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-[22px] font-bold text-white tracking-tight">Monitoramento de Perfis</h1>
+            <p className="text-gray-400 text-[13px] mt-1">
               Logs e sincronização de criação de perfis
             </p>
           </div>
-          <Button onClick={loadData} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <button
+            onClick={loadData}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1c1c1e] border border-white/10 text-white text-sm font-medium hover:bg-white/10 transition-colors"
+          >
+            <RefreshCw className="h-4 w-4" />
             Atualizar
-          </Button>
+          </button>
         </div>
 
         {/* Cards de Status */}
         {syncStatus && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total de Usuários
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl font-bold">
-                    {syncStatus.total_users}
-                  </span>
-                  <Users className="h-8 w-8 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
+            <div className="bg-[#1c1c1e] border border-white/5 rounded-2xl p-4 shadow-lg">
+              <p className="text-sm font-medium text-gray-400 mb-2">
+                Total de Usuários
+              </p>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl font-black text-white">
+                  {syncStatus.total_users}
+                </span>
+                <Users className="h-8 w-8 text-gray-500" />
+              </div>
+            </div>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Com Perfis
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl font-bold text-green-500">
-                    {syncStatus.users_with_profiles}
-                  </span>
-                  <CheckCircle className="h-8 w-8 text-green-500" />
-                </div>
-              </CardContent>
-            </Card>
+            <div className="bg-[#1c1c1e] border border-white/5 rounded-2xl p-4 shadow-lg">
+              <p className="text-sm font-medium text-gray-400 mb-2">
+                Com Perfis
+              </p>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl font-black text-emerald-400">
+                  {syncStatus.users_with_profiles}
+                </span>
+                <CheckCircle className="h-8 w-8 text-emerald-500" />
+              </div>
+            </div>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Sem Perfis
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl font-bold text-destructive">
-                    {syncStatus.users_without_profiles}
-                  </span>
-                  <AlertCircle className="h-8 w-8 text-destructive" />
-                </div>
-              </CardContent>
-            </Card>
+            <div className="bg-[#1c1c1e] border border-white/5 rounded-2xl p-4 shadow-lg">
+              <p className="text-sm font-medium text-gray-400 mb-2">
+                Sem Perfis
+              </p>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl font-black text-red-400">
+                  {syncStatus.users_without_profiles}
+                </span>
+                <AlertCircle className="h-8 w-8 text-red-500" />
+              </div>
+            </div>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Erros (24h)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl font-bold">
-                    {syncStatus.recent_errors}
-                  </span>
-                  <AlertCircle className="h-8 w-8 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
+            <div className="bg-[#1c1c1e] border border-white/5 rounded-2xl p-4 shadow-lg">
+              <p className="text-sm font-medium text-gray-400 mb-2">
+                Erros (24h)
+              </p>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl font-black text-white">
+                  {syncStatus.recent_errors}
+                </span>
+                <AlertCircle className="h-8 w-8 text-gray-500" />
+              </div>
+            </div>
           </div>
         )}
 

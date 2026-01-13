@@ -253,7 +253,7 @@ export default function ManageTeams() {
   const selectedRound = rounds.find(r => r.id === selectedRoundId);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#0e0e10] text-white font-sans">
       {/* Pull to Refresh */}
       {(pullDistance > 0 || isRefreshing) && (
         <div
@@ -263,7 +263,7 @@ export default function ManageTeams() {
             opacity: Math.min(pullDistance / 60, 1)
           }}
         >
-          <div className="bg-primary/90 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+          <div className="bg-pink-500 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span className="text-sm font-medium">
               {isRefreshing ? 'Atualizando...' : 'Solte para atualizar'}
@@ -276,15 +276,13 @@ export default function ManageTeams() {
       <main className="container mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
             onClick={() => navigate("/admin/teams")}
-            className="shrink-0"
+            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors shrink-0"
           >
             <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-2xl md:text-3xl font-bold text-primary">
+          </button>
+          <h1 className="text-[22px] font-bold text-white tracking-tight">
             Gerenciar Times
           </h1>
         </div>
@@ -300,16 +298,17 @@ export default function ManageTeams() {
             ))}
           </div>
         ) : rounds.length === 0 ? (
-          <Card className="bg-card/50 border-border/30">
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground mb-4">
-                Nenhum time gerado ainda
-              </p>
-              <Button onClick={() => navigate("/admin/teams/define")}>
-                Definir Times
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="bg-[#1c1c1e] border border-white/5 rounded-2xl p-12 text-center shadow-lg">
+            <p className="text-gray-400 mb-4">
+              Nenhum time gerado ainda
+            </p>
+            <button
+              onClick={() => navigate("/admin/teams/define")}
+              className="px-4 py-2 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium transition-colors"
+            >
+              Definir Times
+            </button>
+          </div>
         ) : (
           <div className="space-y-3">
             {rounds.map((round) => {

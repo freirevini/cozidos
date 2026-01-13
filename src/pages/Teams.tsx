@@ -1,8 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Users, Settings, Eye, ArrowLeft } from "lucide-react";
 
 export default function Teams() {
@@ -10,20 +8,18 @@ export default function Teams() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#0e0e10] text-white font-sans">
       <Header />
       <main className="container mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
             onClick={() => navigate("/")}
-            className="shrink-0"
+            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors shrink-0"
           >
             <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-2xl md:text-3xl font-bold text-primary">
+          </button>
+          <h1 className="text-[22px] font-bold text-white tracking-tight">
             Times
           </h1>
         </div>
@@ -31,65 +27,68 @@ export default function Teams() {
         {/* Cards de navegação */}
         <div className="grid gap-4 max-w-lg mx-auto">
           {/* Ver times - visível para todos */}
-          <Card 
-            className="bg-gradient-to-br from-card/90 to-card/50 border-border/30 hover:border-primary/30 transition-all cursor-pointer group"
+          <article
+            className="relative overflow-hidden bg-[#1c1c1e] rounded-2xl p-4 flex items-center gap-4 border border-white/5 shadow-lg group transition-transform duration-300 hover:-translate-y-1 cursor-pointer"
             onClick={() => navigate("/teams/view")}
           >
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                <Eye className="h-6 w-6" />
-              </div>
-              <div className="flex-1">
-                <h2 className="text-lg font-semibold text-foreground">
-                  Ver Times
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  Visualize os times de cada rodada
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Glow effect */}
+            <div className="absolute -top-10 -right-10 w-32 h-32 bg-pink-500/10 blur-[40px] rounded-full group-hover:bg-pink-500/20 transition-colors duration-500" />
+
+            <div className="relative z-10 p-3 rounded-xl bg-pink-500/20 text-pink-400 group-hover:bg-pink-500 group-hover:text-white transition-colors">
+              <Eye className="h-6 w-6" />
+            </div>
+            <div className="relative z-10 flex-1">
+              <h2 className="text-lg font-bold text-white">
+                Ver Times
+              </h2>
+              <p className="text-sm text-gray-400">
+                Visualize os times de cada rodada
+              </p>
+            </div>
+          </article>
 
           {/* Opções admin */}
           {isAdmin && (
             <>
-              <Card 
-                className="bg-gradient-to-br from-card/90 to-card/50 border-border/30 hover:border-primary/30 transition-all cursor-pointer group"
+              <article
+                className="relative overflow-hidden bg-[#1c1c1e] rounded-2xl p-4 flex items-center gap-4 border border-white/5 shadow-lg group transition-transform duration-300 hover:-translate-y-1 cursor-pointer"
                 onClick={() => navigate("/admin/teams/define")}
               >
-                <CardContent className="p-6 flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                    <Users className="h-6 w-6" />
-                  </div>
-                  <div className="flex-1">
-                    <h2 className="text-lg font-semibold text-foreground">
-                      Definir Times
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      Crie novos times para uma rodada
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+                {/* Glow effect */}
+                <div className="absolute -top-10 -right-10 w-32 h-32 bg-pink-500/10 blur-[40px] rounded-full group-hover:bg-pink-500/20 transition-colors duration-500" />
 
-              <Card 
-                className="bg-gradient-to-br from-card/90 to-card/50 border-border/30 hover:border-primary/30 transition-all cursor-pointer group"
+                <div className="relative z-10 p-3 rounded-xl bg-pink-500/20 text-pink-400 group-hover:bg-pink-500 group-hover:text-white transition-colors">
+                  <Users className="h-6 w-6" />
+                </div>
+                <div className="relative z-10 flex-1">
+                  <h2 className="text-lg font-bold text-white">
+                    Definir Times
+                  </h2>
+                  <p className="text-sm text-gray-400">
+                    Crie novos times para uma rodada
+                  </p>
+                </div>
+              </article>
+
+              <article
+                className="relative overflow-hidden bg-[#1c1c1e] rounded-2xl p-4 flex items-center gap-4 border border-white/5 shadow-lg group transition-transform duration-300 hover:-translate-y-1 cursor-pointer"
                 onClick={() => navigate("/admin/teams/manage")}
               >
-                <CardContent className="p-6 flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                    <Settings className="h-6 w-6" />
-                  </div>
-                  <div className="flex-1">
-                    <h2 className="text-lg font-semibold text-foreground">
-                      Gerenciar Times
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      Edite ou exclua times existentes
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+                {/* Glow effect */}
+                <div className="absolute -top-10 -right-10 w-32 h-32 bg-pink-500/10 blur-[40px] rounded-full group-hover:bg-pink-500/20 transition-colors duration-500" />
+
+                <div className="relative z-10 p-3 rounded-xl bg-pink-500/20 text-pink-400 group-hover:bg-pink-500 group-hover:text-white transition-colors">
+                  <Settings className="h-6 w-6" />
+                </div>
+                <div className="relative z-10 flex-1">
+                  <h2 className="text-lg font-bold text-white">
+                    Gerenciar Times
+                  </h2>
+                  <p className="text-sm text-gray-400">
+                    Edite ou exclua times existentes
+                  </p>
+                </div>
+              </article>
             </>
           )}
         </div>

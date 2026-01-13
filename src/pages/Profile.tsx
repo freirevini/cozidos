@@ -186,10 +186,10 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0e0e10] text-white">
+      <div className="min-h-screen bg-[#0e0e10] text-white font-sans">
         <Header />
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
         </div>
         <Footer />
       </div>
@@ -209,7 +209,7 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0e0e10] text-white">
+    <div className="min-h-screen bg-[#0e0e10] text-white font-sans">
       <Header />
 
       {/* Filter Drawer */}
@@ -228,15 +228,13 @@ export default function Profile() {
         {/* Botão Voltar - apenas quando visualizando perfil de outro jogador */}
         {urlProfileId && (
           <div className="px-4 pt-4">
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={() => navigate(-1)}
-              className="gap-2 text-muted-foreground hover:text-foreground"
+              className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm"
             >
               <ArrowLeft className="h-4 w-4" />
               Voltar
-            </Button>
+            </button>
           </div>
         )}
         {/* Profile Hero Header - MLS Style */}

@@ -562,24 +562,24 @@ export default function ManagePlayers() {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-[#0e0e10] text-white font-sans">
         <Header />
         <main className="container mx-auto px-4 py-8">
-          <p className="text-center text-muted-foreground">Acesso restrito.</p>
+          <p className="text-center text-gray-400">Acesso restrito.</p>
         </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#0e0e10] text-white font-sans">
       {/* Pull to Refresh */}
       {(pullDistance > 0 || isRefreshing) && (
         <div
           className="fixed top-0 left-0 right-0 flex justify-center items-center z-50 transition-all"
           style={{ transform: `translateY(${Math.min(pullDistance, 60)}px)`, opacity: Math.min(pullDistance / 60, 1) }}
         >
-          <div className="bg-primary/90 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+          <div className="bg-pink-500 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span className="text-sm">{isRefreshing ? 'Atualizando...' : 'Solte para atualizar'}</span>
           </div>
@@ -591,7 +591,7 @@ export default function ManagePlayers() {
       <main className="container mx-auto px-4 py-4 pb-20 max-w-2xl">
         {/* Header */}
         <div className="mb-4">
-          <h1 className="text-2xl font-bold text-primary mb-3">Jogadores</h1>
+          <h1 className="text-[22px] font-bold text-white tracking-tight mb-3">Jogadores</h1>
           <PlayerQuickActions
             onAddPlayer={() => setAddDialogOpen(true)}
             onImportExcel={() => setShowImportDialog(true)}
@@ -649,7 +649,7 @@ export default function ManagePlayers() {
               </div>
             ))
           ) : displayedPlayers.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
+            <div className="text-center py-12 text-gray-400">
               <p>Nenhum jogador encontrado</p>
             </div>
           ) : (
@@ -676,7 +676,7 @@ export default function ManagePlayers() {
               <div ref={loadMoreRef} className="py-4">
                 {loadingMore && (
                   <div className="flex justify-center">
-                    <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                    <RefreshCw className="h-5 w-5 animate-spin text-pink-500" />
                   </div>
                 )}
               </div>

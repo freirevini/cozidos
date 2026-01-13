@@ -555,29 +555,27 @@ export default function ManageAttendance() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="min-h-screen bg-[#0e0e10] flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-background pb-24">
+        <div className="min-h-screen bg-[#0e0e10] text-white font-sans pb-24">
             {/* Header - matching home page style */}
-            <div className="sticky top-0 z-40 bg-background border-b border-border">
+            <div className="sticky top-0 z-40 bg-[#0e0e10] border-b border-white/5">
                 <div className="px-4 py-4">
                     <div className="flex items-center gap-3">
-                        <Button
-                            variant="ghost"
-                            size="icon"
+                        <button
                             onClick={() => navigate(`/admin/round/manage?round=${roundId}`)}
-                            className="text-muted-foreground hover:text-foreground"
+                            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
                         >
                             <ArrowLeft className="w-5 h-5" />
-                        </Button>
+                        </button>
                         <div className="flex-1">
-                            <h1 className="text-xl font-bold text-primary">Gestão de Presença</h1>
-                            <p className="text-sm text-muted-foreground">
+                            <h1 className="text-[22px] font-bold text-white tracking-tight">Gestão de Presença</h1>
+                            <p className="text-[13px] text-gray-400 font-medium">
                                 Rodada {round?.round_number} • {round?.scheduled_date ? new Date(round.scheduled_date).toLocaleDateString('pt-BR') : ''}
                             </p>
                         </div>
@@ -587,7 +585,7 @@ export default function ManageAttendance() {
 
             {/* Summary Card - matching home page card style */}
             <div className="px-4 py-4">
-                <Card className="bg-card/50 border-border p-4">
+                <div className="bg-[#1c1c1e] border border-white/5 rounded-2xl p-4 shadow-lg">
                     <div className="flex items-center justify-between flex-wrap gap-3">
                         <div className="flex items-center gap-6">
                             <div className="flex items-center gap-2">
@@ -596,7 +594,7 @@ export default function ManageAttendance() {
                                 </div>
                                 <div>
                                     <p className="text-2xl font-bold text-red-400">{totalAbsences}</p>
-                                    <p className="text-xs text-muted-foreground">Faltas</p>
+                                    <p className="text-xs text-gray-400">Faltas</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -616,7 +614,7 @@ export default function ManageAttendance() {
                             </div>
                         )}
                     </div>
-                </Card>
+                </div>
             </div>
 
             {/* Instructions */}

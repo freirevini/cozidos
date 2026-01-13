@@ -188,7 +188,7 @@ export default function StartRound() {
   const finishedRounds = rounds.filter(r => r.status === 'finalizada');
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-[#0e0e10] text-white font-sans flex flex-col">
       <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
 
       <Header />
@@ -196,8 +196,8 @@ export default function StartRound() {
       <main className="flex-1 container mx-auto px-4 py-6 pb-24">
         {/* Page Title */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-primary">Gerenciar Rodadas</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-[22px] font-bold text-white tracking-tight">Gerenciar Rodadas</h1>
+          <p className="text-[13px] text-gray-400 font-medium mt-1">
             {rounds.length} rodada{rounds.length !== 1 ? 's' : ''} disponíve{rounds.length !== 1 ? 'is' : 'l'}
           </p>
         </div>
@@ -210,19 +210,19 @@ export default function StartRound() {
           </div>
         ) : rounds.length === 0 ? (
           <div className="text-center py-16">
-            <Calendar className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-            <p className="text-lg font-medium text-muted-foreground mb-2">
+            <Calendar className="h-16 w-16 mx-auto text-gray-600 mb-4" />
+            <p className="text-lg font-medium text-gray-400 mb-2">
               Nenhuma rodada disponível
             </p>
-            <p className="text-sm text-muted-foreground mb-6">
+            <p className="text-sm text-gray-500 mb-6">
               Defina os times primeiro em "Times → Definir Times"
             </p>
-            <Button
+            <button
               onClick={() => navigate('/admin/teams/define')}
-              variant="outline"
+              className="px-4 py-2 rounded-xl bg-[#1c1c1e] border border-white/10 text-white text-sm font-medium hover:bg-white/10 transition-colors"
             >
               Definir Times
-            </Button>
+            </button>
           </div>
         ) : (
           <div className="space-y-6">
@@ -254,7 +254,7 @@ export default function StartRound() {
             {/* A Iniciar */}
             {toStartRounds.length > 0 && (
               <section>
-                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <Clock className="h-4 w-4" />
                   A Iniciar
                 </h2>
@@ -278,7 +278,7 @@ export default function StartRound() {
             {/* Finalizadas */}
             {finishedRounds.length > 0 && (
               <section>
-                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <CheckCircle className="h-4 w-4" />
                   Finalizadas
                 </h2>
@@ -304,13 +304,12 @@ export default function StartRound() {
 
       {/* Floating Action Button */}
       <div className="fixed bottom-6 right-6 z-50">
-        <Button
+        <button
           onClick={() => navigate('/admin/teams/define')}
-          size="lg"
-          className="h-14 w-14 rounded-full shadow-lg shadow-primary/30 hover:shadow-primary/50 transition-all"
+          className="h-14 w-14 rounded-full bg-pink-500 hover:bg-pink-600 shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 transition-all flex items-center justify-center"
         >
-          <Plus className="h-6 w-6" />
-        </Button>
+          <Plus className="h-6 w-6 text-white" />
+        </button>
       </div>
 
       {/* Delete Confirmation Dialog */}

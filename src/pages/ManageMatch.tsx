@@ -934,10 +934,10 @@ export default function ManageMatch() {
 
   if (loading && !match) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-[#0e0e10] text-white">
         <Header />
         <main className="container mx-auto px-4 py-8">
-          <div className="text-center text-muted-foreground">Carregando...</div>
+          <div className="text-center text-gray-400">Carregando...</div>
         </main>
       </div>
     );
@@ -952,9 +952,9 @@ export default function ManageMatch() {
 
   // Status badge styling
   const getStatusStyle = () => {
-    if (match.status === 'in_progress') return "bg-primary/20 text-primary border-primary/30";
-    if (match.status === 'finished') return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-    return "bg-muted text-muted-foreground border-border";
+    if (match.status === 'in_progress') return "bg-pink-500/20 text-pink-200 border-pink-500/30";
+    if (match.status === 'finished') return "bg-emerald-500/20 text-emerald-200 border-emerald-500/30";
+    return "bg-gray-500/20 text-gray-300 border-gray-500/30";
   };
 
   // Get timer text - now uses centralized MM:SS format
@@ -965,26 +965,24 @@ export default function ManageMatch() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#0e0e10] text-white font-sans">
       <Header />
 
       <main className="container mx-auto px-4 py-4 max-w-md">
         {/* Back button */}
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
           onClick={() => navigate(`/admin/round/manage?round=${roundId}`)}
-          className="mb-3 -ml-2 text-muted-foreground hover:text-foreground"
+          className="mb-3 -ml-2 flex items-center text-gray-400 hover:text-white transition-colors text-sm"
         >
           <ArrowLeft size={16} className="mr-1" />
           Voltar
-        </Button>
+        </button>
 
         {/* Compact Header - Score Board (Sticky) */}
-        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm -mx-4 px-4 pt-2 pb-2">
-          <div className="bg-card border border-border rounded-2xl p-4">
+        <div className="sticky top-0 z-50 bg-[#0e0e10]/95 backdrop-blur-sm -mx-4 px-4 pt-2 pb-2">
+          <div className="bg-[#1c1c1e] border border-white/5 rounded-2xl p-4 shadow-lg">
             {/* Round info */}
-            <p className="text-center text-xs text-muted-foreground mb-3">
+            <p className="text-center text-xs text-gray-400 mb-3">
               Rodada {match.round_number || '?'} • Jogo {match.match_number}
             </p>
 
@@ -992,18 +990,18 @@ export default function ManageMatch() {
             <div className="flex items-center justify-center gap-6 mb-3">
               <div className="flex flex-col items-center gap-1">
                 <TeamLogo teamColor={match.team_home as TeamColor} size="md" />
-                <span className="text-xs text-muted-foreground">{teamNames[match.team_home]}</span>
+                <span className="text-xs text-gray-400">{teamNames[match.team_home]}</span>
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="text-4xl font-bold text-foreground">{match.score_home}</span>
-                <span className="text-2xl text-muted-foreground">:</span>
-                <span className="text-4xl font-bold text-foreground">{match.score_away}</span>
+                <span className="text-4xl font-black text-white">{match.score_home}</span>
+                <span className="text-2xl text-gray-500">:</span>
+                <span className="text-4xl font-black text-white">{match.score_away}</span>
               </div>
 
               <div className="flex flex-col items-center gap-1">
                 <TeamLogo teamColor={match.team_away as TeamColor} size="md" />
-                <span className="text-xs text-muted-foreground">{teamNames[match.team_away]}</span>
+                <span className="text-xs text-gray-400">{teamNames[match.team_away]}</span>
               </div>
             </div>
 

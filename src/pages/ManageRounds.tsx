@@ -640,17 +640,15 @@ export default function ManageRounds() {
 
   if (!roundId) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-[#0e0e10] text-white">
         <Header />
         <main className="container mx-auto px-4 py-8">
-          <Card className="bg-card border-border">
-            <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground mb-4">Nenhuma rodada selecionada</p>
-              <Button onClick={() => navigate("/admin/round")}>
-                Voltar
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="bg-[#1c1c1e] rounded-2xl border border-white/5 shadow-lg p-8 text-center">
+            <p className="text-gray-400 mb-4">Nenhuma rodada selecionada</p>
+            <Button onClick={() => navigate("/admin/round")} className="bg-pink-500 hover:bg-pink-600 text-white">
+              Voltar
+            </Button>
+          </div>
         </main>
       </div>
     );
@@ -660,7 +658,7 @@ export default function ManageRounds() {
   const anyInProgress = matches.some(m => m.status === 'in_progress');
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#0e0e10] text-white font-sans">
       <Header />
 
       {pullDistance > 0 && (
@@ -687,23 +685,23 @@ export default function ManageRounds() {
           </Button>
 
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-primary">Rodada {round?.round_number}</h1>
-            <p className="text-sm text-muted-foreground">{formatDate(round?.scheduled_date)}</p>
+            <h1 className="text-[22px] font-bold text-white tracking-tight">Rodada {round?.round_number}</h1>
+            <p className="text-[13px] text-gray-400 font-medium">{formatDate(round?.scheduled_date)}</p>
           </div>
 
           {round && (
-            <Badge className={cn(
-              "py-1.5 px-3",
-              round.status === 'a_iniciar' && "bg-muted text-muted-foreground",
-              round.status === 'em_andamento' && "bg-amber-600 text-white",
-              round.status === 'finalizada' && "bg-emerald-600 text-white"
+            <span className={cn(
+              "text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md border flex items-center gap-1",
+              round.status === 'a_iniciar' && "text-gray-300 bg-gray-500/20 border-gray-500/20",
+              round.status === 'em_andamento' && "text-amber-200 bg-amber-500/20 border-amber-500/20",
+              round.status === 'finalizada' && "text-emerald-200 bg-emerald-500/20 border-emerald-500/20"
             )}>
-              {round.status === 'a_iniciar' && <Clock size={14} className="mr-1" />}
-              {round.status === 'em_andamento' && <PlayCircle size={14} className="mr-1" />}
-              {round.status === 'finalizada' && <CheckCircle size={14} className="mr-1" />}
+              {round.status === 'a_iniciar' && <Clock size={12} />}
+              {round.status === 'em_andamento' && <PlayCircle size={12} />}
+              {round.status === 'finalizada' && <CheckCircle size={12} />}
               {round.status === 'a_iniciar' ? 'A Iniciar' :
                 round.status === 'em_andamento' ? 'Em Andamento' : 'Finalizada'}
-            </Badge>
+            </span>
           )}
         </div>
 
@@ -721,45 +719,38 @@ export default function ManageRounds() {
         {/* Action Buttons */}
         {matches.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
-            <Button
+            <button
               onClick={() => setFinishAllConfirm(true)}
               disabled={!!actionLoading || allFinished}
-              variant="outline"
-              size="sm"
-              className="flex-1 min-w-[140px] gap-1"
+              className="flex-1 min-w-[140px] gap-1 h-10 px-4 rounded-xl bg-[#1c1c1e] border border-white/10 text-white text-sm font-medium flex items-center justify-center hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {actionLoading === 'finishAll' ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle size={14} />}
+              {actionLoading === 'finishAll' ? <Loader2 className="animate-spin mr-1" size={14} /> : <CheckCircle size={14} className="mr-1" />}
               Encerrar Todas
-            </Button>
-            <Button
+            </button>
+            <button
               onClick={() => navigate(`/admin/round/${roundId}/attendance`)}
               disabled={!!actionLoading}
-              variant="outline"
-              size="sm"
-              className="flex-1 min-w-[140px] gap-1"
+              className="flex-1 min-w-[140px] gap-1 h-10 px-4 rounded-xl bg-[#1c1c1e] border border-white/10 text-white text-sm font-medium flex items-center justify-center hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <AlertCircle size={14} />
+              <AlertCircle size={14} className="mr-1" />
               Atrasos/Faltas
-            </Button>
-            <Button
+            </button>
+            <button
               onClick={() => setFinalizeConfirm(true)}
               disabled={!!actionLoading || !allFinished || round?.status === 'finalizada'}
-              size="sm"
-              className="flex-1 min-w-[140px] gap-1"
+              className="flex-1 min-w-[140px] gap-1 h-10 px-4 rounded-xl bg-pink-500 text-white text-sm font-bold flex items-center justify-center hover:bg-pink-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             >
-              {actionLoading === 'finalize' ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle size={14} />}
+              {actionLoading === 'finalize' ? <Loader2 className="animate-spin mr-1" size={14} /> : <CheckCircle size={14} className="mr-1" />}
               {round?.status === 'finalizada' ? 'Rodada Finalizada' : 'Finalizar Rodada'}
-            </Button>
-            <Button
+            </button>
+            <button
               onClick={() => setResetConfirm(true)}
               disabled={!!actionLoading}
-              variant="outline"
-              size="sm"
-              className="flex-1 min-w-[140px] gap-1 border-destructive/50 text-destructive hover:bg-destructive/10"
+              className="flex-1 min-w-[140px] gap-1 h-10 px-4 rounded-xl bg-[#1c1c1e] border border-red-500/30 text-red-400 text-sm font-medium flex items-center justify-center hover:bg-red-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {actionLoading === 'reset' ? <Loader2 className="animate-spin" size={14} /> : <RotateCcw size={14} />}
+              {actionLoading === 'reset' ? <Loader2 className="animate-spin mr-1" size={14} /> : <RotateCcw size={14} className="mr-1" />}
               Resetar Rodada
-            </Button>
+            </button>
           </div>
         )}
 
@@ -769,19 +760,17 @@ export default function ManageRounds() {
             <Skeleton className="h-64 w-full" />
           </div>
         ) : matches.length === 0 ? (
-          <Card className="bg-card border-border">
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground mb-4">Nenhuma partida criada</p>
-              <Button
-                onClick={createMatches}
-                disabled={actionLoading === 'create'}
-                className="gap-2"
-              >
-                {actionLoading === 'create' ? <Loader2 className="animate-spin" size={16} /> : <PlusCircle size={16} />}
-                Criar Partidas
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="bg-[#1c1c1e] rounded-2xl border border-white/5 shadow-lg p-12 text-center">
+            <p className="text-gray-400 mb-4">Nenhuma partida criada</p>
+            <Button
+              onClick={createMatches}
+              disabled={actionLoading === 'create'}
+              className="gap-2 bg-pink-500 hover:bg-pink-600 text-white"
+            >
+              {actionLoading === 'create' ? <Loader2 className="animate-spin" size={16} /> : <PlusCircle size={16} />}
+              Criar Partidas
+            </Button>
+          </div>
         ) : (
           <>
             {/* Mini Navigation with integrated arrows */}

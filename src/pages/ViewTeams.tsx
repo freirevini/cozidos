@@ -283,13 +283,13 @@ export default function ViewTeams() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#0e0e10] text-white font-sans">
       <Header />
       <main className="container mx-auto px-4 py-6 max-w-4xl">
 
         {/* Year Filter - Modern Tabs */}
         <div className="flex justify-center mb-6">
-          <div className="inline-flex bg-muted/30 rounded-full p-1 gap-1">
+          <div className="inline-flex bg-white/5 rounded-full p-1 gap-1">
             {availableYears.map((year) => (
               <button
                 key={year}
@@ -297,8 +297,8 @@ export default function ViewTeams() {
                 className={cn(
                   "px-5 py-2 rounded-full text-sm font-medium transition-all duration-200",
                   selectedYear === year
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    ? "bg-pink-500 text-white shadow-md"
+                    : "text-gray-400 hover:text-white hover:bg-white/10"
                 )}
               >
                 {year}
@@ -313,15 +313,15 @@ export default function ViewTeams() {
             <PopoverTrigger asChild>
               <button className="w-full flex flex-col items-center gap-1 mb-6 group cursor-pointer">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-2xl font-bold text-primary group-hover:text-primary/80 transition-colors">
+                  <h1 className="text-[22px] font-bold text-white group-hover:text-gray-200 transition-colors tracking-tight">
                     Rodada {selectedRoundData.round_number}
                   </h1>
                   <ChevronDown className={cn(
-                    "h-5 w-5 text-primary transition-transform duration-200",
+                    "h-5 w-5 text-pink-500 transition-transform duration-200",
                     roundPickerOpen && "rotate-180"
                   )} />
                 </div>
-                <p className="text-sm text-muted-foreground group-hover:text-muted-foreground/80">
+                <p className="text-sm text-gray-400 group-hover:text-gray-500">
                   {formatDate(selectedRoundData.scheduled_date)}
                 </p>
               </button>
@@ -335,12 +335,12 @@ export default function ViewTeams() {
                     className={cn(
                       "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors",
                       selectedRound === round.id
-                        ? "bg-primary/10 text-primary"
-                        : "hover:bg-muted/50"
+                        ? "bg-pink-500/10 text-pink-400"
+                        : "hover:bg-white/10"
                     )}
                   >
                     <span className="font-medium">Rodada {round.round_number}</span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-gray-400">
                       {formatDate(round.scheduled_date)}
                     </span>
                   </button>

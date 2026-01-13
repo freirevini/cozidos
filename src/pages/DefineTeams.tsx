@@ -456,29 +456,29 @@ export default function DefineTeams() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#0e0e10] text-white font-sans">
       <Header />
       <main className="container mx-auto px-4 py-6">
-        <Card className="card-glow bg-card border-border">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-2xl sm:text-3xl font-bold text-primary glow-text text-center">
+        <div className="bg-[#1c1c1e] border border-white/5 rounded-2xl shadow-lg overflow-hidden">
+          <div className="p-6 border-b border-white/5">
+            <h1 className="text-[22px] font-bold text-white tracking-tight text-center">
               DEFINIR TIMES
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h1>
+          </div>
+          <div className="p-6">
             {step === 'config' ? (
               <div className="space-y-5">
                 {/* Toggle 3/4 times */}
                 <div>
-                  <label className="block text-sm font-medium mb-3 text-muted-foreground">
+                  <label className="block text-sm font-medium mb-3 text-gray-400">
                     Quantos times?
                   </label>
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => setNumTeams(3)}
                       className={`py-4 rounded-xl font-bold text-lg transition-all ${numTeams === 3
-                        ? 'bg-primary text-primary-foreground shadow-lg scale-[1.02]'
-                        : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                        ? 'bg-pink-500 text-white shadow-lg scale-[1.02]'
+                        : 'bg-white/5 text-gray-400 hover:bg-white/10'
                         }`}
                     >
                       3 times
@@ -486,8 +486,8 @@ export default function DefineTeams() {
                     <button
                       onClick={() => setNumTeams(4)}
                       className={`py-4 rounded-xl font-bold text-lg transition-all ${numTeams === 4
-                        ? 'bg-primary text-primary-foreground shadow-lg scale-[1.02]'
-                        : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                        ? 'bg-pink-500 text-white shadow-lg scale-[1.02]'
+                        : 'bg-white/5 text-gray-400 hover:bg-white/10'
                         }`}
                     >
                       4 times
@@ -717,9 +717,9 @@ export default function DefineTeams() {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </main>
-    </div>
+    </div >
   );
 }
