@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { Camera, Trophy } from "lucide-react";
 import { useState } from "react";
-import bgCard from "@/assets/bg-card.png";
+import bgCard from "@/assets/cozidos_meu_perfi.png";
 
 interface ProfileHeroHeaderProps {
   id: string;

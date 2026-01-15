@@ -417,8 +417,8 @@ export default function Classification() {
                           <ul className="space-y-1 text-sm list-disc pl-4">
                             <li>⏰ Atraso: -10 pts</li>
                             <li>❌ Falta: -20 pts</li>
-                            <li>🟨 Cartão Amarelo: -5 pts</li>
-                            <li>🟦 Cartão Azul: -10 pts</li>
+                            <li>🟨 Cartão Amarelo: -1 pt</li>
+                            <li>🟦 Cartão Azul: -2 pts</li>
                           </ul>
                         </div>
                         <div className="space-y-2">

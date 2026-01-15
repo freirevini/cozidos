@@ -972,9 +972,9 @@ export default function ManageMatch() {
         {/* Back button */}
         <button
           onClick={() => navigate(`/admin/round/manage?round=${roundId}`)}
-          className="mb-3 -ml-2 flex items-center text-gray-400 hover:text-white transition-colors text-sm"
+          className="mb-3 -ml-2 py-2 px-2 flex items-center text-gray-400 hover:text-white transition-colors text-sm min-h-[44px]"
         >
-          <ArrowLeft size={16} className="mr-1" />
+          <ArrowLeft size={18} className="mr-1.5" />
           Voltar
         </button>
 
@@ -1014,11 +1014,11 @@ export default function ManageMatch() {
               {isMatchActive && (
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="icon"
                   onClick={toggleTimer}
-                  className="h-8 w-8 p-0 rounded-full hover:bg-muted"
+                  className="h-11 w-11 p-0 rounded-full hover:bg-muted"
                 >
-                  {timerRunning ? <Pause size={14} /> : <Play size={14} />}
+                  {timerRunning ? <Pause size={18} /> : <Play size={18} />}
                 </Button>
               )}
 
@@ -1028,9 +1028,9 @@ export default function ManageMatch() {
                   variant="outline"
                   size="sm"
                   onClick={() => setIsEditing(true)}
-                  className="h-8 gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                  className="h-10 px-4 gap-1.5 text-sm border-primary/30 text-primary hover:bg-primary/10"
                 >
-                  <Pencil size={12} />
+                  <Pencil size={14} />
                   Editar
                 </Button>
               )}
@@ -1041,9 +1041,9 @@ export default function ManageMatch() {
                   size="sm"
                   onClick={handleSaveEdits}
                   disabled={loading}
-                  className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700"
+                  className="h-10 px-4 gap-1.5 text-sm bg-emerald-600 hover:bg-emerald-700"
                 >
-                  <Save size={12} />
+                  <Save size={14} />
                   {loading ? "Salvando..." : "Salvar"}
                 </Button>
               )}

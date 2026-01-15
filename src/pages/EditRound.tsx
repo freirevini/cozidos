@@ -346,14 +346,14 @@ export default function EditRound() {
                 <Button
                   onClick={() => navigate("/admin/teams/manage")}
                   variant="outline"
-                  className="w-full sm:flex-1"
+                  className="w-full sm:flex-1 h-12"
                 >
                   Cancelar
                 </Button>
                 <Button
                   onClick={handleSaveChanges}
                   disabled={saving}
-                  className="w-full sm:flex-1"
+                  className="w-full sm:flex-1 h-12"
                 >
                   {saving ? "Salvando..." : "Salvar Alterações"}
                 </Button>

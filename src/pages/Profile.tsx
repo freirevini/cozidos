@@ -45,8 +45,9 @@ export default function Profile() {
   const [isOwnProfile, setIsOwnProfile] = useState(true);
   const { toast } = useToast();
 
-  // Filters
-  const [selectedYear, setSelectedYear] = useState<number | null>(initialYear);
+  // Filters - Default to current year (2026)
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState<number | null>(initialYear ?? currentYear);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(initialMonth);
 
   // Filter drawer state

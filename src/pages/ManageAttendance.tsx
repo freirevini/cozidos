@@ -569,7 +569,7 @@ export default function ManageAttendance() {
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => navigate(`/admin/round/manage?round=${roundId}`)}
-                            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                            className="p-3 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                         >
                             <ArrowLeft className="w-5 h-5" />
                         </button>
@@ -639,9 +639,9 @@ export default function ManageAttendance() {
                             size="sm"
                             variant="outline"
                             onClick={() => setShowAddGuest(!showAddGuest)}
-                            className="h-8 text-xs gap-1"
+                            className="h-10 px-3 text-sm gap-1.5"
                         >
-                            <UserPlus className="w-3 h-3" />
+                            <UserPlus className="w-4 h-4" />
                             Novo Convidado
                         </Button>
                     </div>
@@ -721,7 +721,7 @@ export default function ManageAttendance() {
                                             variant="ghost"
                                             onClick={() => deleteGuest(guest)}
                                             disabled={saving}
-                                            className="h-7 w-7 p-0 rounded-md bg-red-500/10 border border-red-500/20 hover:bg-red-500/20"
+                                            className="h-9 w-9 p-0 rounded-md bg-red-500/10 border border-red-500/20 hover:bg-red-500/20"
                                             title="Excluir convidado"
                                         >
                                             <Trash2 className="w-3 h-3 text-red-400" />
