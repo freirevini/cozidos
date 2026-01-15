@@ -1,5 +1,5 @@
 -- =============================================
--- MIGRATION FINAL: Regras de Pontuação 2026 v2
+-- MIGRATION: Regras de Pontuação 2026 v2
 -- Data: 2026-01-15
 -- =============================================
 -- 
@@ -9,15 +9,13 @@
 --   🤝 Empate: +1 ponto
 --   📊 Saldo de Gols: +N pontos (apenas se total positivo)
 --   🧤 Clean Sheet: +2 pontos
---   ⚽ Gols da Equipe: +1 ponto por gol (para todos os escalados)
+--   ⚽ Gols da Equipe: +1 ponto por gol (para todos os escalados)  [NOVO]
 --   ⏰ Atraso: -10 pontos
 --   ❌ Falta: -20 pontos
 --   🟨 Cartão Amarelo: -1 ponto
 --   🟦 Cartão Azul: -2 pontos
 --
--- IMPORTANTE:
---   - Substitutos (jogadores emprestados) NÃO ganham pontos
---   - Apenas rodadas com status 'finalizada' são contabilizadas
+-- Substitutos (jogadores emprestados) não ganham pontos de ranking.
 -- =============================================
 
 -- 1. Função principal de recálculo por rodada
@@ -51,8 +49,8 @@ DECLARE
   v_draw_points INT;
   v_goal_diff_points INT;
   v_clean_sheet_points INT;
-  v_team_goals_points INT;
-  v_team_total_goals INT;
+  v_team_goals_points INT;  -- NOVO: pontos pelos gols da equipe
+  v_team_total_goals INT;   -- NOVO: total de gols marcados pela equipe
   v_late_points INT;
   v_absence_points INT;
   v_card_points INT;
@@ -75,7 +73,7 @@ BEGIN
 
   -- Processar cada jogador da rodada
   FOR player_record IN 
-    SELECT DISTINCT rtp.player_id, rtp.team_color::text as original_team
+    SELECT DISTINCT rtp.player_id, rtp.team_color as original_team
     FROM public.round_team_players rtp 
     WHERE rtp.round_id = p_round_id
   LOOP
@@ -85,7 +83,7 @@ BEGIN
     v_defeats := 0;
     v_goal_difference := 0;
     v_clean_sheets := 0;
-    v_team_total_goals := 0;
+    v_team_total_goals := 0;  -- NOVO
     v_is_substitute := false;
     v_lates := 0;
     v_absences := 0;
@@ -112,13 +110,13 @@ BEGIN
     
     -- Calcular resultados por partida
     FOR match_record IN
-      SELECT m.id, m.team_home::text as team_home, m.team_away::text as team_away, m.score_home, m.score_away
+      SELECT m.id, m.team_home, m.team_away, m.score_home, m.score_away
       FROM public.matches m
       WHERE m.round_id = p_round_id 
         AND m.status = 'finished'
         AND (m.team_home::text = v_player_original_team OR m.team_away::text = v_player_original_team)
     LOOP
-      IF v_player_original_team = match_record.team_home THEN
+      IF v_player_original_team = match_record.team_home::text THEN
         v_team_goals := match_record.score_home;
         v_opponent_goals := match_record.score_away;
       ELSE
@@ -137,7 +135,7 @@ BEGIN
       -- Saldo TOTAL (soma todos os resultados)
       v_goal_difference := v_goal_difference + (v_team_goals - v_opponent_goals);
       
-      -- Gols marcados pela equipe (para nova regra)
+      -- NOVO: Acumular gols marcados pela equipe
       v_team_total_goals := v_team_total_goals + v_team_goals;
       
       -- Clean sheet
@@ -183,25 +181,26 @@ BEGIN
       v_presence_points := 3;                              -- Presença: +3
       v_victory_points := v_victories * 3;                 -- Vitória: +3
       v_draw_points := v_draws * 1;                        -- Empate: +1
+      -- Saldo só conta se TOTAL for positivo
       v_goal_diff_points := CASE WHEN v_goal_difference > 0 THEN v_goal_difference ELSE 0 END;
       v_clean_sheet_points := v_clean_sheets * 2;          -- Clean Sheet: +2
-      v_team_goals_points := v_team_total_goals * 1;       -- Gols da Equipe: +1 por gol
+      v_team_goals_points := v_team_total_goals * 1;       -- NOVO: Gols da Equipe: +1 por gol
     ELSE
       v_presence_points := 0;
       v_victory_points := 0;
       v_draw_points := 0;
       v_goal_diff_points := 0;
       v_clean_sheet_points := 0;
-      v_team_goals_points := 0;
+      v_team_goals_points := 0;  -- NOVO
     END IF;
     
     -- Penalidades
     v_late_points := v_lates * -10;                        -- Atraso: -10
     v_absence_points := v_absences * -20;                  -- Falta: -20
-    v_card_points := (v_yellow_cards * -1) + (v_blue_cards * -2);
+    v_card_points := (v_yellow_cards * -1) + (v_blue_cards * -2);  -- Amarelo: -1, Azul: -2
     v_punishment_points := v_punishments_sum;
     
-    -- Total
+    -- Total (ATUALIZADO com v_team_goals_points)
     v_total_points := 
       v_presence_points + v_victory_points + v_draw_points +
       v_goal_diff_points + v_clean_sheet_points + v_team_goals_points +
@@ -223,7 +222,7 @@ BEGIN
       v_goal_difference, v_clean_sheets, v_is_substitute,
       v_presence_points, v_victory_points, v_draw_points, 0,
       v_late_points, v_absence_points, v_punishment_points, v_card_points,
-      v_goal_diff_points + v_clean_sheet_points + v_team_goals_points,
+      v_goal_diff_points + v_clean_sheet_points + v_team_goals_points,  -- goal_points agora inclui team goals
       v_total_points,
       v_goals_count, v_assists_count
     )
@@ -244,11 +243,11 @@ BEGIN
   -- Atualizar rankings agregados
   PERFORM public.recalc_all_player_rankings();
   
-  RETURN json_build_object('success', true, 'message', 'Rodada recalculada com Regras 2026 v2');
+  RETURN json_build_object('success', true, 'message', 'Rodada recalculada com Regras 2026 v2 (inclui gols da equipe)');
 END;
 $$;
 
--- 2. Função de recálculo de rankings agregados
+-- 2. Função de recálculo de rankings agregados (sem alteração)
 CREATE OR REPLACE FUNCTION public.recalc_all_player_rankings()
 RETURNS json
 LANGUAGE plpgsql
@@ -286,29 +285,27 @@ BEGIN
       AND pr.status = 'aprovado'
       AND (pr.is_guest = false OR pr.is_guest IS NULL)
   LOOP
-    -- Agregar apenas de rodadas FINALIZADAS
+    -- Agregar de player_round_stats
     SELECT 
-      COALESCE(SUM(prs.total_points), 0),
-      COALESCE(SUM(prs.victories), 0),
-      COALESCE(SUM(prs.draws), 0),
-      COALESCE(SUM(prs.defeats), 0),
-      COALESCE(COUNT(DISTINCT prs.round_id) FILTER (WHERE prs.presence_points > 0), 0),
-      COALESCE(SUM(prs.absences), 0),
-      COALESCE(SUM(prs.lates), 0),
-      COALESCE(SUM(prs.punishments), 0),
-      COALESCE(SUM(prs.yellow_cards), 0),
-      COALESCE(SUM(prs.blue_cards), 0),
-      COALESCE(SUM(prs.goal_difference), 0),
-      COALESCE(SUM(prs.clean_sheets), 0),
-      COALESCE(SUM(prs.goals), 0),
-      COALESCE(SUM(prs.assists), 0)
+      COALESCE(SUM(total_points), 0),
+      COALESCE(SUM(victories), 0),
+      COALESCE(SUM(draws), 0),
+      COALESCE(SUM(defeats), 0),
+      COALESCE(COUNT(DISTINCT round_id) FILTER (WHERE presence_points > 0), 0),
+      COALESCE(SUM(absences), 0),
+      COALESCE(SUM(lates), 0),
+      COALESCE(SUM(punishments), 0),
+      COALESCE(SUM(yellow_cards), 0),
+      COALESCE(SUM(blue_cards), 0),
+      COALESCE(SUM(goal_difference), 0),
+      COALESCE(SUM(clean_sheets), 0),
+      COALESCE(SUM(goals), 0),
+      COALESCE(SUM(assists), 0)
     INTO v_total_points, v_vitorias, v_empates, v_derrotas, v_presencas,
          v_faltas, v_atrasos, v_punicoes, v_amarelos, v_azuis,
          v_saldo, v_clean_sheets, v_gols, v_assistencias
-    FROM public.player_round_stats prs
-    JOIN public.rounds r ON r.id = prs.round_id
-    WHERE prs.player_id = profile_record.profile_id
-      AND r.status = 'finalizada';  -- APENAS rodadas finalizadas
+    FROM public.player_round_stats
+    WHERE player_id = profile_record.profile_id;
 
     -- Upsert player_rankings
     INSERT INTO public.player_rankings (
@@ -343,7 +340,7 @@ BEGIN
       updated_at = NOW();
   END LOOP;
 
-  RETURN json_build_object('success', true, 'message', 'Rankings agregados recalculados (apenas rodadas finalizadas)');
+  RETURN json_build_object('success', true, 'message', 'Rankings agregados recalculados');
 END;
 $function$;
 
@@ -376,7 +373,7 @@ BEGIN
 
   RETURN json_build_object(
     'success', true, 
-    'message', 'Rodadas finalizadas de 2026 recalculadas',
+    'message', 'Rodadas de 2026 recalculadas com nova regra de gols da equipe',
     'rounds_processed', rounds_processed
   );
 END;
