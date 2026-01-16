@@ -90,7 +90,7 @@ export function ProfileHeroHeader({
           <img
             src={bgCard}
             alt="Background"
-            className="w-full h-full object-cover opacity-90"
+            className="w-full h-full object-cover object-center opacity-90"
           />
           {/* Dark gradient overlay to ensure text readability */}
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent"></div>
