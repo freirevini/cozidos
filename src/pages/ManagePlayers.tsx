@@ -256,22 +256,40 @@ export default function ManagePlayers() {
         onOpenChange={(open) => { if (!open) { reactRoot.unmount(); cleanup(); } }}
         onAction={async () => {
           try {
-            // Se o perfil tem um usuário associado, exclui da Auth primeiro (para evitar zumbis)
+            // Se o perfil tem um usuário associado, DEVE excluir da Auth PRIMEIRO
+            // Caso contrário, o trigger on_auth_user_created irá recriar o perfil
             if (player.user_id) {
-              const { error: authError } = await supabase.functions.invoke('delete-auth-user', {
+              console.log("[Delete] Excluindo usuário de auth:", player.user_id);
+
+              const { data: authResult, error: authError } = await supabase.functions.invoke('delete-auth-user', {
                 body: { user_id: player.user_id }
               });
 
-              if (authError) {
-                console.error("Erro ao excluir usuário de autenticação:", authError);
-                // Não interrompe, pois queremos limpar do banco de qualquer jeito
-                sonnerToast.warning("Aviso: Não foi possível desvincular o login, mas o perfil será excluído.");
+              console.log("[Delete] Resultado auth:", authResult, authError);
+
+              // Se falhar em excluir o auth user, NÃO continuar (para evitar que o trigger recrie o perfil)
+              if (authError || !authResult?.ok) {
+                const errorMsg = authError?.message || authResult?.error || 'Falha ao excluir usuário de autenticação';
+                console.error("[Delete] Erro ao excluir auth:", errorMsg);
+                sonnerToast.error(`Erro: ${errorMsg}. O jogador não foi excluído.`);
+                reactRoot.unmount();
+                cleanup();
+                return;
               }
+
+              console.log("[Delete] Auth user excluído com sucesso");
             }
 
-            // Exclui do banco
-            const { error } = await supabase.rpc("delete_player_complete", { p_profile_id: player.id });
+            // Agora sim, exclui do banco (CASCADE remove dados relacionados)
+            console.log("[Delete] Excluindo perfil:", player.id);
+            const { data: deleteResult, error } = await supabase.rpc("delete_player_complete", { p_profile_id: player.id });
+
+            console.log("[Delete] Resultado delete:", deleteResult, error);
+
             if (error) throw error;
+            if (deleteResult && !deleteResult.success) {
+              throw new Error(deleteResult.error || 'Falha ao excluir perfil');
+            }
 
             await supabase.rpc('recalc_all_player_rankings');
 
@@ -280,9 +298,10 @@ export default function ManagePlayers() {
             setFilteredPlayers(prev => prev.filter(p => p.id !== player.id));
             setDisplayedPlayers(prev => prev.filter(p => p.id !== player.id));
 
-            sonnerToast.success("Jogador excluído!");
+            sonnerToast.success("Jogador excluído permanentemente!");
             setEditDialogOpen(false);
           } catch (error: any) {
+            console.error("[Delete] Erro geral:", error);
             // Reload to revert optimistic update if deletion failed
             await loadPlayers();
             sonnerToast.error(getUserFriendlyError(error));
