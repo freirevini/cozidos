@@ -369,7 +369,7 @@ const RoundOverviewSection: React.FC<RoundOverviewSectionProps> = ({ isAdmin = f
             case 'upcoming_matches':
                 return (
                     <div className="rounded-2xl overflow-hidden border border-white/5">
-                        {roundMatches.slice(0, 2).map(match => (
+                        {roundMatches.slice(0, 4).map(match => (
                             <MatchRowCompact
                                 key={match.id}
                                 matchId={match.id}
