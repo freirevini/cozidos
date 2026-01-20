@@ -230,7 +230,7 @@ export default function Classification() {
           const existing = playerMap.get(playerId);
 
           if (existing) {
-            existing.presencas += rs.presence_points || 0;
+            existing.presencas += (rs.presence_points || 0) > 0 ? 1 : 0; // Contar rodadas, não pontos
             existing.vitorias += rs.victories || 0;
             existing.empates += rs.draws || 0;
             existing.derrotas += rs.defeats || 0;
@@ -246,7 +246,7 @@ export default function Classification() {
               nickname: rs.profile?.nickname || rs.profile?.name || 'Sem nome',
               avatar_url: rs.profile?.avatar_url || null,
               level: rs.profile?.level || null,
-              presencas: rs.presence_points || 0,
+              presencas: (rs.presence_points || 0) > 0 ? 1 : 0, // Contar rodada
               vitorias: rs.victories || 0,
               empates: rs.draws || 0,
               derrotas: rs.defeats || 0,

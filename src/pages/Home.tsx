@@ -227,7 +227,7 @@ export default function Home() {
                     existing.assistencias += rs.assists || 0;
                     existing.pontos_totais += rs.total_points || 0;
                     existing.saldo_gols += rs.goal_difference || 0;
-                    existing.presencas += rs.presence_points || 0;
+                    existing.presencas += (rs.presence_points || 0) > 0 ? 1 : 0;
                     existing.vitorias += rs.victories || 0;
                     existing.derrotas += rs.defeats || 0;
                     existing.cartoes_amarelos += rs.yellow_cards || 0;
@@ -240,7 +240,7 @@ export default function Home() {
                         assistencias: rs.assists || 0,
                         pontos_totais: rs.total_points || 0,
                         saldo_gols: rs.goal_difference || 0,
-                        presencas: rs.presence_points || 0,
+                        presencas: (rs.presence_points || 0) > 0 ? 1 : 0,
                         vitorias: rs.victories || 0,
                         derrotas: rs.defeats || 0,
                         cartoes_amarelos: rs.yellow_cards || 0,
@@ -367,7 +367,7 @@ export default function Home() {
                     existing.assistencias += rs.assists || 0;
                     existing.pontos_totais += rs.total_points || 0;
                     existing.saldo_gols += rs.goal_difference || 0;
-                    existing.presencas += rs.presence_points || 0;
+                    existing.presencas += (rs.presence_points || 0) > 0 ? 1 : 0;
                     existing.vitorias += rs.victories || 0;
                     existing.derrotas += rs.defeats || 0;
                     existing.cartoes_amarelos += rs.yellow_cards || 0;
@@ -380,7 +380,7 @@ export default function Home() {
                         assistencias: rs.assists || 0,
                         pontos_totais: rs.total_points || 0,
                         saldo_gols: rs.goal_difference || 0,
-                        presencas: rs.presence_points || 0,
+                        presencas: (rs.presence_points || 0) > 0 ? 1 : 0,
                         vitorias: rs.victories || 0,
                         derrotas: rs.defeats || 0,
                         cartoes_amarelos: rs.yellow_cards || 0,

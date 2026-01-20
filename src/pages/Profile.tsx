@@ -195,7 +195,7 @@ export default function Profile() {
           };
           playerTotals.set(rs.player_id, {
             pontos: current.pontos + (rs.total_points || 0),
-            presencas: current.presencas + (rs.presence_points || 0),
+            presencas: current.presencas + ((rs.presence_points || 0) > 0 ? 1 : 0),
             vitorias: current.vitorias + (rs.victories || 0),
             saldo_gols: current.saldo_gols + (rs.goal_difference || 0),
             cartoes: current.cartoes + (rs.yellow_cards || 0) + (rs.blue_cards || 0),

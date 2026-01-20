@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { TeamCardModern, ShareableTeamsView } from "@/components/teams";
 import { ArrowLeft, Download, Share2, Eye, EyeOff, ChevronDown, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { toJpeg } from "html-to-image";
+import html2canvas from "html2canvas";
 import teamBranco from "@/assets/team-branco.png";
 import teamPreto from "@/assets/team-preto.png";
 import teamAzul from "@/assets/team-azul.png";
@@ -69,6 +69,7 @@ export default function ViewTeams() {
   const [showShareView, setShowShareView] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [roundPickerOpen, setRoundPickerOpen] = useState(false);
+  const [captureMode, setCaptureMode] = useState(false);
   const shareRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -217,12 +218,25 @@ export default function ViewTeams() {
     if (!shareRef.current) return;
 
     setGenerating(true);
+    setCaptureMode(true);
+
     try {
-      const dataUrl = await toJpeg(shareRef.current, {
-        quality: 0.95,
-        pixelRatio: 4,
-        backgroundColor: "#0a0a0a",
+      // Aguardar fontes e re-render com captureMode
+      await document.fonts.ready;
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const canvas = await html2canvas(shareRef.current, {
+        backgroundColor: '#0a0a0a',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: 400,
+        windowHeight: 711, // 400 * 16/9
       });
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
 
       const link = document.createElement("a");
       link.download = `cozidos-rodada-${selectedRoundData?.round_number || "times"}.jpeg`;
@@ -241,6 +255,7 @@ export default function ViewTeams() {
         variant: "destructive",
       });
     } finally {
+      setCaptureMode(false);
       setGenerating(false);
     }
   };
@@ -249,12 +264,25 @@ export default function ViewTeams() {
     if (!shareRef.current) return;
 
     setGenerating(true);
+    setCaptureMode(true);
+
     try {
-      const dataUrl = await toJpeg(shareRef.current, {
-        quality: 0.95,
-        pixelRatio: 4,
-        backgroundColor: "#0a0a0a",
+      // Aguardar fontes e re-render com captureMode
+      await document.fonts.ready;
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const canvas = await html2canvas(shareRef.current, {
+        backgroundColor: '#0a0a0a',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: 400,
+        windowHeight: 711,
       });
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
 
       const response = await fetch(dataUrl);
       const blob = await response.blob();
@@ -267,15 +295,27 @@ export default function ViewTeams() {
           text: `Confira os times da Rodada ${selectedRoundData?.round_number}!`,
         });
       } else {
-        handleGenerateImage();
+        // Fallback: baixar a imagem diretamente
+        const link = document.createElement("a");
+        link.download = `cozidos-rodada-${selectedRoundData?.round_number}.jpeg`;
+        link.href = dataUrl;
+        link.click();
       }
     } catch (error) {
       console.error("Erro ao compartilhar:", error);
-      handleGenerateImage();
+      // Fallback já foi feito acima, apenas mostra erro se necessário
+      if ((error as Error).name !== 'AbortError') {
+        toast({
+          title: "Compartilhamento cancelado",
+          description: "A imagem foi gerada mas não compartilhada.",
+        });
+      }
     } finally {
+      setCaptureMode(false);
       setGenerating(false);
     }
   };
+
 
   const handleRoundSelect = (roundId: string) => {
     setSelectedRound(roundId);
@@ -476,6 +516,7 @@ export default function ViewTeams() {
                     scheduledDate={selectedRoundData.scheduled_date || ""}
                     teamsByColor={teamsByColor}
                     matches={matches}
+                    captureMode={captureMode}
                   />
                 </div>
               </div>

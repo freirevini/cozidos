@@ -12,7 +12,7 @@ import { RefreshCw, Eye, Edit, Trash2, ArrowLeft, Download, Share2 } from "lucid
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { TeamLogo } from "@/components/match/TeamLogo";
 import { ShareableTeamsView } from "@/components/teams";
-import { toPng } from "html-to-image";
+import html2canvas from "html2canvas";
 
 type TeamColor = "branco" | "preto" | "azul" | "laranja";
 
@@ -222,14 +222,25 @@ export default function ManageTeams() {
 
     setGenerating(true);
     try {
-      const dataUrl = await toPng(shareRef.current, {
-        quality: 1,
-        pixelRatio: 2,
-        backgroundColor: "#0a0a0a",
+      // Aguardar fontes
+      await document.fonts.ready;
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const canvas = await html2canvas(shareRef.current, {
+        backgroundColor: '#0a0a0a',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: 400,
+        windowHeight: 711,
       });
 
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+
       const link = document.createElement("a");
-      link.download = `cozidos-rodada-${round.round_number}.png`;
+      link.download = `cozidos-rodada-${round.round_number}.jpeg`;
       link.href = dataUrl;
       link.click();
 

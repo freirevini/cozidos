@@ -29,6 +29,7 @@ interface ShareableTeamsViewProps {
   scheduledDate: string;
   teamsByColor: Record<string, TeamPlayer[]>;
   matches: Match[];
+  captureMode?: boolean; // Se true, usa CSS simplificado para captura de imagem
 }
 
 // Team display names (capitalized)
@@ -84,7 +85,7 @@ const teamStyles: Record<string, {
 };
 
 export const ShareableTeamsView = forwardRef<HTMLDivElement, ShareableTeamsViewProps>(
-  ({ roundNumber, scheduledDate, teamsByColor, matches }, ref) => {
+  ({ roundNumber, scheduledDate, teamsByColor, matches, captureMode = false }, ref) => {
     const teamColors: TeamColor[] = ["laranja", "preto", "branco", "azul"];
 
     const formatShortDate = (dateString: string) => {
@@ -144,18 +145,22 @@ export const ShareableTeamsView = forwardRef<HTMLDivElement, ShareableTeamsViewP
         ref={ref}
         className="w-[400px] flex flex-col relative overflow-hidden"
         style={{
-          fontFamily: "'Inter', sans-serif",
+          fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
           aspectRatio: "9/16",
-          background: "linear-gradient(180deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%)"
+          background: captureMode ? "#0f0f0f" : "linear-gradient(180deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%)",
+          transform: 'scale(1)',
+          transformOrigin: 'top left',
         }}
       >
-        {/* Subtle gradient overlay */}
-        <div
-          className="absolute inset-0 opacity-30"
-          style={{
-            background: "radial-gradient(ellipse at 50% 0%, rgba(236, 72, 153, 0.15) 0%, transparent 50%)"
-          }}
-        />
+        {/* Subtle gradient overlay - hidden in captureMode */}
+        {!captureMode && (
+          <div
+            className="absolute inset-0 opacity-30"
+            style={{
+              background: "radial-gradient(ellipse at 50% 0%, rgba(236, 72, 153, 0.15) 0%, transparent 50%)"
+            }}
+          />
+        )}
 
         {/* Content */}
         <div className="relative z-10 flex flex-col h-full">
@@ -193,7 +198,8 @@ export const ShareableTeamsView = forwardRef<HTMLDivElement, ShareableTeamsViewP
               return (
                 <div
                   key={color}
-                  className={`rounded-lg overflow-hidden backdrop-blur-sm ${style.border || ""} flex flex-col h-full`}
+                  className={`rounded-lg overflow-hidden ${captureMode ? '' : 'backdrop-blur-sm'} ${style.border || ""} flex flex-col h-full`}
+                  style={captureMode ? { backgroundColor: '#1a1a1a' } : undefined}
                 >
                   {/* Team Header - Gradient */}
                   <div className={`${style.headerBg} ${style.headerText} py-1.5 px-1.5 text-center`}>
@@ -203,7 +209,7 @@ export const ShareableTeamsView = forwardRef<HTMLDivElement, ShareableTeamsViewP
                   </div>
 
                   {/* Players List - Glass effect - COMPACT with full names */}
-                  <div className={`${style.cardBg} px-1.5 py-1.5 space-y-0.5 backdrop-blur-sm flex-1`}>
+                  <div className={`${captureMode ? 'bg-zinc-900' : style.cardBg} px-1.5 py-1.5 space-y-0.5 ${captureMode ? '' : 'backdrop-blur-sm'} flex-1`}>
                     {fieldPlayers.map((player, idx) => (
                       <div key={player.id} className="flex items-center gap-1">
                         <span className="font-bold text-zinc-500 w-4 text-center text-[8px] shrink-0">
@@ -249,7 +255,7 @@ export const ShareableTeamsView = forwardRef<HTMLDivElement, ShareableTeamsViewP
                 return (
                   <div
                     key={match.id}
-                    className="inline-flex items-center gap-2 bg-white/5 backdrop-blur-sm rounded-lg px-2.5 py-1.5 border border-white/5"
+                    className={`inline-flex items-center gap-2 ${captureMode ? 'bg-zinc-800' : 'bg-white/5 backdrop-blur-sm'} rounded-lg px-2.5 py-1.5 border border-white/5`}
                   >
                     {/* Time */}
                     <div className="flex flex-col items-center min-w-[30px]">
