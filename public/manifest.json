@@ -1,0 +1,29 @@
+{
+    "name": "Cozidos FC",
+    "short_name": "Cozidos",
+    "description": "Aplicativo oficial do Cozidos Futebol Clube",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0e0e10",
+    "theme_color": "#ec4899",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/icon-192.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ],
+    "screenshots": [],
+    "categories": [
+        "sports",
+        "entertainment"
+    ]
+}

@@ -103,3 +103,6 @@ export function ProfileEvolutionChart({ roundStats }: ProfileEvolutionChartProps
     </div>
   );
 }
+
+// Default export for React.lazy compatibility
+export default ProfileEvolutionChart;

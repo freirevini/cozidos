@@ -189,25 +189,40 @@ export default function Home() {
         try {
             setLoading(true);
 
-            // Carregar stats públicas do ano atual
-            const { data: roundStats, error: statsError } = await supabase
-                .from("player_round_stats")
-                .select(`
-                    player_id,
-                    goals,
-                    assists,
-                    total_points,
-                    goal_difference,
-                    victories,
-                    defeats,
-                    presence_points,
-                    yellow_cards,
-                    blue_cards,
-                    round:rounds!inner(scheduled_date),
-                    profile:profiles!inner(nickname, is_player, status)
-                `)
-                .gte("round.scheduled_date", `${currentYear}-01-01`)
-                .lte("round.scheduled_date", `${currentYear}-12-31`);
+            // ========== PHASE 3 OPTIMIZATION: Parallel Queries ==========
+            // Execute independent queries in parallel for faster loading
+            const [roundStatsResult, nextRoundResult] = await Promise.all([
+                // Query 1: Carregar stats públicas do ano atual
+                supabase
+                    .from("player_round_stats")
+                    .select(`
+                        player_id,
+                        goals,
+                        assists,
+                        total_points,
+                        goal_difference,
+                        victories,
+                        defeats,
+                        presence_points,
+                        yellow_cards,
+                        blue_cards,
+                        round:rounds!inner(scheduled_date),
+                        profile:profiles!inner(nickname, is_player, status)
+                    `)
+                    .gte("round.scheduled_date", `${currentYear}-01-01`)
+                    .lte("round.scheduled_date", `${currentYear}-12-31`),
+
+                // Query 2: Carregar próxima rodada
+                supabase
+                    .from("rounds")
+                    .select("id, round_number, scheduled_date")
+                    .gte("scheduled_date", new Date().toISOString().split("T")[0])
+                    .order("scheduled_date", { ascending: true })
+                    .limit(1)
+            ]);
+
+            const { data: roundStats, error: statsError } = roundStatsResult;
+            const { data: nextRound } = nextRoundResult;
 
             if (statsError) {
                 console.error("[Home] Error loading public stats:", statsError);
@@ -262,14 +277,7 @@ export default function Home() {
             setTopAssists(sortedByAssists.slice(0, 5));
             setTopGoalDifference(sortedByGoalDiff.slice(0, 5));
 
-            // Carregar próxima rodada
-            const { data: nextRound } = await supabase
-                .from("rounds")
-                .select("id, round_number, scheduled_date")
-                .gte("scheduled_date", new Date().toISOString().split("T")[0])
-                .order("scheduled_date", { ascending: true })
-                .limit(1);
-
+            // Processar próxima rodada (depende do resultado de nextRound)
             if (nextRound && nextRound.length > 0) {
                 const round = nextRound[0];
                 setNextMatch({
@@ -328,26 +336,68 @@ export default function Home() {
         try {
             setLoading(true);
 
-            // Load stats from player_round_stats for current year
-            const { data: roundStats, error: statsError } = await supabase
-                .from("player_round_stats")
-                .select(`
-          player_id,
-          goals,
-          assists,
-          victories,
-          draws,
-          defeats,
-          total_points,
-          goal_difference,
-          presence_points,
-          yellow_cards,
-          blue_cards,
-          round:rounds!inner(scheduled_date, status),
-          profile:profiles!inner(nickname, is_player, status)
-        `)
-                .gte("round.scheduled_date", `${currentYear}-01-01`)
-                .lte("round.scheduled_date", `${currentYear}-12-31`);
+            // ========== PHASE 4 OPTIMIZATION: Parallel Queries ==========
+            // Execute independent queries in parallel for faster loading
+            const [
+                roundStatsResult,
+                lastRoundDataResult,
+                retrospectDataResult,
+                nextRoundResult
+            ] = await Promise.all([
+                // Query 1: Load stats from player_round_stats for current year
+                supabase
+                    .from("player_round_stats")
+                    .select(`
+                        player_id,
+                        goals,
+                        assists,
+                        victories,
+                        draws,
+                        defeats,
+                        total_points,
+                        goal_difference,
+                        presence_points,
+                        yellow_cards,
+                        blue_cards,
+                        round:rounds!inner(scheduled_date, status),
+                        profile:profiles!inner(nickname, is_player, status)
+                    `)
+                    .gte("round.scheduled_date", `${currentYear}-01-01`)
+                    .lte("round.scheduled_date", `${currentYear}-12-31`),
+
+                // Query 2: Load user's last round stats
+                supabase
+                    .from("player_round_stats")
+                    .select(`
+                        total_points, goals, assists, victories, draws, defeats,
+                        round:rounds!inner(status)
+                    `)
+                    .eq("player_id", profile.id)
+                    .eq("round.status", "finalizada")
+                    .order("created_at", { ascending: false })
+                    .limit(1),
+
+                // Query 3: Load retrospect (last 4 rounds)
+                supabase
+                    .from("player_round_stats")
+                    .select(`victories, draws, defeats`)
+                    .eq("player_id", profile.id)
+                    .order("created_at", { ascending: false })
+                    .limit(4),
+
+                // Query 4: Load next scheduled round
+                supabase
+                    .from("rounds")
+                    .select("id, round_number, scheduled_date")
+                    .gte("scheduled_date", new Date().toISOString().split("T")[0])
+                    .order("scheduled_date", { ascending: true })
+                    .limit(1)
+            ]);
+
+            const { data: roundStats, error: statsError } = roundStatsResult;
+            const { data: lastRoundData } = lastRoundDataResult;
+            const { data: retrospectData } = retrospectDataResult;
+            const { data: nextRound } = nextRoundResult;
 
             if (statsError) {
                 console.error("[Home] Error loading round stats:", statsError);
@@ -418,18 +468,7 @@ export default function Home() {
                 setUserAssistsPos({ position: userAssistsIdx + 1, value: sortedByAssists[userAssistsIdx].assistencias });
             }
 
-            // Load user's last round stats
-            const { data: lastRoundData } = await supabase
-                .from("player_round_stats")
-                .select(`
-          total_points, goals, assists, victories, draws, defeats,
-          round:rounds!inner(status)
-        `)
-                .eq("player_id", profile.id)
-                .eq("round.status", "finalizada")
-                .order("created_at", { ascending: false })
-                .limit(1);
-
+            // Process last round data (already fetched in parallel)
             if (lastRoundData && lastRoundData.length > 0) {
                 setLastRound({
                     total_points: lastRoundData[0].total_points || 0,
@@ -438,14 +477,7 @@ export default function Home() {
                 });
             }
 
-            // Load retrospect (last 4 rounds)
-            const { data: retrospectData } = await supabase
-                .from("player_round_stats")
-                .select(`victories, draws, defeats`)
-                .eq("player_id", profile.id)
-                .order("created_at", { ascending: false })
-                .limit(4);
-
+            // Process retrospect (already fetched in parallel)
             if (retrospectData) {
                 const retro: RetrospectItem[] = retrospectData.map((r: any) => {
                     if ((r.victories || 0) > 0) return { result: 'win' as const };
@@ -455,18 +487,11 @@ export default function Home() {
                 setRetrospect(retro);
             }
 
-            // Load next scheduled round
-            const { data: nextRound } = await supabase
-                .from("rounds")
-                .select("id, round_number, scheduled_date")
-                .gte("scheduled_date", new Date().toISOString().split("T")[0])
-                .order("scheduled_date", { ascending: true })
-                .limit(1);
-
+            // Process next round (depends on nextRound result for team query)
             if (nextRound && nextRound.length > 0) {
                 const roundId = nextRound[0].id;
 
-                // Get user's team for this round
+                // Get user's team for this round (depends on roundId)
                 const { data: userTeamData } = await supabase
                     .from("team_players")
                     .select(`team:teams!inner(id, name, color, round_id)`)

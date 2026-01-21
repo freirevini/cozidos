@@ -111,37 +111,11 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
       // When a specific year is selected, ALWAYS calculate from player_round_stats
       const isHybridEligible = year === null && month === null;
 
-      // --- 1. Fetch Base Matrix (Player Rankings) ---
-      let baseStats: ProfileStats | null = null;
-      let rankingUpdatedAt: string | null = null;
+      // ========== PHASE 5 OPTIMIZATION: Parallel Queries ==========
+      // Build all queries first, then execute in parallel
 
-      if (isHybridEligible) {
-        const { data: rankingData } = await supabase
-          .from("player_rankings")
-          .select("*")
-          .eq("player_id", profileId)
-          .single();
-
-        if (rankingData) {
-          baseStats = {
-            presencas: rankingData.presencas || 0,
-            gols: rankingData.gols || 0,
-            assistencias: rankingData.assistencias || 0,
-            vitorias: rankingData.vitorias || 0,
-            empates: rankingData.empates || 0,
-            derrotas: rankingData.derrotas || 0,
-            cartoes_amarelos: rankingData.cartoes_amarelos || 0,
-            cartoes_azuis: rankingData.cartoes_azuis || 0,
-            punicoes: rankingData.punicoes || 0,
-            pontos_totais: rankingData.pontos_totais || 0,
-            partidas: (rankingData.vitorias || 0) + (rankingData.empates || 0) + (rankingData.derrotas || 0),
-          };
-          rankingUpdatedAt = rankingData.updated_at;
-        }
-      }
-
-      // --- 2. Calculate Range / Delta Filter ---
-      let matchQuery = supabase
+      // Build round stats query with year filter if applicable
+      let matchQueryBuilder = supabase
         .from("player_round_stats")
         .select(`
           *,
@@ -149,51 +123,96 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
         `)
         .eq("player_id", profileId);
 
-      // Filter Logic
       if (year) {
-        // Standard Year Filter
-        matchQuery = matchQuery
+        matchQueryBuilder = matchQueryBuilder
           .gte('round.scheduled_date', `${year}-01-01`)
           .lte('round.scheduled_date', `${year}-12-31`);
       }
 
-      // If Hybrid and we have a Base, only fetch matches AFTER the ranking update
-      // BUT: For charts/history, we usually want ALL matches of the period anyway.
-      // Strategy: Fetch ALL matches for the period to support charts, 
-      // but calculate Totals by summing Base + Delta(matches > updated_at).
-
-      const { data: playerRoundStats, error: statsError } = await matchQuery;
-      if (statsError) throw statsError;
-
-      // --- 3. Filter for Goals/Assists/Punishments (Standard) ---
-      // We need these for the charts/graphs regardless of Hybrid Logic
-      let goalsQuery = supabase
+      // Build goals query
+      let goalsQueryBuilder = supabase
         .from("goals")
         .select(`id, is_own_goal, match:matches!inner(round:rounds!inner(scheduled_date))`)
         .eq("player_id", profileId)
         .eq("is_own_goal", false);
 
-      let assistsQuery = supabase
+      // Build assists query
+      let assistsQueryBuilder = supabase
         .from("assists")
         .select(`id, goal:goals!inner(match:matches!inner(round:rounds!inner(scheduled_date)))`)
         .eq("player_id", profileId);
 
-      let punishmentsQuery = supabase
+      // Build punishments query
+      let punishmentsQueryBuilder = supabase
         .from("punishments")
         .select(`id, points, round:rounds!inner(scheduled_date)`)
         .eq("player_id", profileId);
 
       if (year) {
-        goalsQuery = goalsQuery.gte('match.round.scheduled_date', `${year}-01-01`).lte('match.round.scheduled_date', `${year}-12-31`);
-        assistsQuery = assistsQuery.gte('goal.match.round.scheduled_date', `${year}-01-01`).lte('goal.match.round.scheduled_date', `${year}-12-31`);
-        punishmentsQuery = punishmentsQuery.gte('round.scheduled_date', `${year}-01-01`).lte('round.scheduled_date', `${year}-12-31`);
+        goalsQueryBuilder = goalsQueryBuilder.gte('match.round.scheduled_date', `${year}-01-01`).lte('match.round.scheduled_date', `${year}-12-31`);
+        assistsQueryBuilder = assistsQueryBuilder.gte('goal.match.round.scheduled_date', `${year}-01-01`).lte('goal.match.round.scheduled_date', `${year}-12-31`);
+        punishmentsQueryBuilder = punishmentsQueryBuilder.gte('round.scheduled_date', `${year}-01-01`).lte('round.scheduled_date', `${year}-12-31`);
       }
 
-      const [{ data: goals }, { data: assists }, { data: punishments }] = await Promise.all([
-        goalsQuery,
-        assistsQuery,
-        punishmentsQuery
+      // Execute ALL queries in parallel
+      const [
+        rankingResult,
+        roundStatsResult,
+        goalsResult,
+        assistsResult,
+        punishmentsResult
+      ] = await Promise.all([
+        // Query 1: Player rankings (only if hybrid eligible)
+        isHybridEligible
+          ? supabase
+            .from("player_rankings")
+            .select("*")
+            .eq("player_id", profileId)
+            .single()
+          : Promise.resolve({ data: null, error: null }),
+
+        // Query 2: Player round stats
+        matchQueryBuilder,
+
+        // Query 3: Goals
+        goalsQueryBuilder,
+
+        // Query 4: Assists
+        assistsQueryBuilder,
+
+        // Query 5: Punishments
+        punishmentsQueryBuilder
       ]);
+
+      // Extract data from results
+      const { data: rankingData } = rankingResult;
+      const { data: playerRoundStats, error: statsError } = roundStatsResult;
+      const { data: goals } = goalsResult;
+      const { data: assists } = assistsResult;
+      const { data: punishments } = punishmentsResult;
+
+      if (statsError) throw statsError;
+
+      // --- Process Base Stats (Hybrid Logic) ---
+      let baseStats: ProfileStats | null = null;
+      let rankingUpdatedAt: string | null = null;
+
+      if (isHybridEligible && rankingData) {
+        baseStats = {
+          presencas: rankingData.presencas || 0,
+          gols: rankingData.gols || 0,
+          assistencias: rankingData.assistencias || 0,
+          vitorias: rankingData.vitorias || 0,
+          empates: rankingData.empates || 0,
+          derrotas: rankingData.derrotas || 0,
+          cartoes_amarelos: rankingData.cartoes_amarelos || 0,
+          cartoes_azuis: rankingData.cartoes_azuis || 0,
+          punicoes: rankingData.punicoes || 0,
+          pontos_totais: rankingData.pontos_totais || 0,
+          partidas: (rankingData.vitorias || 0) + (rankingData.empates || 0) + (rankingData.derrotas || 0),
+        };
+        rankingUpdatedAt = rankingData.updated_at;
+      }
 
       // Refine Mês (Client-Side)
       let filteredRoundStats = playerRoundStats || [];

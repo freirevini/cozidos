@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,9 +11,11 @@ import {
   ProfileHeroHeader,
   ProfileStatsGrid,
   ProfileCalculatedMetrics,
-  ProfileEvolutionChart,
   ProfileBestWorstCards,
 } from "@/components/profile";
+
+// ========== PHASE 9: Lazy load chart component (Recharts bundle) ==========
+const ProfileEvolutionChart = lazy(() => import("@/components/profile/ProfileEvolutionChart"));
 import { Loader2, ArrowLeft, Filter } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -365,8 +367,16 @@ export default function Profile() {
                 {/* Calculated Metrics */}
                 <ProfileCalculatedMetrics metrics={calculatedMetrics} hasData={hasData} />
 
-                {/* Evolution Chart */}
-                <ProfileEvolutionChart roundStats={roundStats} />
+                {/* Evolution Chart - Lazy Loaded */}
+                <Suspense fallback={
+                  <div className="px-4 py-4">
+                    <div className="h-[250px] bg-muted/10 rounded-lg border border-border/30 animate-pulse flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-pink-500" />
+                    </div>
+                  </div>
+                }>
+                  <ProfileEvolutionChart roundStats={roundStats} />
+                </Suspense>
 
                 {/* Best/Worst Cards */}
                 <ProfileBestWorstCards bestWorstPeriods={bestWorstPeriods} />
