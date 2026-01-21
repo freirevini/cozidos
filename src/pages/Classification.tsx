@@ -415,8 +415,8 @@ export default function Classification() {
                         <div className="space-y-2">
                           <h3 className="font-bold text-sm text-red-400">Penalidades:</h3>
                           <ul className="space-y-1 text-sm list-disc pl-4">
-                            <li>⏰ Atraso: -10 pts</li>
-                            <li>❌ Falta: -20 pts</li>
+                            <li>⏰ Atraso: -5 pts</li>
+                            <li>❌ Falta: -10 pts</li>
                             <li>🟨 Cartão Amarelo: -1 pt</li>
                             <li>🟦 Cartão Azul: -2 pts</li>
                           </ul>
