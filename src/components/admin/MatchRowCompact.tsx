@@ -55,7 +55,7 @@ const MatchRowCompact: React.FC<MatchRowCompactProps> = ({
         } else if (isAdmin) {
             navigate(`/admin/match/${matchId}/${roundId}`);
         } else {
-            navigate(`/matches/${matchId}`);
+            navigate(`/match/${matchId}`);
         }
     };
 

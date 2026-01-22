@@ -327,69 +327,6 @@ export default function ViewTeams() {
       <Header />
       <main className="container mx-auto px-4 py-6 max-w-4xl">
 
-        {/* Year Filter - Modern Tabs */}
-        <div className="flex justify-center mb-6">
-          <div className="inline-flex bg-white/5 rounded-full p-1 gap-1">
-            {availableYears.map((year) => (
-              <button
-                key={year}
-                onClick={() => setSelectedYear(year)}
-                className={cn(
-                  "px-5 py-2 rounded-full text-sm font-medium transition-all duration-200",
-                  selectedYear === year
-                    ? "bg-pink-500 text-white shadow-md"
-                    : "text-gray-400 hover:text-white hover:bg-white/10"
-                )}
-              >
-                {year}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Interactive Round Title with Popover */}
-        {selectedRoundData && (
-          <Popover open={roundPickerOpen} onOpenChange={setRoundPickerOpen}>
-            <PopoverTrigger asChild>
-              <button className="w-full flex flex-col items-center gap-1 mb-6 group cursor-pointer">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-[22px] font-bold text-white group-hover:text-gray-200 transition-colors tracking-tight">
-                    Rodada {selectedRoundData.round_number}
-                  </h1>
-                  <ChevronDown className={cn(
-                    "h-5 w-5 text-pink-500 transition-transform duration-200",
-                    roundPickerOpen && "rotate-180"
-                  )} />
-                </div>
-                <p className="text-sm text-gray-400 group-hover:text-gray-500">
-                  {formatDate(selectedRoundData.scheduled_date)}
-                </p>
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-2" align="center">
-              <div className="space-y-1 max-h-64 overflow-y-auto">
-                {filteredRounds.map((round) => (
-                  <button
-                    key={round.id}
-                    onClick={() => handleRoundSelect(round.id)}
-                    className={cn(
-                      "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors",
-                      selectedRound === round.id
-                        ? "bg-pink-500/10 text-pink-400"
-                        : "hover:bg-white/10"
-                    )}
-                  >
-                    <span className="font-medium">Rodada {round.round_number}</span>
-                    <span className="text-xs text-gray-400">
-                      {formatDate(round.scheduled_date)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-        )}
-
         {loading ? (
           <div className="text-center py-12">
             <div className="animate-pulse space-y-4">
@@ -406,6 +343,15 @@ export default function ViewTeams() {
               </p>
             </CardContent>
           </Card>
+        ) : !selectedRoundData ? (
+          <Card className="bg-card/50 border-border/30">
+            <CardContent className="py-12 text-center">
+              <Calendar className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+              <p className="text-muted-foreground">
+                Selecione uma rodada para visualizar os times
+              </p>
+            </CardContent>
+          </Card>
         ) : Object.keys(teamsByColor).length === 0 ? (
           <Card className="bg-card/50 border-border/30">
             <CardContent className="py-12 text-center">
@@ -416,6 +362,68 @@ export default function ViewTeams() {
           </Card>
         ) : (
           <div className="space-y-6">
+            {/* Year Filter - Modern Tabs */}
+            <div className="flex justify-center mb-6">
+              <div className="inline-flex bg-white/5 rounded-full p-1 gap-1">
+                {availableYears.map((year) => (
+                  <button
+                    key={year}
+                    onClick={() => setSelectedYear(year)}
+                    className={cn(
+                      "px-5 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                      selectedYear === year
+                        ? "bg-pink-500 text-white shadow-md"
+                        : "text-gray-400 hover:text-white hover:bg-white/10"
+                    )}
+                  >
+                    {year}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Interactive Round Title with Popover */}
+            {selectedRoundData && (
+              <Popover open={roundPickerOpen} onOpenChange={setRoundPickerOpen}>
+                <PopoverTrigger asChild>
+                  <button className="w-full flex flex-col items-center gap-1 mb-6 group cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-[22px] font-bold text-white group-hover:text-gray-200 transition-colors tracking-tight">
+                        Rodada {selectedRoundData.round_number}
+                      </h1>
+                      <ChevronDown className={cn(
+                        "h-5 w-5 text-pink-500 transition-transform duration-200",
+                        roundPickerOpen && "rotate-180"
+                      )} />
+                    </div>
+                    <p className="text-sm text-gray-400 group-hover:text-gray-500">
+                      {formatDate(selectedRoundData.scheduled_date)}
+                    </p>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-2" align="center">
+                  <div className="space-y-1 max-h-64 overflow-y-auto">
+                    {filteredRounds.map((round) => (
+                      <button
+                        key={round.id}
+                        onClick={() => handleRoundSelect(round.id)}
+                        className={cn(
+                          "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors",
+                          selectedRound === round.id
+                            ? "bg-pink-500/10 text-pink-400"
+                            : "hover:bg-white/10"
+                        )}
+                      >
+                        <span className="font-medium">Rodada {round.round_number}</span>
+                        <span className="text-xs text-gray-400">
+                          {formatDate(round.scheduled_date)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
             {/* Team Logo Carousel - Fixed z-index */}
             <div className="relative overflow-visible py-2">
               <div className="flex justify-center gap-4">

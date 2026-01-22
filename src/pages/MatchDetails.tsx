@@ -47,6 +47,7 @@ const MatchDetails = () => {
   const [awayPlayers, setAwayPlayers] = useState<Player[]>([]);
   const [currentMinute, setCurrentMinute] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!matchId) return;
@@ -64,13 +65,29 @@ const MatchDetails = () => {
     if (!matchId) return;
 
     try {
-      const { data, error } = await supabase
+      console.log("Carregando partida com ID:", matchId);
+      
+      const { data, error: fetchError } = await supabase
         .from("matches")
         .select(`*, round:rounds(round_number, scheduled_date)`)
         .eq("id", matchId)
         .single();
 
-      if (error) throw error;
+      console.log("Resultado da query:", { data, fetchError });
+
+      if (fetchError) {
+        console.error("Erro ao carregar partida:", fetchError);
+        setError("Partida não encontrada");
+        setLoading(false);
+        return;
+      }
+
+      if (!data) {
+        console.error("Nenhum dado retornado para o ID:", matchId);
+        setError("Partida não encontrada");
+        setLoading(false);
+        return;
+      }
 
       if (data) {
         setMatch({
@@ -79,10 +96,12 @@ const MatchDetails = () => {
           scheduled_date: data.round?.scheduled_date,
           status: data.status as any,
         });
-        setLoading(false);
+        setError(null);
       }
+      setLoading(false);
     } catch (error) {
       console.error("Erro ao carregar partida:", error);
+      setError("Erro ao carregar partida");
       setLoading(false);
     }
   };
@@ -91,90 +110,103 @@ const MatchDetails = () => {
     if (!matchId || !match) return;
 
     try {
-      const [goalsResult, cardsResult, substitutionsResult] = await Promise.all([
-        supabase
-          .from("goals")
-          .select(`*, player:profiles!goals_player_id_fkey(id, name, nickname, avatar_url), assists(player:profiles!assists_player_id_fkey(id, name, nickname, avatar_url))`)
-          .eq("match_id", matchId),
-        supabase
-          .from("cards")
-          .select(`*, player:profiles!cards_player_id_fkey(id, name, nickname, avatar_url)`)
-          .eq("match_id", matchId),
-        supabase
-          .from("substitutions")
-          .select(`*, player_out:profiles!substitutions_player_out_id_fkey(id, name, nickname, avatar_url), player_in:profiles!substitutions_player_in_id_fkey(id, name, nickname, avatar_url)`)
-          .eq("match_id", matchId)
-      ]);
-
-      const goalsData = goalsResult.data;
-      const cardsData = cardsResult.data;
-      const substitutionsData = substitutionsResult.data;
-
       const allEvents: TimelineEvent[] = [];
 
       if (match.started_at) {
         allEvents.push({ id: `start-${match.id}`, type: "match_start", minute: 0 });
       }
 
-      if (goalsData) {
-        goalsData.forEach((goal: any) => {
-          const assistData = goal.assists ? (Array.isArray(goal.assists) ? goal.assists[0] : goal.assists) : null;
-          allEvents.push({
-            id: goal.id,
-            type: "goal",
-            minute: goal.minute,
-            team_color: goal.team_color,
-            is_own_goal: goal.is_own_goal,
-            player: goal.player ? { id: goal.player.id, name: goal.player.name, nickname: goal.player.nickname, avatar_url: goal.player.avatar_url } : undefined,
-            assist: assistData?.player ? { id: assistData.player.id, name: assistData.player.name, nickname: assistData.player.nickname, avatar_url: assistData.player.avatar_url } : undefined,
-          });
-        });
-      }
+      // Load goals (safely handle if table doesn't exist)
+      try {
+        const { data: goalsData } = await supabase
+          .from("goals")
+          .select(`*, player:profiles!goals_player_id_fkey(id, name, nickname, avatar_url), assists(player:profiles!assists_player_id_fkey(id, name, nickname, avatar_url))`)
+          .eq("match_id", matchId);
 
-      if (cardsData) {
-        for (const card of cardsData) {
-          // First check if this player entered via substitution (use sub team_color)
-          const { data: subData } = await supabase
-            .from("substitutions")
-            .select("team_color")
-            .eq("player_in_id", card.player_id)
-            .eq("match_id", matchId)
-            .maybeSingle();
-
-          let teamColor = subData?.team_color;
-
-          // If not a substitute, get from original roster
-          if (!teamColor) {
-            const { data: teamData } = await supabase
-              .from("round_team_players")
-              .select("team_color")
-              .eq("player_id", card.player_id)
-              .eq("round_id", match.round_id)
-              .maybeSingle();
-            teamColor = teamData?.team_color;
-          }
-
-          allEvents.push({
-            id: card.id,
-            type: card.card_type === "amarelo" ? "amarelo" : "azul",
-            minute: card.minute,
-            team_color: teamColor,
-            player: card.player ? { id: card.player.id, name: card.player.name, nickname: card.player.nickname, avatar_url: card.player.avatar_url } : undefined,
+        if (goalsData) {
+          goalsData.forEach((goal: any) => {
+            const assistData = goal.assists ? (Array.isArray(goal.assists) ? goal.assists[0] : goal.assists) : null;
+            allEvents.push({
+              id: goal.id,
+              type: "goal",
+              minute: goal.minute,
+              team_color: goal.team_color,
+              is_own_goal: goal.is_own_goal,
+              player: goal.player ? { id: goal.player.id, name: goal.player.name, nickname: goal.player.nickname, avatar_url: goal.player.avatar_url } : undefined,
+              assist: assistData?.player ? { id: assistData.player.id, name: assistData.player.name, nickname: assistData.player.nickname, avatar_url: assistData.player.avatar_url } : undefined,
+            });
           });
         }
+      } catch (error) {
+        console.error("Erro ao carregar gols:", error);
       }
 
-      if (substitutionsData) {
-        substitutionsData.forEach((sub: any) => {
-          allEvents.push({
-            id: sub.id,
-            type: "substitution",
-            minute: sub.minute,
-            team_color: sub.team_color,
-            playerOut: sub.player_out ? { id: sub.player_out.id, name: sub.player_out.name, nickname: sub.player_out.nickname, avatar_url: sub.player_out.avatar_url } : undefined,
-            playerIn: sub.player_in ? { id: sub.player_in.id, name: sub.player_in.name, nickname: sub.player_in.nickname, avatar_url: sub.player_in.avatar_url } : undefined,
+      // Load cards (safely handle if table doesn't exist)
+      try {
+        const { data: cardsData } = await supabase
+          .from("cards")
+          .select(`*, player:profiles!cards_player_id_fkey(id, name, nickname, avatar_url)`)
+          .eq("match_id", matchId);
+
+        if (cardsData) {
+          for (const card of cardsData) {
+            // First check if this player entered via substitution (use sub team_color)
+            const { data: subData } = await supabase
+              .from("substitutions")
+              .select("team_color")
+              .eq("player_in_id", card.player_id)
+              .eq("match_id", matchId)
+              .maybeSingle()
+              .catch(() => ({ data: null }));
+
+            let teamColor = subData?.team_color;
+
+            // If not a substitute, get from original roster
+            if (!teamColor) {
+              const { data: teamData } = await supabase
+                .from("round_team_players")
+                .select("team_color")
+                .eq("player_id", card.player_id)
+                .eq("round_id", match.round_id)
+                .maybeSingle()
+                .catch(() => ({ data: null }));
+              teamColor = teamData?.team_color;
+            }
+
+            allEvents.push({
+              id: card.id,
+              type: card.card_type === "amarelo" ? "amarelo" : "azul",
+              minute: card.minute,
+              team_color: teamColor,
+              player: card.player ? { id: card.player.id, name: card.player.name, nickname: card.player.nickname, avatar_url: card.player.avatar_url } : undefined,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao carregar cartões:", error);
+      }
+
+      // Load substitutions (safely handle if table doesn't exist)
+      try {
+        const { data: substitutionsData } = await supabase
+          .from("substitutions")
+          .select(`*, player_out:profiles!substitutions_player_out_id_fkey(id, name, nickname, avatar_url), player_in:profiles!substitutions_player_in_id_fkey(id, name, nickname, avatar_url)`)
+          .eq("match_id", matchId);
+
+        if (substitutionsData) {
+          substitutionsData.forEach((sub: any) => {
+            allEvents.push({
+              id: sub.id,
+              type: "substitution",
+              minute: sub.minute,
+              team_color: sub.team_color,
+              playerOut: sub.player_out ? { id: sub.player_out.id, name: sub.player_out.name, nickname: sub.player_out.nickname, avatar_url: sub.player_out.avatar_url } : undefined,
+              playerIn: sub.player_in ? { id: sub.player_in.id, name: sub.player_in.name, nickname: sub.player_in.nickname, avatar_url: sub.player_in.avatar_url } : undefined,
+            });
           });
-        });
+        }
+      } catch (error) {
+        console.error("Erro ao carregar substituições:", error);
       }
 
       if (match.status === "finished" && match.finished_at) {
@@ -275,10 +307,30 @@ const MatchDetails = () => {
     return () => { supabase.removeChannel(channel); };
   }, [matchId]);
 
-  if (loading || !match) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-primary text-xl">Carregando...</div>
+      </div>
+    );
+  }
+
+  if (error || !match) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col">
+        <Header />
+        <main className="flex-1 container mx-auto px-4 py-6 max-w-4xl flex flex-col items-center justify-center">
+          <Card className="w-full max-w-md overflow-hidden border-border">
+            <CardContent className="p-6 text-center">
+              <h2 className="text-xl font-bold text-primary mb-2">Partida não encontrada</h2>
+              <p className="text-muted-foreground mb-6">{error || "A partida que você está procurando não existe."}</p>
+              <Button onClick={() => navigate("/matches")} className="w-full">
+                Voltar para Rodadas
+              </Button>
+            </CardContent>
+          </Card>
+        </main>
+        <Footer />
       </div>
     );
   }
