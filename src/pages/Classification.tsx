@@ -270,7 +270,6 @@ export default function Classification() {
         });
 
         // Aplicar ajustes da temporada
-        console.log('[Classification] Ajustes carregados:', adjustments);
         if (adjustments && adjustments.length > 0) {
           adjustments.forEach((adj: any) => {
             const player = playerMap.get(adj.player_id);
