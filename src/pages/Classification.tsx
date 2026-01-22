@@ -220,6 +220,12 @@ export default function Classification() {
 
         if (error) throw error;
 
+        // Buscar ajustes da temporada
+        const { data: adjustments } = await supabase
+          .from("player_ranking_adjustments")
+          .select("player_id, adjustment_type, adjustment_value, season_year")
+          .or(`season_year.is.null,season_year.eq.${selectedSeason}`);
+
         // Agrupar por jogador e somar estatísticas
         const playerMap = new Map<string, PlayerStats>();
 
@@ -262,6 +268,32 @@ export default function Classification() {
             });
           }
         });
+
+        // Aplicar ajustes da temporada
+        console.log('[Classification] Ajustes carregados:', adjustments);
+        if (adjustments && adjustments.length > 0) {
+          adjustments.forEach((adj: any) => {
+            const player = playerMap.get(adj.player_id);
+            if (!player) return;
+
+            const value = adj.adjustment_value || 0;
+            switch (adj.adjustment_type) {
+              case 'gols': player.gols += value; break;
+              case 'assistencias': player.assistencias += value; break;
+              case 'vitorias': player.vitorias += value; break;
+              case 'empates': player.empates += value; break;
+              case 'derrotas': player.derrotas += value; break;
+              case 'presencas': player.presencas += value; break;
+              case 'faltas': player.faltas += value; break;
+              case 'atrasos': player.atrasos += value; break;
+              case 'punicoes': player.punicoes += value; break;
+              case 'cartoes_amarelos': player.cartoes_amarelos += value; break;
+              case 'cartoes_azuis': player.cartoes_azuis += value; break;
+              case 'saldo_gols': player.saldo_gols += value; break;
+              case 'pontos_totais': player.pontos_totais += value; break;
+            }
+          });
+        }
 
         // Converter para array e ordenar com critérios de desempate
         const sortedStats = Array.from(playerMap.values())
