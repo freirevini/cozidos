@@ -176,147 +176,43 @@ export default function Statistics() {
     try {
       setLoading(true);
 
-      // Armazenar estatísticas agrupadas
-      const playerMap = new Map<string, PlayerRanking>();
-
-      // 1. Buscar Ranking Base (dependendo dos filtros)
-      if (selectedSeason === null && selectedMonth === null) {
-        // "Todos os tempos" -> usar player_rankings para base
-        const { data, error } = await supabase
-          .from("player_rankings")
-          .select(`*, profiles!inner(avatar_url, level)`)
-          .order("pontos_totais", { ascending: false })
-          .limit(1000);
-
-        if (error) throw error;
-
-        (data || []).forEach(rank => {
-          playerMap.set(rank.player_id, {
-            ...rank,
-            avatar_url: rank.profiles?.avatar_url || null,
-            level: rank.profiles?.level || null,
-            presencas: rank.presencas || 0,
-            cartoes_amarelos: rank.cartoes_amarelos || 0,
-            cartoes_azuis: rank.cartoes_azuis || 0,
-            saldo_gols: rank.saldo_gols || 0,
-            gols_contra: 0, // Será preenchido depois
-          });
-        });
-      } else {
-        // Filtros ativos -> usar player_round_stats
-        let query = supabase
-          .from("player_round_stats")
-          .select(`
-            player_id,
-            round_id,
-            goals,
-            assists,
-            victories,
-            draws,
-            defeats,
-            total_points,
-            yellow_cards,
-            blue_cards,
-            goal_difference,
-            own_goals,
-            round:rounds!inner(scheduled_date),
-            profile:profiles!inner(nickname, name, avatar_url, level, is_player, status)
-          `);
-
-        // Filtro de ano
-        if (selectedSeason !== null) {
-          query = query.gte("round.scheduled_date", `${selectedSeason}-01-01`)
-            .lte("round.scheduled_date", `${selectedSeason}-12-31`);
-        }
-
-        const { data: roundStats, error } = await query;
-        if (error) throw error;
-
-        // Filtros de Mês e Rodada em JS
-        const filteredStats = (roundStats || []).filter((rs: any) => {
-          const date = new Date(rs.round?.scheduled_date);
-          const month = date.getMonth() + 1;
-
-          if (selectedMonth !== null && month !== selectedMonth) return false;
-          if (selectedRoundId !== null && rs.round_id !== selectedRoundId) return false;
-
-          return true;
+      // Usar RPC unificada que suporta todos os filtros
+      const { data, error } = await supabase
+        .rpc('get_classification', {
+          p_season_year: selectedSeason,
+          p_month: selectedMonth,
+          p_round_id: selectedRoundId,
+          p_level: selectedLevel // O filtro de nível pode ser feito no banco também, mas o frontend já faz selectLevel
         });
 
-        // Agrupar estatísticas
-        filteredStats.forEach((rs: any) => {
-          if (!rs.profile?.is_player || rs.profile?.status !== 'aprovado') return;
+      if (error) throw error;
 
-          const playerId = rs.player_id;
-          const existing = playerMap.get(playerId);
+      // Mapear retorno da RPC para interface PlayerRanking
+      const mappedStats: PlayerRanking[] = (data || []).map((rank: any) => ({
+        id: rank.player_id, // Usar player_id como id, já que não temos id da tabela
+        player_id: rank.player_id,
+        nickname: rank.nickname,
+        avatar_url: rank.avatar_url,
+        level: rank.level,
+        presencas: rank.presencas,
+        vitorias: rank.vitorias,
+        empates: rank.empates,
+        derrotas: rank.derrotas,
+        atrasos: rank.atrasos,
+        faltas: rank.faltas,
+        punicoes: rank.punicoes,
+        cartoes_amarelos: rank.cartoes_amarelos,
+        cartoes_azuis: rank.cartoes_azuis,
+        gols: rank.gols,
+        assistencias: rank.assistencias,
+        saldo_gols: rank.saldo_gols,
+        pontos_totais: rank.pontos_totais,
+        gols_contra: rank.gols_contra || 0
+      }));
 
-          if (existing) {
-            existing.gols += rs.goals || 0;
-            existing.assistencias += rs.assists || 0;
-            existing.vitorias += rs.victories || 0;
-            existing.empates += rs.draws || 0;
-            existing.derrotas += rs.defeats || 0;
-            existing.pontos_totais += rs.total_points || 0;
-            existing.presencas += 1;
-            existing.cartoes_amarelos += rs.yellow_cards || 0;
-            existing.cartoes_azuis += rs.blue_cards || 0;
-            existing.saldo_gols += rs.goal_difference || 0;
-            existing.gols_contra += rs.own_goals || 0;
-          } else {
-            playerMap.set(playerId, {
-              id: playerId,
-              player_id: playerId,
-              nickname: rs.profile?.nickname || rs.profile?.name || 'Sem nome',
-              avatar_url: rs.profile?.avatar_url || null,
-              level: rs.profile?.level || null,
-              gols: rs.goals || 0,
-              assistencias: rs.assists || 0,
-              vitorias: rs.victories || 0,
-              empates: rs.draws || 0,
-              derrotas: rs.defeats || 0,
-              pontos_totais: rs.total_points || 0,
-              presencas: 1,
-              cartoes_amarelos: rs.yellow_cards || 0,
-              cartoes_azuis: rs.blue_cards || 0,
-              saldo_gols: rs.goal_difference || 0,
-              gols_contra: rs.own_goals || 0,
-            });
-          }
-        });
-      }
-
-      // Buscar e aplicar ajustes da temporada
-      if (selectedSeason !== null) {
-        const { data: adjustments } = await supabase
-          .from("player_ranking_adjustments")
-          .select("player_id, adjustment_type, adjustment_value, season_year")
-          .or(`season_year.is.null,season_year.eq.${selectedSeason}`);
-
-        if (adjustments && adjustments.length > 0) {
-          adjustments.forEach((adj: any) => {
-            const player = playerMap.get(adj.player_id);
-            if (!player) return;
-
-            const value = adj.adjustment_value || 0;
-            switch (adj.adjustment_type) {
-              case 'gols': player.gols += value; break;
-              case 'assistencias': player.assistencias += value; break;
-              case 'vitorias': player.vitorias += value; break;
-              case 'empates': player.empates += value; break;
-              case 'derrotas': player.derrotas += value; break;
-              case 'presencas': player.presencas += value; break;
-              case 'cartoes_amarelos': player.cartoes_amarelos += value; break;
-              case 'cartoes_azuis': player.cartoes_azuis += value; break;
-              case 'saldo_gols': player.saldo_gols += value; break;
-              case 'pontos_totais': player.pontos_totais += value; break;
-            }
-          });
-        }
-      }
-
-      // Converter map para array e ordenar
-      const sorted = Array.from(playerMap.values()).sort((a, b) => b.pontos_totais - a.pontos_totais);
-      setRankings(sorted);
+      // No frontend ainda fazemos uma ordenação no useMemo com base no filterType
+      // mas podemos setar o estado inicial
+      setRankings(mappedStats);
 
     } catch (error) {
       console.error("Erro ao carregar estatísticas:", error);
