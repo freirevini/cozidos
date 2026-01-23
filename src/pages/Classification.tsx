@@ -164,19 +164,39 @@ export default function Classification() {
   const loadStats = async () => {
     setLoading(true);
     try {
-      // Usar a nova RPC unificada que já traz dados agregados, ajustados e ordenados
-      const { data: stats, error } = await supabase
-        .rpc('get_classification', {
-          p_season_year: selectedSeason
-        });
+      // Usar RPC unificada - uma única query no lugar de múltiplas fontes
+      const { data, error } = await supabase.rpc('get_classification', {
+        p_season_year: selectedSeason, // null = todos os tempos
+        p_level: selectedLevel // null = todos os níveis
+      });
 
       if (error) throw error;
 
-      // O backend já retorna ordenado, mas garantimos a tipagem
-      setStats((stats || []) as PlayerStats[]);
+      // RPC já retorna dados ordenados e com ajustes aplicados
+      const mappedStats: PlayerStats[] = (data || []).map(row => ({
+        player_id: row.player_id,
+        nickname: row.nickname,
+        avatar_url: row.avatar_url,
+        level: row.level,
+        presencas: row.presencas,
+        vitorias: row.vitorias,
+        empates: row.empates,
+        derrotas: row.derrotas,
+        atrasos: row.atrasos,
+        faltas: row.faltas,
+        punicoes: row.punicoes,
+        cartoes_amarelos: row.cartoes_amarelos,
+        cartoes_azuis: row.cartoes_azuis,
+        gols: row.gols,
+        assistencias: row.assistencias,
+        saldo_gols: row.saldo_gols,
+        pontos_totais: row.pontos_totais
+      }));
+
+      // Aplicar ordenação client-side adicional se necessário
+      setStats(mappedStats.sort(sortPlayers));
     } catch (error) {
       console.error("Erro ao carregar estatísticas:", error);
-      toast.error("Erro ao carregar classificação");
     } finally {
       setLoading(false);
     }
