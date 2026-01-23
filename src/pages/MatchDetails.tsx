@@ -7,7 +7,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { ArrowLeft } from "lucide-react";
 import { MatchHeader } from "@/components/match/MatchHeader";
-import { MatchTimeline, TimelineEvent } from "@/components/match/MatchTimeline";
+import { MatchTimeline, TimelineEvent, TimelineEventType } from "@/components/match/MatchTimeline";
 import { MatchLineups } from "@/components/match/MatchLineups";
 
 interface Match {
@@ -66,7 +66,7 @@ const MatchDetails = () => {
 
     try {
       console.log("Carregando partida com ID:", matchId);
-      
+
       const { data, error: fetchError } = await supabase
         .from("matches")
         .select(`*, round:rounds(round_number, scheduled_date)`)
@@ -106,120 +106,36 @@ const MatchDetails = () => {
     }
   };
 
+  /**
+   * Carrega eventos da timeline da partida via RPC otimizada.
+   * A RPC get_match_timeline_events consolida gols, cartões, substituições
+   * e eventos de início/fim em uma única query do banco de dados.
+   */
   const loadEvents = async () => {
     if (!matchId || !match) return;
 
     try {
-      const allEvents: TimelineEvent[] = [];
+      const { data, error } = await supabase.rpc('get_match_timeline_events', { p_match_id: matchId });
 
-      if (match.started_at) {
-        allEvents.push({ id: `start-${match.id}`, type: "match_start", minute: 0 });
-      }
+      if (error) throw error;
 
-      // Load goals (safely handle if table doesn't exist)
-      try {
-        const { data: goalsData } = await supabase
-          .from("goals")
-          .select(`*, player:profiles!goals_player_id_fkey(id, name, nickname, avatar_url), assists(player:profiles!assists_player_id_fkey(id, name, nickname, avatar_url))`)
-          .eq("match_id", matchId);
+      // Converter para formato tipado
+      const events: TimelineEvent[] = ((data || []) as any[]).map((e) => ({
+        id: e.id,
+        type: e.type as TimelineEventType,
+        minute: e.minute,
+        team_color: e.team_color,
+        is_own_goal: e.is_own_goal,
+        player: e.player,
+        assist: e.assist,
+        playerOut: e.playerOut,
+        playerIn: e.playerIn,
+      }));
 
-        if (goalsData) {
-          goalsData.forEach((goal: any) => {
-            const assistData = goal.assists ? (Array.isArray(goal.assists) ? goal.assists[0] : goal.assists) : null;
-            allEvents.push({
-              id: goal.id,
-              type: "goal",
-              minute: goal.minute,
-              team_color: goal.team_color,
-              is_own_goal: goal.is_own_goal,
-              player: goal.player ? { id: goal.player.id, name: goal.player.name, nickname: goal.player.nickname, avatar_url: goal.player.avatar_url } : undefined,
-              assist: assistData?.player ? { id: assistData.player.id, name: assistData.player.name, nickname: assistData.player.nickname, avatar_url: assistData.player.avatar_url } : undefined,
-            });
-          });
-        }
-      } catch (error) {
-        console.error("Erro ao carregar gols:", error);
-      }
-
-      // Load cards (safely handle if table doesn't exist)
-      try {
-        const { data: cardsData } = await supabase
-          .from("cards")
-          .select(`*, player:profiles!cards_player_id_fkey(id, name, nickname, avatar_url)`)
-          .eq("match_id", matchId);
-
-        if (cardsData) {
-          for (const card of cardsData) {
-            // First check if this player entered via substitution (use sub team_color)
-            const { data: subData } = await supabase
-              .from("substitutions")
-              .select("team_color")
-              .eq("player_in_id", card.player_id)
-              .eq("match_id", matchId)
-              .maybeSingle()
-              .catch(() => ({ data: null }));
-
-            let teamColor = subData?.team_color;
-
-            // If not a substitute, get from original roster
-            if (!teamColor) {
-              const { data: teamData } = await supabase
-                .from("round_team_players")
-                .select("team_color")
-                .eq("player_id", card.player_id)
-                .eq("round_id", match.round_id)
-                .maybeSingle()
-                .catch(() => ({ data: null }));
-              teamColor = teamData?.team_color;
-            }
-
-            allEvents.push({
-              id: card.id,
-              type: card.card_type === "amarelo" ? "amarelo" : "azul",
-              minute: card.minute,
-              team_color: teamColor,
-              player: card.player ? { id: card.player.id, name: card.player.name, nickname: card.player.nickname, avatar_url: card.player.avatar_url } : undefined,
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Erro ao carregar cartões:", error);
-      }
-
-      // Load substitutions (safely handle if table doesn't exist)
-      try {
-        const { data: substitutionsData } = await supabase
-          .from("substitutions")
-          .select(`*, player_out:profiles!substitutions_player_out_id_fkey(id, name, nickname, avatar_url), player_in:profiles!substitutions_player_in_id_fkey(id, name, nickname, avatar_url)`)
-          .eq("match_id", matchId);
-
-        if (substitutionsData) {
-          substitutionsData.forEach((sub: any) => {
-            allEvents.push({
-              id: sub.id,
-              type: "substitution",
-              minute: sub.minute,
-              team_color: sub.team_color,
-              playerOut: sub.player_out ? { id: sub.player_out.id, name: sub.player_out.name, nickname: sub.player_out.nickname, avatar_url: sub.player_out.avatar_url } : undefined,
-              playerIn: sub.player_in ? { id: sub.player_in.id, name: sub.player_in.name, nickname: sub.player_in.nickname, avatar_url: sub.player_in.avatar_url } : undefined,
-            });
-          });
-        }
-      } catch (error) {
-        console.error("Erro ao carregar substituições:", error);
-      }
-
-      if (match.status === "finished" && match.finished_at) {
-        const endMinute = getCurrentMatchMinute();
-        if (endMinute !== null) {
-          allEvents.push({ id: `end-${match.id}`, type: "match_end", minute: endMinute });
-        }
-      }
-
-      allEvents.sort((a, b) => a.minute - b.minute);
-      setEvents(allEvents);
+      setEvents(events);
     } catch (error) {
-      console.error("Erro ao carregar eventos:", error);
+      console.error('Erro ao carregar eventos da timeline:', error);
+      setEvents([]);
     }
   };
 
