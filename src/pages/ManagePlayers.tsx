@@ -291,7 +291,7 @@ export default function ManagePlayers() {
               throw new Error(deleteResult.error || 'Falha ao excluir perfil');
             }
 
-            await supabase.rpc('recalc_all_player_rankings');
+            // NOTE: recalc_all_player_rankings removed - player_rankings is now a VIEW (always up-to-date)
 
             // Atualiza estado local imediatamente
             setAllPlayers(prev => prev.filter(p => p.id !== player.id));
