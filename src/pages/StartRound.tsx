@@ -139,345 +139,395 @@ export default function StartRound() {
       setActionLoading(null);
       setDeleteConfirm(null);
     }
-  };
+    const deleteRound = async () => {
+      if (!deleteConfirm) return;
 
-  const getStatusConfig = (status: string) => {
-    switch (status) {
-      case 'a_iniciar':
-        return {
-          label: 'A Iniciar',
-          icon: Clock,
-          bgClass: 'bg-slate-600/80',
-          textClass: 'text-slate-200',
-          borderClass: 'border-slate-500/50',
-          glowClass: ''
-        };
-      case 'em_andamento':
-        return {
-          label: 'Em Andamento',
-          icon: PlayCircle,
-          bgClass: 'bg-amber-500/20',
-          textClass: 'text-amber-400',
-          borderClass: 'border-amber-500/50',
-          glowClass: 'shadow-[0_0_20px_rgba(245,158,11,0.3)]'
-        };
-      case 'finalizada':
-        return {
-          label: 'Finalizada',
-          icon: CheckCircle,
-          bgClass: 'bg-emerald-500/20',
-          textClass: 'text-emerald-400',
-          borderClass: 'border-emerald-500/50',
-          glowClass: ''
-        };
-      default:
-        return {
-          label: status,
-          icon: Clock,
-          bgClass: 'bg-gray-500/20',
-          textClass: 'text-gray-400',
-          borderClass: 'border-gray-500/50',
-          glowClass: ''
-        };
-    }
-  };
+      setActionLoading(deleteConfirm.id);
+      try {
+        const { error } = await supabase
+          .from("rounds")
+          .delete()
+          .eq("id", deleteConfirm.id);
 
-  // Separate rounds by status
-  const inProgressRounds = rounds.filter(r => r.status === 'em_andamento');
-  const toStartRounds = rounds.filter(r => r.status === 'a_iniciar');
-  const finishedRounds = rounds.filter(r => r.status === 'finalizada');
+        if (error) throw error;
 
-  return (
-    <div className="min-h-screen bg-[#0e0e10] text-white font-sans flex flex-col">
-      <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
-
-      <Header />
-
-      <main className="flex-1 container mx-auto px-4 py-6 pb-24">
-        {/* Page Title */}
-        <div className="mb-6">
-          <h1 className="text-[22px] font-bold text-white tracking-tight">Gerenciar Rodadas</h1>
-          <p className="text-[13px] text-gray-400 font-medium mt-1">
-            {rounds.length} rodada{rounds.length !== 1 ? 's' : ''} disponíve{rounds.length !== 1 ? 'is' : 'l'}
-          </p>
-        </div>
-
-        {loading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-24 w-full rounded-xl" />
-            ))}
-          </div>
-        ) : rounds.length === 0 ? (
-          <div className="text-center py-16">
-            <Calendar className="h-16 w-16 mx-auto text-gray-600 mb-4" />
-            <p className="text-lg font-medium text-gray-400 mb-2">
-              Nenhuma rodada disponível
-            </p>
-            <p className="text-sm text-gray-500 mb-6">
-              Defina os times primeiro em "Times → Definir Times"
-            </p>
-            <button
-              onClick={() => navigate('/admin/teams/define')}
-              className="px-4 py-2 rounded-xl bg-[#1c1c1e] border border-white/10 text-white text-sm font-medium hover:bg-white/10 transition-colors"
-            >
-              Definir Times
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Em Andamento - Highlight */}
-            {inProgressRounds.length > 0 && (
-              <section>
-                <h2 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <PlayCircle className="h-4 w-4" />
-                  Em Andamento
-                </h2>
-                <div className="space-y-3">
-                  <AnimatePresence>
-                    {inProgressRounds.map((round) => (
-                      <RoundCard
-                        key={round.id}
-                        round={round}
-                        onManage={manageRound}
-                        onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
-                        onStart={startRound}
-                        actionLoading={actionLoading}
-                        highlight
-                      />
-                    ))}
-                  </AnimatePresence>
-                </div>
-              </section>
-            )}
-
-            {/* A Iniciar */}
-            {toStartRounds.length > 0 && (
-              <section>
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  A Iniciar
-                </h2>
-                <div className="space-y-3">
-                  <AnimatePresence>
-                    {toStartRounds.map((round) => (
-                      <RoundCard
-                        key={round.id}
-                        round={round}
-                        onManage={manageRound}
-                        onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
-                        onStart={startRound}
-                        actionLoading={actionLoading}
-                      />
-                    ))}
-                  </AnimatePresence>
-                </div>
-              </section>
-            )}
-
-            {/* Finalizadas */}
-            {finishedRounds.length > 0 && (
-              <section>
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  Finalizadas
-                </h2>
-                <div className="space-y-3">
-                  <AnimatePresence>
-                    {finishedRounds.map((round) => (
-                      <RoundCard
-                        key={round.id}
-                        round={round}
-                        onManage={manageRound}
-                        onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
-                        onStart={startRound}
-                        actionLoading={actionLoading}
-                      />
-                    ))}
-                  </AnimatePresence>
-                </div>
-              </section>
-            )}
-          </div>
-        )}
-      </main>
-
-      {/* Floating Action Button */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <button
-          onClick={() => navigate('/admin/teams/define')}
-          className="h-14 w-14 rounded-full bg-pink-500 hover:bg-pink-600 shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 transition-all flex items-center justify-center"
-        >
-          <Plus className="h-6 w-6 text-white" />
-        </button>
-      </div>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Rodada {deleteConfirm?.number}?</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <p>Esta ação irá:</p>
-              <ul className="list-disc list-inside text-sm space-y-1">
-                <li>Excluir todas as partidas desta rodada</li>
-                <li>Remover gols, assistências e cartões</li>
-                <li>Recalcular a classificação geral</li>
-              </ul>
-              <p className="font-medium text-destructive mt-2">Esta ação não pode ser desfeita.</p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={deleteRound}
-              className="bg-destructive hover:bg-destructive/90"
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
-}
-
-// Round Card Component - Mobile Optimized
-function RoundCard({
-  round,
-  onManage,
-  onDelete,
-  onStart,
-  actionLoading,
-  highlight = false
-}: {
-  round: Round;
-  onManage: (id: string) => void;
-  onDelete: (id: string, num: number) => void;
-  onStart: (id: string) => void;
-  actionLoading: string | null;
-  highlight?: boolean;
-}) {
-  const formatDate = (date: string) => {
-    const d = new Date(date + "T00:00:00");
-    return {
-      day: d.getDate(),
-      month: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase()
+        toast.success("Rodada excluída com sucesso!");
+        loadAvailableRounds();
+      } catch (error: any) {
+        console.error("Erro ao excluir rodada:", error);
+        toast.error("Erro ao excluir rodada: " + error.message);
+      } finally {
+        setActionLoading(null);
+        setDeleteConfirm(null);
+      }
     };
-  };
 
-  const dateInfo = formatDate(round.scheduled_date);
-  const isLoading = actionLoading === round.id;
+    const viewRoundMatches = (roundId: string) => {
+      navigate(`/admin/round/${roundId}/matches`);
+    };
 
-  const getStatusConfig = (status: string) => {
-    switch (status) {
-      case 'a_iniciar':
-        return { label: 'Iniciar', color: 'bg-slate-500', icon: Clock };
-      case 'em_andamento':
-        return { label: 'Ao Vivo', color: 'bg-amber-500', icon: PlayCircle };
-      case 'finalizada':
-        return { label: 'Fim', color: 'bg-emerald-500', icon: CheckCircle };
-      default:
-        return { label: status, color: 'bg-gray-500', icon: Clock };
-    }
-  };
+    const getStatusConfig = (status: string) => {
+      switch (status) {
+        case 'a_iniciar':
+          return {
+            label: 'A Iniciar',
+            icon: Clock,
+            bgClass: 'bg-slate-600/80',
+            textClass: 'text-slate-200',
+            borderClass: 'border-slate-500/50',
+            glowClass: ''
+          };
+        case 'em_andamento':
+          return {
+            label: 'Em Andamento',
+            icon: PlayCircle,
+            bgClass: 'bg-amber-500/20',
+            textClass: 'text-amber-400',
+            borderClass: 'border-amber-500/50',
+            glowClass: 'shadow-[0_0_20px_rgba(245,158,11,0.3)]'
+          };
+        case 'finalizada':
+          return {
+            label: 'Finalizada',
+            icon: CheckCircle,
+            bgClass: 'bg-emerald-500/20',
+            textClass: 'text-emerald-400',
+            borderClass: 'border-emerald-500/50',
+            glowClass: ''
+          };
+        default:
+          return {
+            label: status,
+            icon: Clock,
+            bgClass: 'bg-gray-500/20',
+            textClass: 'text-gray-400',
+            borderClass: 'border-gray-500/50',
+            glowClass: ''
+          };
+      }
+    };
 
-  const status = getStatusConfig(round.status);
-  const StatusIcon = status.icon;
+    // Separate rounds by status
+    const inProgressRounds = rounds.filter(r => r.status === 'em_andamento');
+    const toStartRounds = rounds.filter(r => r.status === 'a_iniciar');
+    const finishedRounds = rounds.filter(r => r.status === 'finalizada');
 
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className={cn(
-        "relative overflow-hidden rounded-xl border transition-all duration-200",
-        "bg-card/80 backdrop-blur-sm",
-        highlight
-          ? "border-amber-500/50 shadow-lg shadow-amber-500/10"
-          : "border-border/50 hover:border-primary/30",
-        isLoading && "opacity-60 pointer-events-none"
-      )}
-    >
-      <div className="flex items-stretch">
-        {/* Date Column - Compact */}
-        <div className={cn(
-          "flex flex-col items-center justify-center px-3 py-3 min-w-[56px]",
-          highlight ? "bg-amber-500/10" : "bg-muted/30"
-        )}>
-          <span className="text-xl font-bold text-foreground leading-none">{dateInfo.day}</span>
-          <span className="text-[10px] font-medium text-muted-foreground mt-0.5">{dateInfo.month}</span>
-        </div>
+    return (
+      <div className="min-h-screen bg-[#0e0e10] text-white font-sans flex flex-col">
+        <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
 
-        {/* Content - Compact */}
-        <div className="flex-1 p-3 flex items-center gap-2">
-          {/* Round Info */}
-          <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-base leading-tight">R{round.round_number}</h3>
-            <Badge
-              variant="secondary"
-              className={cn(
-                "text-[9px] px-1.5 py-0 font-medium mt-1",
-                status.color, "text-white"
+        <Header />
+
+        <main className="flex-1 container mx-auto px-4 py-6 pb-24">
+          {/* Page Title */}
+          <div className="mb-6">
+            <h1 className="text-[22px] font-bold text-white tracking-tight">Gerenciar Rodadas</h1>
+            <p className="text-[13px] text-gray-400 font-medium mt-1">
+              {rounds.length} rodada{rounds.length !== 1 ? 's' : ''} disponíve{rounds.length !== 1 ? 'is' : 'l'}
+            </p>
+          </div>
+
+          {loading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-24 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : rounds.length === 0 ? (
+            <div className="text-center py-16">
+              <Calendar className="h-16 w-16 mx-auto text-gray-600 mb-4" />
+              <p className="text-lg font-medium text-gray-400 mb-2">
+                Nenhuma rodada disponível
+              </p>
+              <p className="text-sm text-gray-500 mb-6">
+                Defina os times primeiro em "Times → Definir Times"
+              </p>
+              <button
+                onClick={() => navigate('/admin/teams/define')}
+                className="px-4 py-2 rounded-xl bg-[#1c1c1e] border border-white/10 text-white text-sm font-medium hover:bg-white/10 transition-colors"
+              >
+                Definir Times
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Em Andamento - Highlight */}
+              {inProgressRounds.length > 0 && (
+                <section>
+                  <h2 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <PlayCircle className="h-4 w-4" />
+                    Em Andamento
+                  </h2>
+                  <div className="space-y-3">
+                    <AnimatePresence>
+                      {inProgressRounds.map((round) => (
+                        <RoundCard
+                          key={round.id}
+                          round={round}
+                          onManage={manageRound}
+                          onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
+                          onStart={startRound}
+                          actionLoading={actionLoading}
+                          onManage={manageRound}
+                          onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
+                          onStart={startRound}
+                          onView={viewRoundMatches}
+                          actionLoading={actionLoading}
+                          highlight
+                        />
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </section>
               )}
-            >
-              <StatusIcon className="h-2.5 w-2.5 mr-0.5" />
-              {status.label}
-            </Badge>
+
+              {/* A Iniciar */}
+              {toStartRounds.length > 0 && (
+                <section>
+                  <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    A Iniciar
+                  </h2>
+                  <div className="space-y-3">
+                    <AnimatePresence>
+                      {toStartRounds.map((round) => (
+                        <RoundCard
+                          key={round.id}
+                          round={round}
+                          onManage={manageRound}
+                          onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
+                          onStart={startRound}
+                          onManage={manageRound}
+                          onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
+                          onStart={startRound}
+                          onView={viewRoundMatches}
+                          actionLoading={actionLoading}
+                        />
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </section>
+              )}
+
+              {/* Finalizadas */}
+              {finishedRounds.length > 0 && (
+                <section>
+                  <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    Finalizadas
+                  </h2>
+                  <div className="space-y-3">
+                    <AnimatePresence>
+                      {finishedRounds.map((round) => (
+                        <RoundCard
+                          key={round.id}
+                          round={round}
+                          onManage={manageRound}
+                          onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
+                          onStart={startRound}
+                          onManage={manageRound}
+                          onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
+                          onStart={startRound}
+                          onView={viewRoundMatches}
+                          actionLoading={actionLoading}
+                        />
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </section>
+              )}
+            </div>
+          )}
+        </main>
+
+        {/* Floating Action Button */}
+        <div className="fixed bottom-6 right-6 z-50">
+          <button
+            onClick={() => navigate('/admin/teams/define')}
+            className="h-14 w-14 rounded-full bg-pink-500 hover:bg-pink-600 shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 transition-all flex items-center justify-center"
+          >
+            <Plus className="h-6 w-6 text-white" />
+          </button>
+        </div>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir Rodada {deleteConfirm?.number}?</AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2">
+                <p>Esta ação irá:</p>
+                <ul className="list-disc list-inside text-sm space-y-1">
+                  <li>Excluir todas as partidas desta rodada</li>
+                  <li>Remover gols, assistências e cartões</li>
+                  <li>Recalcular a classificação geral</li>
+                </ul>
+                <p className="font-medium text-destructive mt-2">Esta ação não pode ser desfeita.</p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={deleteRound}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    );
+  }
+
+  // Round Card Component - Mobile Optimized
+  function RoundCard({
+    round,
+    onManage,
+    onDelete,
+    onStart,
+    onView,
+    actionLoading,
+    highlight = false
+  }: {
+    round: Round;
+    onManage: (id: string) => void;
+    onDelete: (id: string, num: number) => void;
+    onStart: (id: string) => void;
+    onView: (id: string) => void;
+    actionLoading: string | null;
+    highlight?: boolean;
+  }) {
+    const formatDate = (date: string) => {
+      const d = new Date(date + "T00:00:00");
+      return {
+        day: d.getDate(),
+        month: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase()
+      };
+    };
+
+    const dateInfo = formatDate(round.scheduled_date);
+    const isLoading = actionLoading === round.id;
+
+    const getStatusConfig = (status: string) => {
+      switch (status) {
+        case 'a_iniciar':
+          return { label: 'Iniciar', color: 'bg-slate-500', icon: Clock };
+        case 'em_andamento':
+          return { label: 'Ao Vivo', color: 'bg-amber-500', icon: PlayCircle };
+        case 'finalizada':
+          return { label: 'Fim', color: 'bg-emerald-500', icon: CheckCircle };
+        default:
+          return { label: status, color: 'bg-gray-500', icon: Clock };
+      }
+    };
+
+    const status = getStatusConfig(round.status);
+    const StatusIcon = status.icon;
+
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className={cn(
+          "relative overflow-hidden rounded-xl border transition-all duration-200",
+          "bg-card/80 backdrop-blur-sm",
+          highlight
+            ? "border-amber-500/50 shadow-lg shadow-amber-500/10"
+            : "border-border/50 hover:border-primary/30",
+          isLoading && "opacity-60 pointer-events-none"
+        )}
+      >
+        <div className="flex items-stretch">
+          {/* Date Column - Compact */}
+          <div className={cn(
+            "flex flex-col items-center justify-center px-3 py-3 min-w-[56px]",
+            highlight ? "bg-amber-500/10" : "bg-muted/30"
+          )}>
+            <span className="text-xl font-bold text-foreground leading-none">{dateInfo.day}</span>
+            <span className="text-[10px] font-medium text-muted-foreground mt-0.5">{dateInfo.month}</span>
           </div>
 
-          {/* Actions - Compact */}
-          <div className="flex items-center gap-1.5">
-            {round.status === 'a_iniciar' && (
+          {/* Content - Compact */}
+          <div className="flex-1 p-3 flex items-center gap-2">
+            {/* Round Info */}
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-base leading-tight">R{round.round_number}</h3>
+              <Badge
+                variant="secondary"
+                className={cn(
+                  "text-[9px] px-1.5 py-0 font-medium mt-1",
+                  status.color, "text-white"
+                )}
+              >
+                <StatusIcon className="h-2.5 w-2.5 mr-0.5" />
+                {status.label}
+              </Badge>
+            </div>
+
+            {/* Actions - Compact */}
+            <div className="flex items-center gap-1.5">
               <Button
                 size="sm"
-                onClick={() => onStart(round.id)}
-                className="h-9 px-3 text-xs bg-primary hover:bg-primary/90"
+                variant="secondary"
+                onClick={() => onView(round.id)}
+                className="h-9 px-3 text-xs bg-muted/50 hover:bg-muted font-normal border border-white/5"
                 disabled={isLoading}
               >
-                <PlayCircle className="h-3.5 w-3.5 mr-1" />
-                Iniciar
+                Ver
               </Button>
-            )}
 
-            {round.status === 'em_andamento' && (
+              {round.status === 'a_iniciar' && (
+                <Button
+                  size="sm"
+                  onClick={() => onStart(round.id)}
+                  className="h-9 px-3 text-xs bg-primary hover:bg-primary/90"
+                  disabled={isLoading}
+                >
+                  <PlayCircle className="h-3.5 w-3.5 mr-1" />
+                  Iniciar
+                </Button>
+              )}
+
+              {round.status === 'em_andamento' && (
+                <Button
+                  size="sm"
+                  onClick={() => onManage(round.id)}
+                  className="h-9 px-3 text-xs"
+                  disabled={isLoading}
+                >
+                  <Settings2 className="h-3.5 w-3.5 mr-1" />
+                  Gerenciar
+                </Button>
+              )}
+
+              {round.status === 'finalizada' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onManage(round.id)}
+                  className="h-9 px-3 text-xs"
+                  disabled={isLoading}
+                >
+                  <Edit3 className="h-3.5 w-3.5 mr-1" />
+                  Editar
+                </Button>
+              )}
+
               <Button
-                size="sm"
-                onClick={() => onManage(round.id)}
-                className="h-9 px-3 text-xs"
+                size="icon"
+                variant="ghost"
+                onClick={() => onDelete(round.id, round.round_number)}
+                className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
                 disabled={isLoading}
               >
-                <Settings2 className="h-3.5 w-3.5 mr-1" />
-                Gerenciar
+                <Trash2 className="h-4 w-4" />
               </Button>
-            )}
-
-            {round.status === 'finalizada' && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onManage(round.id)}
-                className="h-9 px-3 text-xs"
-                disabled={isLoading}
-              >
-                <Edit3 className="h-3.5 w-3.5 mr-1" />
-                Editar
-              </Button>
-            )}
-
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => onDelete(round.id, round.round_number)}
-              className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
-              disabled={isLoading}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            </div>
           </div>
         </div>
-      </div>
-    </motion.div>
-  );
-}
+      </motion.div>
+    );
+  }
