@@ -11,15 +11,16 @@ interface Tab {
 interface SlideTabsProps {
   tabs: Tab[];
   currentPath: string;
+  onHover?: (url: string) => void;
 }
 
-export const SlideTabs = ({ tabs, currentPath }: SlideTabsProps) => {
+export const SlideTabs = ({ tabs, currentPath, onHover }: SlideTabsProps) => {
   const [position, setPosition] = useState({
     left: 0,
     width: 0,
     opacity: 0,
   });
-  
+
   // Find the index of the current tab based on the path
   const initialSelected = tabs.findIndex(tab => tab.url === currentPath);
   const [selected, setSelected] = useState(initialSelected >= 0 ? initialSelected : 0);
@@ -68,6 +69,7 @@ export const SlideTabs = ({ tabs, currentPath }: SlideTabsProps) => {
           onClick={() => setSelected(i)}
           url={tab.url}
           isSelected={i === selected}
+          onHover={onHover}
         >
           {tab.title}
         </Tab>
@@ -85,9 +87,12 @@ const Tab = React.forwardRef<
     setPosition: (position: { left: number; width: number; opacity: number }) => void;
     onClick: () => void;
     url: string;
+    onClick: () => void;
+    url: string;
     isSelected: boolean;
+    onHover?: (url: string) => void;
   }
->(({ children, setPosition, onClick, url, isSelected }, ref) => {
+>(({ children, setPosition, onClick, url, isSelected, onHover }, ref) => {
   return (
     <li
       ref={ref}
@@ -104,6 +109,8 @@ const Tab = React.forwardRef<
           width,
           opacity: 1,
         });
+
+        if (onHover) onHover(url);
       }}
       className="relative z-10 block cursor-pointer"
     >
