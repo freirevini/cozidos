@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
@@ -14,7 +14,6 @@ import {
   CheckCircle,
   Clock,
   Calendar,
-  ChevronRight,
   Plus,
   Settings2
 } from "lucide-react";
@@ -32,6 +31,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { metrics } from "@/lib/metrics";
 
 interface Round {
   id: string;
@@ -43,43 +44,34 @@ interface Round {
 export default function StartRound() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [rounds, setRounds] = useState<Round[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; number: number } | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isAdmin) {
-      toast.error("Acesso não autorizado");
-      navigate("/");
-    } else {
-      loadAvailableRounds();
-    }
-  }, [isAdmin, navigate]);
+  // React Query implementation
+  const { data: rounds = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['admin_rounds'],
+    queryFn: async () => {
+      if (!isAdmin) return []; // Check admin inside query to be safe
+      return await metrics.track('get_admin_rounds', async () => {
+        const { data, error } = await supabase
+          .from("rounds")
+          .select("*")
+          .or("is_historical.is.null,is_historical.eq.false")
+          .neq("round_number", 0)
+          .order("round_number", { ascending: false });
 
-  const loadAvailableRounds = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("rounds")
-        .select("*")
-        .or("is_historical.is.null,is_historical.eq.false")
-        .neq("round_number", 0)
-        .order("round_number", { ascending: false });
-
-      if (error) throw error;
-      setRounds(data || []);
-    } catch (error) {
-      console.error("Erro ao carregar rodadas:", error);
-      toast.error("Erro ao carregar rodadas disponíveis");
-    } finally {
-      setLoading(false);
-    }
-  };
+        if (error) throw error;
+        return data || [];
+      });
+    },
+    enabled: !!isAdmin, // Only run if admin is confirmed
+    staleTime: 1000 * 60, // 1 minute stale time
+  });
 
   const { isRefreshing, pullDistance } = usePullToRefresh({
     onRefresh: async () => {
-      await loadAvailableRounds();
+      await refetch();
       toast.success("Rodadas atualizadas!");
     },
     enabled: true,
@@ -95,6 +87,7 @@ export default function StartRound() {
 
       if (error) throw error;
 
+      await queryClient.invalidateQueries({ queryKey: ['admin_rounds'] });
       toast.success("Rodada iniciada com sucesso!");
       navigate(`/admin/round/manage?round=${roundId}`);
     } catch (error: any) {
@@ -109,15 +102,6 @@ export default function StartRound() {
     navigate(`/admin/round/manage?round=${roundId}`);
   };
 
-  const formatDate = (date: string) => {
-    const d = new Date(date + "T00:00:00");
-    return {
-      day: d.getDate(),
-      month: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''),
-      full: d.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })
-    };
-  };
-
   const deleteRound = async () => {
     if (!deleteConfirm) return;
 
@@ -130,8 +114,8 @@ export default function StartRound() {
 
       if (error) throw error;
 
+      await queryClient.invalidateQueries({ queryKey: ['admin_rounds'] });
       toast.success("Rodada excluída com sucesso!");
-      loadAvailableRounds();
     } catch (error: any) {
       console.error("Erro ao excluir rodada:", error);
       toast.error("Erro ao excluir rodada: " + error.message);
@@ -145,51 +129,18 @@ export default function StartRound() {
     navigate(`/admin/round/${roundId}/matches`);
   };
 
-  const getStatusConfig = (status: string) => {
-    switch (status) {
-      case 'a_iniciar':
-        return {
-          label: 'A Iniciar',
-          icon: Clock,
-          bgClass: 'bg-slate-600/80',
-          textClass: 'text-slate-200',
-          borderClass: 'border-slate-500/50',
-          glowClass: ''
-        };
-      case 'em_andamento':
-        return {
-          label: 'Em Andamento',
-          icon: PlayCircle,
-          bgClass: 'bg-amber-500/20',
-          textClass: 'text-amber-400',
-          borderClass: 'border-amber-500/50',
-          glowClass: 'shadow-[0_0_20px_rgba(245,158,11,0.3)]'
-        };
-      case 'finalizada':
-        return {
-          label: 'Finalizada',
-          icon: CheckCircle,
-          bgClass: 'bg-emerald-500/20',
-          textClass: 'text-emerald-400',
-          borderClass: 'border-emerald-500/50',
-          glowClass: ''
-        };
-      default:
-        return {
-          label: status,
-          icon: Clock,
-          bgClass: 'bg-gray-500/20',
-          textClass: 'text-gray-400',
-          borderClass: 'border-gray-500/50',
-          glowClass: ''
-        };
-    }
-  };
-
   // Separate rounds by status
   const inProgressRounds = rounds.filter(r => r.status === 'em_andamento');
   const toStartRounds = rounds.filter(r => r.status === 'a_iniciar');
   const finishedRounds = rounds.filter(r => r.status === 'finalizada');
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-[#0e0e10] flex items-center justify-center text-white">
+        <p>Acesso não autorizado</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0e0e10] text-white font-sans flex flex-col">
@@ -246,10 +197,6 @@ export default function StartRound() {
                         onManage={manageRound}
                         onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
                         onStart={startRound}
-                        actionLoading={actionLoading}
-                        onManage={manageRound}
-                        onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
-                        onStart={startRound}
                         onView={viewRoundMatches}
                         actionLoading={actionLoading}
                         highlight
@@ -276,7 +223,6 @@ export default function StartRound() {
                         onManage={manageRound}
                         onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
                         onStart={startRound}
-
                         onView={viewRoundMatches}
                         actionLoading={actionLoading}
                       />
@@ -372,14 +318,6 @@ function RoundCard({
   actionLoading: string | null;
   highlight?: boolean;
 }) {
-  const formatDate = (date: string) => {
-    const d = new Date(date + "T00:00:00");
-    return {
-      day: d.getDate(),
-      month: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase()
-    };
-  };
-
   const dateInfo = formatDate(round.scheduled_date);
   const isLoading = actionLoading === round.id;
 
@@ -504,4 +442,12 @@ function RoundCard({
       </div>
     </motion.div>
   );
+}
+
+function formatDate(date: string) {
+  const d = new Date(date + "T00:00:00");
+  return {
+    day: d.getDate(),
+    month: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase()
+  };
 }

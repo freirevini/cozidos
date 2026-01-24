@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { metrics } from "@/lib/metrics";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { TeamLogo } from "@/components/match/TeamLogo";
@@ -8,9 +9,10 @@ import { MatchEventsSummary } from "@/components/match/MatchEventsSummary";
 import { Card, CardContent } from "@/components/ui/card";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
 import { cn } from "@/lib/utils";
-import { formatMatchTimer, formatEventMinute, getMatchCurrentMinute } from "@/lib/matchTimer";
+import { formatMatchTimer } from "@/lib/matchTimer";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { toast } from "sonner";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface Match {
   id: string;
@@ -46,101 +48,88 @@ const teamNames: Record<string, string> = {
 export default function Matches() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [rounds, setRounds] = useState<Round[]>([]);
+  const queryClient = useQueryClient();
   const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [, setTick] = useState(0); // For timer updates
+
+  // React Query for Rounds
+  const { data: rounds = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['rounds_with_matches'],
+    queryFn: async () => {
+      return await metrics.track('get_rounds_and_matches', async () => {
+        // Fetch rounds
+        const { data: roundsData, error: roundError } = await supabase
+          .from("rounds")
+          .select("*")
+          .or("is_historical.is.null,is_historical.eq.false")
+          .neq("round_number", 0)
+          .order("round_number", { ascending: false });
+
+        if (roundError) throw roundError;
+        if (!roundsData) return [];
+
+        // Fetch matches for all rounds
+        const roundsWithMatches = await Promise.all(
+          roundsData.map(async (round) => {
+            const { data: matches, error: matchError } = await supabase
+              .from("matches")
+              .select("*")
+              .eq("round_id", round.id)
+              .order("scheduled_time", { ascending: true });
+
+            if (matchError) throw matchError;
+
+            return {
+              ...round,
+              matches: matches || [],
+            };
+          })
+        );
+        return roundsWithMatches;
+      });
+    },
+    staleTime: 1000 * 60, // 1 minute stale time (Phase 1 req)
+    refetchOnWindowFocus: false,
+  });
 
   const { isRefreshing, pullDistance } = usePullToRefresh({
     onRefresh: async () => {
-      await loadRounds();
+      await refetch();
       toast.success("Rodadas atualizadas!");
     },
     enabled: true,
   });
 
+  // Calculate default round index only when data changes
   useEffect(() => {
-    loadRounds();
-  }, []);
+    if (rounds.length > 0) {
+      // Check for roundId param
+      const roundIdParam = searchParams.get("roundId");
+      const paramIdx = roundIdParam ? rounds.findIndex(r => r.id === roundIdParam) : -1;
 
-  // Timer update for live matches
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTick((t) => t + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadRounds = async () => {
-    try {
-      if (rounds.length === 0) {
-        setLoading(true);
-      }
-
-      const { data: roundsData } = await supabase
-        .from("rounds")
-        .select("*")
-        .or("is_historical.is.null,is_historical.eq.false")
-        .neq("round_number", 0)
-        .order("round_number", { ascending: false });
-
-      if (!roundsData) {
-        setLoading(false);
-        return;
-      }
-
-      const roundsWithMatches = await Promise.all(
-        roundsData.map(async (round) => {
-          const { data: matches } = await supabase
-            .from("matches")
-            .select("*")
-            .eq("round_id", round.id)
-            .order("scheduled_time", { ascending: true });
-
-          return {
-            ...round,
-            matches: matches || [],
-          };
-        })
-      );
-      setRounds(roundsWithMatches);
-
-      // Auto-selecionar a rodada mais recente que tem partidas
-      // Prioridade: rodada em andamento > última finalizada > próxima futura
-      if (roundsWithMatches.length > 0) {
-        // Check for roundId param
-        const roundIdParam = searchParams.get("roundId");
-        const paramIdx = roundIdParam ? roundsWithMatches.findIndex(r => r.id === roundIdParam) : -1;
-
-        if (paramIdx !== -1) {
-          setCurrentRoundIndex(paramIdx);
+      if (paramIdx !== -1) {
+        setCurrentRoundIndex(paramIdx);
+      } else {
+        // Find in-progress round
+        const inProgressIdx = rounds.findIndex((r) => r.status === "em_andamento");
+        if (inProgressIdx !== -1) {
+          setCurrentRoundIndex(inProgressIdx);
         } else {
-          // Encontrar rodada em andamento
-          const inProgressIdx = roundsWithMatches.findIndex((r) => r.status === "em_andamento");
-          if (inProgressIdx !== -1) {
-            setCurrentRoundIndex(inProgressIdx);
+          // Find last finished round or most recent with matches
+          const withMatches = rounds.filter((r) => r.matches.length > 0);
+          if (withMatches.length > 0) {
+            const lastWithMatches = rounds.findIndex((r) => r.id === withMatches[0].id);
+            setCurrentRoundIndex(lastWithMatches !== -1 ? lastWithMatches : 0);
           } else {
-            // Encontrar última rodada finalizada ou a mais recente com partidas
-            const withMatches = roundsWithMatches.filter((r) => r.matches.length > 0);
-            if (withMatches.length > 0) {
-              const lastWithMatches = roundsWithMatches.findIndex((r) => r.id === withMatches[0].id);
-              setCurrentRoundIndex(lastWithMatches !== -1 ? lastWithMatches : 0);
-            } else {
-              setCurrentRoundIndex(0);
-            }
+            setCurrentRoundIndex(0);
           }
         }
       }
-      setLoading(false);
-    } catch (error) {
-      console.error("Erro ao carregar rodadas:", error);
-      setLoading(false);
     }
-  };
-
-  const currentRound = rounds[currentRoundIndex];
+  }, [rounds.length, searchParams]); // Only run when rounds loaded length changes or param changes
 
   // Realtime subscriptions
+  const currentRound = rounds[currentRoundIndex];
   useEffect(() => {
     if (!currentRound) return;
 
@@ -155,7 +144,8 @@ export default function Matches() {
           filter: `round_id=eq.${currentRound.id}`,
         },
         () => {
-          loadRounds();
+          // Invalidate query to trigger refetch
+          queryClient.invalidateQueries({ queryKey: ['rounds_with_matches'] });
         }
       )
       .subscribe();
@@ -163,10 +153,17 @@ export default function Matches() {
     return () => {
       supabase.removeChannel(matchesChannel);
     };
-  }, [currentRound]);
+  }, [currentRound?.id, queryClient]);
 
-  // Mostrar rodadas que tem partidas (incluindo futuras com times já criados)
-  // Ou rodadas que não são "a_iniciar" (já tiveram algo)
+  // Timer update for live matches
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Filter logic
   const visibleRounds = rounds.filter((r) =>
     r.matches.length > 0 || r.status !== "a_iniciar"
   );
@@ -181,54 +178,39 @@ export default function Matches() {
     }
   };
 
-  // Safe time formatting - handles both ISO strings and time-only strings
   const formatTime = (timeString: string | null | undefined): string => {
     if (!timeString) return "--:--";
-
     try {
-      // If it's a time-only string (HH:MM:SS or HH:MM), extract hours and minutes
       if (timeString.match(/^\d{2}:\d{2}(:\d{2})?$/)) {
         return timeString.substring(0, 5);
       }
-
-      // Try parsing as ISO date
       const date = new Date(timeString);
       if (!isNaN(date.getTime())) {
         return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       }
-
       return "--:--";
     } catch {
       return "--:--";
     }
   };
 
-  // Get status chip content based on match state - now uses centralized timer
   const getStatusContent = (match: Match): string => {
     if (match.status === "finished") {
       return "Encerrado";
     }
-
     if (match.status === "in_progress") {
-      // Use centralized timer for MM:SS format
       return formatMatchTimer(match);
     }
-
-    // Not started - show scheduled time
     return formatTime(match.scheduled_time);
   };
 
   return (
     <div className="min-h-screen bg-[#0e0e10] text-white">
       <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
-
       <Header />
-
       <main className="container mx-auto px-4 py-6 max-w-6xl">
-        {/* Title */}
         <h1 className="text-2xl sm:text-3xl font-bold text-pink-300 mb-6">Rodadas</h1>
 
-        {/* Round Navigation */}
         <div className="mb-6 overflow-x-auto scrollbar-hide">
           <div className="flex gap-3 min-w-max pb-2">
             {visibleRounds.map((round) => {
@@ -254,7 +236,6 @@ export default function Matches() {
           </div>
         </div>
 
-        {/* Match List */}
         {loading ? (
           <div className="text-center py-12 text-muted-foreground">Carregando...</div>
         ) : !currentRound ? (
@@ -272,10 +253,9 @@ export default function Matches() {
                 <Card
                   key={match.id}
                   className="overflow-hidden hover:shadow-lg hover:shadow-pink-500/20 transition-all bg-[#1c1c1e] border-white/5 cursor-pointer active:scale-[0.98]"
-                  onClick={() => navigate(`/match/${match.id}`)}  /* Permite entrar mesmo em partidas futuras */
+                  onClick={() => navigate(`/match/${match.id}`)}
                 >
                   <CardContent className="p-4 sm:p-6">
-                    {/* Score Layout - Centered with Status Pill */}
                     <div className="flex items-center justify-center gap-2 sm:gap-4">
                       {/* Home Team */}
                       <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-end">
@@ -290,7 +270,7 @@ export default function Matches() {
                         </span>
                       </div>
 
-                      {/* Status Chip - Central */}
+                      {/* Status Chip */}
                       <div
                         className={cn(
                           "px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border text-xs sm:text-sm font-medium",
@@ -320,7 +300,6 @@ export default function Matches() {
                       </div>
                     </div>
 
-                    {/* Match Events Summary - Goals */}
                     {match.status !== "not_started" && (
                       <MatchEventsSummary
                         matchId={match.id}
@@ -336,7 +315,6 @@ export default function Matches() {
           </div>
         )}
       </main>
-
       <Footer />
     </div>
   );
