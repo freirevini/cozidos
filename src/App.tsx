@@ -9,7 +9,7 @@ import PageTransition from "@/components/PageTransition";
 import LoadingLogo from "@/components/LoadingLogo";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { GlobalPendingBanner } from "@/components/GlobalPendingBanner";
-
+import BottomNavbar from "@/components/BottomNavbar";
 
 // Sync imports (critical path - needed immediately)
 import Auth from "./pages/Auth";
@@ -209,7 +209,7 @@ const App = () => (
         <AuthProvider>
           <GlobalPendingBanner />
           <AnimatedRoutes />
-
+          <BottomNavbar />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

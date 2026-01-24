@@ -7,8 +7,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import logo from "@/assets/novo-logo.png";
 import { SlideTabs } from "@/components/ui/slide-tabs";
-import { useQueryClient } from "@tanstack/react-query";
-import { metrics } from "@/lib/metrics";
 
 export default function Header() {
   const { isAdmin, isPlayer, isGuest } = useAuth();
@@ -19,7 +17,6 @@ export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   const getCurrentPath = () => {
     const path = location.pathname;
@@ -29,6 +26,8 @@ export default function Header() {
     if (path.startsWith('/admin/match')) return '/admin/round';
     if (path.startsWith('/admin/teams')) return '/admin/teams';
     if (path.startsWith('/admin/players')) return '/admin/players';
+
+
 
     // Verificar correspondências parciais para outras rotas
     if (path.startsWith('/times')) return '/times';
@@ -41,87 +40,6 @@ export default function Header() {
   };
 
   const isActive = (path: string) => location.pathname === path;
-
-  // Prefetch logic for quicker navigation
-  const handlePrefetch = async (path: string) => {
-    const currentYear = new Date().getFullYear();
-
-    if (path === '/matches') {
-      await queryClient.prefetchQuery({
-        queryKey: ['rounds_with_matches'],
-        queryFn: async () => {
-          return await metrics.track('prefetch_rounds', async () => {
-            const { data: roundsData, error: roundError } = await supabase
-              .from("rounds")
-              .select("*")
-              .or("is_historical.is.null,is_historical.eq.false")
-              .neq("round_number", 0)
-              .order("round_number", { ascending: false });
-
-            if (roundError) throw roundError;
-            if (!roundsData) return [];
-
-            const roundsWithMatches = await Promise.all(
-              roundsData.map(async (round) => {
-                const { data: matches, error: matchError } = await supabase
-                  .from("matches")
-                  .select("*")
-                  .eq("round_id", round.id)
-                  .order("scheduled_time", { ascending: true });
-
-                if (matchError) throw matchError;
-
-                return {
-                  ...round,
-                  matches: matches || [],
-                };
-              })
-            );
-            return roundsWithMatches;
-          });
-        },
-        staleTime: 1000 * 60, // 1 minute
-      });
-    }
-
-    if (path === '/classification' || path === '/') {
-      await queryClient.prefetchQuery({
-        queryKey: ['classification', currentYear, null],
-        queryFn: async () => {
-          return await metrics.track('prefetch_classification', async () => {
-            const { data, error } = await supabase.rpc('get_classification', {
-              p_season_year: currentYear
-            });
-
-            if (error) throw error;
-
-            const mappedStats = (data || []).map((row: any) => ({
-              player_id: row.player_id,
-              nickname: row.nickname,
-              avatar_url: row.avatar_url,
-              level: row.level,
-              presencas: row.presencas,
-              vitorias: row.vitorias,
-              empates: row.empates,
-              derrotas: row.derrotas,
-              atrasos: row.atrasos,
-              faltas: row.faltas,
-              punicoes: row.punicoes,
-              cartoes_amarelos: row.cartoes_amarelos,
-              cartoes_azuis: row.cartoes_azuis,
-              gols: row.gols,
-              assistencias: row.assistencias,
-              saldo_gols: row.saldo_gols,
-              pontos_totais: row.pontos_totais
-            }));
-
-            return mappedStats;
-          });
-        },
-        staleTime: 1000 * 60 * 5, // 5 minutes
-      });
-    }
-  };
 
   const handleLogout = async () => {
     try {
@@ -221,7 +139,7 @@ export default function Header() {
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center" onMouseEnter={() => handlePrefetch('/')}>
+          <Link to="/" className="flex items-center">
             <img src={logo} alt="Cozidos FC" className="h-12 w-auto object-contain" />
           </Link>
 
@@ -230,7 +148,6 @@ export default function Header() {
             <SlideTabs
               tabs={allLinks.map(link => ({ title: link.label, url: link.href }))}
               currentPath={getCurrentPath()}
-              onHover={handlePrefetch}
             />
           </nav>
 
@@ -271,7 +188,6 @@ export default function Header() {
                   <SlideTabs
                     tabs={allLinks.map(link => ({ title: link.label, url: link.href }))}
                     currentPath={getCurrentPath()}
-                    onHover={handlePrefetch}
                   />
                 </div>
               </div>
@@ -329,9 +245,6 @@ export default function Header() {
                   : "text-foreground hover:bg-muted"
                   }`}
                 onClick={() => setMobileMenuOpen(false)}
-                // Mobile prefetch support!
-                onMouseEnter={() => handlePrefetch(link.href)}
-                onTouchStart={() => handlePrefetch(link.href)}
                 style={{
                   animation: `fade-in 0.3s ease-out ${index * 0.05}s both`
                 }}

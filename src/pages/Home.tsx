@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { metrics } from "@/lib/metrics";
-import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import RoundOverviewSection from "@/components/admin/RoundOverviewSection";
@@ -186,83 +184,124 @@ export default function Home() {
         }
     }, [user, profile, isGuest]);
 
-    // React Query for Public Stats (Shared with Classification)
-    const { data: classificationData } = useQuery({
-        queryKey: ['classification', currentYear, null], // null = all levels
-        queryFn: async () => {
-            return await metrics.track('home_classification', async () => {
-                const { data, error } = await supabase.rpc('get_classification', {
-                    p_season_year: currentYear
-                });
-
-                if (error) throw error;
-
-                const mappedStats: PlayerStats[] = (data || []).map(row => ({
-                    player_id: row.player_id,
-                    nickname: row.nickname,
-                    avatar_url: row.avatar_url,
-                    level: row.level,
-                    presencas: row.presencas,
-                    vitorias: row.vitorias,
-                    empates: row.empates,
-                    derrotas: row.derrotas,
-                    atrasos: row.atrasos,
-                    faltas: row.faltas,
-                    punicoes: row.punicoes,
-                    cartoes_amarelos: row.cartoes_amarelos,
-                    cartoes_azuis: row.cartoes_azuis,
-                    gols: row.gols,
-                    assistencias: row.assistencias,
-                    saldo_gols: row.saldo_gols,
-                    pontos_totais: row.pontos_totais
-                }));
-
-                return mappedStats;
-            });
-        },
-        staleTime: 1000 * 60 * 5, // 5 minutes (matches Classification page)
-    });
-
-    useEffect(() => {
-        if (classificationData) {
-            const players = [...classificationData];
-
-            // Set derived rankings
-            setTopRanking([...players].sort(sortPlayers).slice(0, 5));
-            setTopScorers([...players].sort((a, b) => b.gols - a.gols).slice(0, 5));
-            setTopAssists([...players].sort((a, b) => b.assistencias - a.assistencias).slice(0, 5));
-            setTopGoalDifference([...players].sort((a, b) => b.saldo_gols - a.saldo_gols).slice(0, 5));
-
-            // Set user positions if logged in
-            if (profile?.id) {
-                const sortedRank = [...players].sort(sortPlayers);
-                const userRankIdx = sortedRank.findIndex(p => p.player_id === profile.id);
-                if (userRankIdx !== -1) setUserRankingPos({ position: userRankIdx + 1, value: sortedRank[userRankIdx].pontos_totais });
-
-                const sortedGoals = [...players].sort((a, b) => b.gols - a.gols);
-                const userGoalsIdx = sortedGoals.findIndex(p => p.player_id === profile.id);
-                if (userGoalsIdx !== -1) setUserGoalsPos({ position: userGoalsIdx + 1, value: sortedGoals[userGoalsIdx].gols });
-
-                const sortedAssists = [...players].sort((a, b) => b.assistencias - a.assistencias);
-                const userAssistsIdx = sortedAssists.findIndex(p => p.player_id === profile.id);
-                if (userAssistsIdx !== -1) setUserAssistsPos({ position: userAssistsIdx + 1, value: sortedAssists[userAssistsIdx].assistencias });
-            }
-        }
-    }, [classificationData, profile?.id]);
-
-    // Função para carregar dados públicos (visitantes) - AGORA APENAS NEXT ROUND
+    // Função para carregar dados públicos (visitantes)
     const loadPublicData = async () => {
         try {
             setLoading(true);
 
-            // Carregar próxima rodada
-            const { data: nextRound } = await supabase
-                .from("rounds")
-                .select("id, round_number, scheduled_date")
-                .gte("scheduled_date", new Date().toISOString().split("T")[0])
-                .order("scheduled_date", { ascending: true })
-                .limit(1);
+            // ========== PHASE 3 OPTIMIZATION: Parallel Queries ==========
+            // Execute independent queries in parallel for faster loading
+            const [roundStatsResult, nextRoundResult] = await Promise.all([
+                // Query 1: Carregar stats públicas do ano atual
+                supabase
+                    .from("player_round_stats")
+                    .select(`
+                        player_id,
+                        goals,
+                        assists,
+                        total_points,
+                        goal_difference,
+                        victories,
+                        defeats,
+                        presence_points,
+                        yellow_cards,
+                        blue_cards,
+                        round:rounds!inner(scheduled_date),
+                        profile:profiles!inner(nickname, is_player, status)
+                    `)
+                    .gte("round.scheduled_date", `${currentYear}-01-01`)
+                    .lte("round.scheduled_date", `${currentYear}-12-31`),
 
+                // Query 2: Carregar próxima rodada
+                supabase
+                    .from("rounds")
+                    .select("id, round_number, scheduled_date")
+                    .gte("scheduled_date", new Date().toISOString().split("T")[0])
+                    .order("scheduled_date", { ascending: true })
+                    .limit(1)
+            ]);
+
+            const { data: roundStats, error: statsError } = roundStatsResult;
+            const { data: nextRound } = nextRoundResult;
+
+            if (statsError) {
+                console.error("[Home] Error loading public stats:", statsError);
+            }
+
+            // Agregar stats por jogador
+            const playerMap = new Map<string, PlayerStats>();
+
+            (roundStats || []).forEach((rs: any) => {
+                if (!rs.profile?.is_player || rs.profile?.status !== 'aprovado') return;
+
+                const playerId = rs.player_id;
+                const existing = playerMap.get(playerId);
+
+                if (existing) {
+                    existing.gols += rs.goals || 0;
+                    existing.assistencias += rs.assists || 0;
+                    existing.pontos_totais += rs.total_points || 0;
+                    existing.saldo_gols += rs.goal_difference || 0;
+                    existing.presencas += (rs.presence_points || 0) > 0 ? 1 : 0;
+                    existing.vitorias += rs.victories || 0;
+                    existing.derrotas += rs.defeats || 0;
+                    existing.cartoes_amarelos += rs.yellow_cards || 0;
+                    existing.cartoes_azuis += rs.blue_cards || 0;
+                } else {
+                    playerMap.set(playerId, {
+                        player_id: playerId,
+                        nickname: rs.profile?.nickname || 'Sem nome',
+                        gols: rs.goals || 0,
+                        assistencias: rs.assists || 0,
+                        pontos_totais: rs.total_points || 0,
+                        saldo_gols: rs.goal_difference || 0,
+                        presencas: (rs.presence_points || 0) > 0 ? 1 : 0,
+                        vitorias: rs.victories || 0,
+                        derrotas: rs.defeats || 0,
+                        cartoes_amarelos: rs.yellow_cards || 0,
+                        cartoes_azuis: rs.blue_cards || 0
+                    });
+                }
+            });
+
+            // Buscar e aplicar ajustes da temporada
+            const { data: adjustments } = await supabase
+                .from("player_ranking_adjustments")
+                .select("player_id, adjustment_type, adjustment_value, season_year")
+                .or(`season_year.is.null,season_year.eq.${currentYear}`);
+
+            if (adjustments && adjustments.length > 0) {
+                adjustments.forEach((adj: any) => {
+                    const player = playerMap.get(adj.player_id);
+                    if (!player) return;
+
+                    const value = adj.adjustment_value || 0;
+                    switch (adj.adjustment_type) {
+                        case 'gols': player.gols += value; break;
+                        case 'assistencias': player.assistencias += value; break;
+                        case 'vitorias': player.vitorias += value; break;
+                        case 'derrotas': player.derrotas += value; break;
+                        case 'presencas': player.presencas += value; break;
+                        case 'saldo_gols': player.saldo_gols += value; break;
+                        case 'pontos_totais': player.pontos_totais += value; break;
+                    }
+                });
+            }
+
+            const playersArray = Array.from(playerMap.values());
+
+            // Ordenar usando a mesma lógica da página de Classificação
+            const sortedForRanking = [...playersArray].sort(sortPlayers);
+            const sortedByGoals = [...playersArray].sort((a, b) => b.gols - a.gols);
+            const sortedByAssists = [...playersArray].sort((a, b) => b.assistencias - a.assistencias);
+            const sortedByGoalDiff = [...playersArray].sort((a, b) => b.saldo_gols - a.saldo_gols);
+
+            setTopRanking(sortedForRanking.slice(0, 5));
+            setTopScorers(sortedByGoals.slice(0, 5));
+            setTopAssists(sortedByAssists.slice(0, 5));
+            setTopGoalDifference(sortedByGoalDiff.slice(0, 5));
+
+            // Processar próxima rodada (depende do resultado de nextRound)
             if (nextRound && nextRound.length > 0) {
                 const round = nextRound[0];
                 setNextMatch({
@@ -277,10 +316,10 @@ export default function Home() {
                 const { data: teamPlayers, error: teamsError } = await supabase
                     .from("round_team_players")
                     .select(`
-                            id,
-                            team_color,
-                            profiles:player_id(nickname, level, position)
-                        `)
+                        id,
+                        team_color,
+                        profiles:player_id(nickname, level, position)
+                    `)
                     .eq("round_id", round.id);
 
                 if (!teamsError && teamPlayers && teamPlayers.length > 0) {
@@ -307,6 +346,7 @@ export default function Home() {
                     });
                 }
             }
+
         } catch (error) {
             console.error("Error loading public data:", error);
         } finally {
