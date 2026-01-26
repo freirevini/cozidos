@@ -875,7 +875,7 @@ export default function ManageMatch() {
 
         // Recalculate round stats
         await supabase.rpc('recalc_round_aggregates', { p_round_id: match?.round_id });
-        await supabase.rpc('recalc_all_player_rankings');
+        // NOTE: recalc_all_player_rankings removed - player_rankings is now a VIEW (always up-to-date)
       } else if (lastEvent.type === 'card') {
         const { error: deleteError } = await supabase
           .from("cards")

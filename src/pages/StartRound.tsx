@@ -141,6 +141,10 @@ export default function StartRound() {
     }
   };
 
+  const viewRoundMatches = (roundId: string) => {
+    navigate(`/admin/round/${roundId}/matches`);
+  };
+
   const getStatusConfig = (status: string) => {
     switch (status) {
       case 'a_iniciar':
@@ -243,6 +247,11 @@ export default function StartRound() {
                         onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
                         onStart={startRound}
                         actionLoading={actionLoading}
+                        onManage={manageRound}
+                        onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
+                        onStart={startRound}
+                        onView={viewRoundMatches}
+                        actionLoading={actionLoading}
                         highlight
                       />
                     ))}
@@ -267,6 +276,8 @@ export default function StartRound() {
                         onManage={manageRound}
                         onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
                         onStart={startRound}
+
+                        onView={viewRoundMatches}
                         actionLoading={actionLoading}
                       />
                     ))}
@@ -291,6 +302,7 @@ export default function StartRound() {
                         onManage={manageRound}
                         onDelete={(id, num) => setDeleteConfirm({ id, number: num })}
                         onStart={startRound}
+                        onView={viewRoundMatches}
                         actionLoading={actionLoading}
                       />
                     ))}
@@ -348,6 +360,7 @@ function RoundCard({
   onManage,
   onDelete,
   onStart,
+  onView,
   actionLoading,
   highlight = false
 }: {
@@ -355,6 +368,7 @@ function RoundCard({
   onManage: (id: string) => void;
   onDelete: (id: string, num: number) => void;
   onStart: (id: string) => void;
+  onView: (id: string) => void;
   actionLoading: string | null;
   highlight?: boolean;
 }) {
@@ -429,6 +443,16 @@ function RoundCard({
 
           {/* Actions - Compact */}
           <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => onView(round.id)}
+              className="h-9 px-3 text-xs bg-muted/50 hover:bg-muted font-normal border border-white/5"
+              disabled={isLoading}
+            >
+              Ver
+            </Button>
+
             {round.status === 'a_iniciar' && (
               <Button
                 size="sm"

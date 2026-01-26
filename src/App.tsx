@@ -31,6 +31,7 @@ const StartRound = lazy(() => import("./pages/StartRound"));
 const ManageRounds = lazy(() => import("./pages/ManageRounds"));
 const EditRound = lazy(() => import("./pages/EditRound"));
 const ViewRound = lazy(() => import("./pages/ViewRound"));
+const ViewRoundMatches = lazy(() => import("./pages/ViewRoundMatches"));
 const ManageMatch = lazy(() => import("./pages/ManageMatch"));
 const AttendanceRecord = lazy(() => import("./pages/AttendanceRecord"));
 const ManageAttendance = lazy(() => import("./pages/ManageAttendance"));
@@ -185,6 +186,7 @@ function AnimatedRoutes() {
         <Route path="/admin/teams/manage" element={<AdminOnlyRoute><LazyRoute><PageTransition><ManageTeams /></PageTransition></LazyRoute></AdminOnlyRoute>} />
         <Route path="/admin/round/:roundId/edit" element={<AdminOnlyRoute><LazyRoute><PageTransition><EditRound /></PageTransition></LazyRoute></AdminOnlyRoute>} />
         <Route path="/admin/round/:roundId/view" element={<AdminOnlyRoute><LazyRoute><PageTransition><ViewRound /></PageTransition></LazyRoute></AdminOnlyRoute>} />
+        <Route path="/admin/round/:roundId/matches" element={<AdminOnlyRoute><LazyRoute><PageTransition><ViewRoundMatches /></PageTransition></LazyRoute></AdminOnlyRoute>} />
         <Route path="/admin/match/:matchId/:roundId" element={<AdminOnlyRoute><LazyRoute><PageTransition><ManageMatch /></PageTransition></LazyRoute></AdminOnlyRoute>} />
         <Route path="/admin/round/:roundId/attendance" element={<AdminOnlyRoute><LazyRoute><PageTransition><ManageAttendance /></PageTransition></LazyRoute></AdminOnlyRoute>} />
         <Route path="/admin/round/:roundId/attendance-old" element={<AdminOnlyRoute><LazyRoute><PageTransition><AttendanceRecord /></PageTransition></LazyRoute></AdminOnlyRoute>} />

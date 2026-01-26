@@ -264,6 +264,30 @@ export default function Home() {
                 }
             });
 
+            // Buscar e aplicar ajustes da temporada
+            const { data: adjustments } = await supabase
+                .from("player_ranking_adjustments")
+                .select("player_id, adjustment_type, adjustment_value, season_year")
+                .or(`season_year.is.null,season_year.eq.${currentYear}`);
+
+            if (adjustments && adjustments.length > 0) {
+                adjustments.forEach((adj: any) => {
+                    const player = playerMap.get(adj.player_id);
+                    if (!player) return;
+
+                    const value = adj.adjustment_value || 0;
+                    switch (adj.adjustment_type) {
+                        case 'gols': player.gols += value; break;
+                        case 'assistencias': player.assistencias += value; break;
+                        case 'vitorias': player.vitorias += value; break;
+                        case 'derrotas': player.derrotas += value; break;
+                        case 'presencas': player.presencas += value; break;
+                        case 'saldo_gols': player.saldo_gols += value; break;
+                        case 'pontos_totais': player.pontos_totais += value; break;
+                    }
+                });
+            }
+
             const playersArray = Array.from(playerMap.values());
 
             // Ordenar usando a mesma lógica da página de Classificação
@@ -438,6 +462,30 @@ export default function Home() {
                     });
                 }
             });
+
+            // Buscar e aplicar ajustes da temporada
+            const { data: adjustments } = await supabase
+                .from("player_ranking_adjustments")
+                .select("player_id, adjustment_type, adjustment_value, season_year")
+                .or(`season_year.is.null,season_year.eq.${currentYear}`);
+
+            if (adjustments && adjustments.length > 0) {
+                adjustments.forEach((adj: any) => {
+                    const player = playerMap.get(adj.player_id);
+                    if (!player) return;
+
+                    const value = adj.adjustment_value || 0;
+                    switch (adj.adjustment_type) {
+                        case 'gols': player.gols += value; break;
+                        case 'assistencias': player.assistencias += value; break;
+                        case 'vitorias': player.vitorias += value; break;
+                        case 'derrotas': player.derrotas += value; break;
+                        case 'presencas': player.presencas += value; break;
+                        case 'saldo_gols': player.saldo_gols += value; break;
+                        case 'pontos_totais': player.pontos_totais += value; break;
+                    }
+                });
+            }
 
             const playersArray = Array.from(playerMap.values());
 

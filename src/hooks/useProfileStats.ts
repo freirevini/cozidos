@@ -311,6 +311,33 @@ export function useProfileStats(profileId: string | undefined, year: number | nu
         // Do NOT add filteredGoals.length again - that would cause double counting
       }
 
+      // Buscar e aplicar ajustes da temporada
+      if (year !== null) {
+        const { data: adjustments } = await supabase
+          .from("player_ranking_adjustments")
+          .select("player_id, adjustment_type, adjustment_value, season_year")
+          .eq("player_id", profileId)
+          .or(`season_year.is.null,season_year.eq.${year}`);
+
+        if (adjustments && adjustments.length > 0) {
+          adjustments.forEach((adj: any) => {
+            const value = adj.adjustment_value || 0;
+            switch (adj.adjustment_type) {
+              case 'gols': aggregated.gols += value; break;
+              case 'assistencias': aggregated.assistencias += value; break;
+              case 'vitorias': aggregated.vitorias += value; break;
+              case 'empates': aggregated.empates += value; break;
+              case 'derrotas': aggregated.derrotas += value; break;
+              case 'presencas': aggregated.presencas += value; break;
+              case 'cartoes_amarelos': aggregated.cartoes_amarelos += value; break;
+              case 'cartoes_azuis': aggregated.cartoes_azuis += value; break;
+              case 'punicoes': aggregated.punicoes += value; break;
+              case 'pontos_totais': aggregated.pontos_totais += value; break;
+            }
+          });
+        }
+      }
+
       setStats(aggregated);
 
       // --- 5. Generate Charts (Always from Matches Logic) ---

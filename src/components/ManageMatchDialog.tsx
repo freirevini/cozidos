@@ -456,12 +456,8 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
         console.error("Erro ao recalcular stats:", recalcError);
       }
 
-      // Recalcular rankings globais
-      const { error: rankError } = await supabase.rpc('recalc_all_player_rankings');
-
-      if (rankError) {
-        console.error("Erro ao recalcular rankings:", rankError);
-      }
+      // NOTE: recalc_all_player_rankings removed - player_rankings is now a VIEW (always up-to-date)
+      const rankError = null; // Keep error handling structure for compatibility
 
       if (recalcError || rankError) {
         toast({
@@ -494,10 +490,10 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
     if (hasUnsavedChanges) {
       setShowCloseConfirm(true);
     } else {
-      // Sempre recalcular ao fechar para garantir consistência
+      // Recalcular round stats ao fechar
       try {
         await supabase.rpc('recalc_round_aggregates', { p_round_id: roundId });
-        await supabase.rpc('recalc_all_player_rankings');
+        // NOTE: recalc_all_player_rankings removed - player_rankings is now a VIEW
       } catch (error) {
         console.error("Erro ao recalcular ao fechar:", error);
       }
@@ -510,7 +506,7 @@ export default function ManageMatchDialog({ matchId, roundId, roundNumber, open,
     setShowCloseConfirm(false);
     try {
       await supabase.rpc('recalc_round_aggregates', { p_round_id: roundId });
-      await supabase.rpc('recalc_all_player_rankings');
+      // NOTE: recalc_all_player_rankings removed - player_rankings is now a VIEW
     } catch (error) {
       console.error("Erro ao recalcular:", error);
     }

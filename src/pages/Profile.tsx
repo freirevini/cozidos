@@ -207,6 +207,31 @@ export default function Profile() {
           });
         });
 
+        // Buscar e aplicar ajustes da temporada
+        const { data: adjustments } = await supabase
+          .from("player_ranking_adjustments")
+          .select("player_id, adjustment_type, adjustment_value, season_year")
+          .or(`season_year.is.null,season_year.eq.${currentYear}`);
+
+        if (adjustments && adjustments.length > 0) {
+          adjustments.forEach((adj: any) => {
+            const current = playerTotals.get(adj.player_id);
+            if (!current) return;
+
+            const value = adj.adjustment_value || 0;
+            switch (adj.adjustment_type) {
+              case 'gols': current.gols += value; break;
+              case 'assistencias': current.assistencias += value; break;
+              case 'vitorias': current.vitorias += value; break;
+              case 'derrotas': current.derrotas += value; break;
+              case 'presencas': current.presencas += value; break;
+              case 'saldo_gols': current.saldo_gols += value; break;
+              case 'pontos_totais':
+              case 'pontos': current.pontos += value; break;
+            }
+          });
+        }
+
         // Ordenar com critérios de desempate (igual a Classification.tsx)
         const sortedPlayers = Array.from(playerTotals.entries())
           .sort(([, a], [, b]) => {
