@@ -1,80 +1,74 @@
+import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Pencil } from "lucide-react";
+import { PlayerStats } from "@/pages/Classification";
 
 interface PlayerRankItemProps {
-  rank: number;
-  nickname: string;
-  avatarUrl: string | null;
-  level: string | null;
-  points: number;
-  presence: number;
-  onClick?: () => void;
+    player: PlayerStats;
+    rank: number;
+    isAdmin: boolean;
+    onEdit: (player: PlayerStats) => void;
 }
 
-const levelColors: Record<string, string> = {
-  A: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-  B: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  C: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-  D: "bg-orange-500/20 text-orange-400 border-orange-500/30",
-  E: "bg-red-500/20 text-red-400 border-red-500/30",
-};
+export function PlayerRankItem({ player, rank, isAdmin, onEdit }: PlayerRankItemProps) {
+    const navigate = useNavigate();
 
-export default function PlayerRankItem({
-  rank,
-  nickname,
-  avatarUrl,
-  level,
-  points,
-  presence,
-  onClick,
-}: PlayerRankItemProps) {
-  return (
-    <div
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-3 px-4 py-3 min-h-[56px] border-b border-border/30 hover:bg-muted/30 active:scale-[0.98] transition-all duration-150",
-        onClick && "cursor-pointer active:bg-muted/50"
-      )}
-    >
-      {/* Rank */}
-      <span className="w-8 text-lg font-bold text-primary">{rank}</span>
+    const handleEditClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onEdit(player);
+    };
 
-      {/* Avatar */}
-      <Avatar className="h-10 w-10 border-2 border-border/50 bg-muted">
-        <AvatarImage src={avatarUrl || undefined} alt={nickname} />
-        <AvatarFallback className="bg-primary/20 text-primary font-bold text-sm">
-          {nickname?.substring(0, 2).toUpperCase()}
-        </AvatarFallback>
-      </Avatar>
-
-      {/* Name + Level Badge */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-foreground font-medium truncate">{nickname}</span>
-          {level && (
-            <span
-              className={cn(
-                "px-2 py-0.5 text-xs font-bold rounded-full border",
-                levelColors[level] || "bg-muted/30 text-muted-foreground"
-              )}
-            >
-              {level}
+    return (
+        <div
+            onClick={() => navigate(`/profile/${player.player_id}`)}
+            className="group flex items-center p-3 rounded-xl bg-[#1c1c1e] border border-white/5 hover:bg-white/5 hover:border-pink-500/20 transition-all duration-200 cursor-pointer active:scale-[0.98]"
+        >
+            <span className="w-8 text-center font-bold text-lg text-pink-300/80">
+                {rank}
             </span>
-          )}
+            <Avatar className="h-10 w-10 ml-2 ring-2 ring-white/10 group-hover:ring-pink-500/30 transition-all">
+                {player.avatar_url ? (
+                    <AvatarImage src={player.avatar_url} alt={player.nickname} className="object-cover" />
+                ) : (
+                    <AvatarFallback className="text-xs">
+                        {player.nickname.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                )}
+            </Avatar>
+            <div className="flex-1 min-w-0 ml-3">
+                <div className="font-bold text-sm text-white truncate group-hover:text-pink-300 transition-colors">
+                    {player.nickname}
+                </div>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {player.level && (
+                        <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-[#472639] text-[#F9A8D4]">
+                            Nível {player.level}
+                        </span>
+                    )}
+                    <span className="text-xs text-gray-400">
+                        {player.presencas}P • {player.vitorias}V • {player.empates}E • {player.derrotas}D • {player.saldo_gols}S
+                    </span>
+                </div>
+            </div>
+            <div className="flex items-center">
+                {isAdmin && (
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        className="rounded-full mr-2"
+                        onClick={handleEditClick}
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </Button>
+                )}
+                <div className="text-right">
+                    <span className="font-black text-xl text-white block">
+                        {player.pontos_totais}
+                    </span>
+                    <span className="text-[10px] text-gray-500 uppercase tracking-wider">PTS</span>
+                </div>
+            </div>
         </div>
-      </div>
-
-      {/* Stats */}
-      <div className="flex items-center gap-4 text-right">
-        <div className="text-center">
-          <div className="text-lg font-bold text-foreground">{points}</div>
-          <div className="text-[10px] text-muted-foreground uppercase">PTS</div>
-        </div>
-        <div className="text-center">
-          <div className="text-lg font-medium text-muted-foreground">{presence}</div>
-          <div className="text-[10px] text-muted-foreground uppercase">PR</div>
-        </div>
-      </div>
-    </div>
-  );
+    );
 }

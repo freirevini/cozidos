@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh-indicator";
-import { Info, Loader2, Filter } from "lucide-react";
+import { Info, Loader2, Filter, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
@@ -17,7 +17,10 @@ import { motion } from "framer-motion";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { SeasonSelector, MonthChips, LevelSelector, PlayerRankItem } from "@/components/classification";
 import { cn } from "@/lib/utils";
-interface PlayerStats {
+import { useAuth } from "@/contexts/AuthContext";
+import { EditPlayerStatsDialog } from "@/components/classification/EditPlayerStatsDialog";
+
+export interface PlayerStats {
   player_id: string;
   nickname: string;
   avatar_url: string | null;
@@ -43,6 +46,9 @@ export default function Classification() {
   const [stats, setStats] = useState<PlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [showRules, setShowRules] = useState(false);
+  const { isAdmin } = useAuth();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerStats | null>(null);
 
   // Pagination state
   const [displayedCount, setDisplayedCount] = useState(PAGE_SIZE);
@@ -69,6 +75,13 @@ export default function Classification() {
       setSelectedTab("nivel");
     }
   };
+
+  const handleEditClick = (e: React.MouseEvent, player: PlayerStats) => {
+    e.stopPropagation();
+    setSelectedPlayer(player);
+    setIsEditDialogOpen(true);
+  };
+
 
   const currentFilters: FilterState = {
     season: selectedSeason,
@@ -419,6 +432,16 @@ export default function Classification() {
                           </AvatarFallback>
                         )}
                       </Avatar>
+                      {isAdmin && (
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="absolute bottom-0 right-0 rounded-full bg-background hover:bg-muted"
+                          onClick={(e) => handleEditClick(e, topPlayer)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
 
                     {/* Info */}
@@ -494,11 +517,23 @@ export default function Classification() {
                     </div>
 
                     {/* Valor */}
-                    <div className="text-right ml-2">
-                      <span className="font-black text-xl text-white block">
-                        {stat.pontos_totais}
-                      </span>
-                      <span className="text-[10px] text-gray-500 uppercase tracking-wider">PTS</span>
+                    <div className="flex items-center">
+                        {isAdmin && (
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                className="rounded-full mr-2"
+                                onClick={(e) => handleEditClick(e, stat)}
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                        )}
+                        <div className="text-right">
+                            <span className="font-black text-xl text-white block">
+                                {stat.pontos_totais}
+                            </span>
+                            <span className="text-[10px] text-gray-500 uppercase tracking-wider">PTS</span>
+                        </div>
                     </div>
                   </div>
                 ))}
@@ -516,6 +551,18 @@ export default function Classification() {
       </main>
 
       <Footer />
+      {selectedPlayer && (
+        <EditPlayerStatsDialog
+          isOpen={isEditDialogOpen}
+          onClose={() => setIsEditDialogOpen(false)}
+          player={selectedPlayer}
+          season={selectedSeason}
+          onSave={() => {
+            setIsEditDialogOpen(false);
+            loadStats();
+          }}
+        />
+      )}
     </div>
   );
 }
